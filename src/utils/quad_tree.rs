@@ -25,6 +25,9 @@ impl Rectangle {
     }
 }
 
+//This is an implementation of a quadtree which helps optimizing the food.rs so that the search for the food on the screen is made fast
+//reducing the complexity from O^2 to n log(n)
+//I used it only on the food because there is a lot of food compared to other items 
 pub struct QuadTree {
     boundary: Rectangle,
     capacity: usize,

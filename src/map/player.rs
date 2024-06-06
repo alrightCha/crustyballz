@@ -147,6 +147,7 @@ impl Player {
         }
     }
 
+    //used to initialize the first cell when the player first joins the game 
     pub fn init(&mut self, position: Point, default_player_mass: f32, img_url: &str) {
         self.cells = vec![
             Cell::new(
@@ -167,6 +168,7 @@ impl Player {
         self.ratio = 1.0;
     }
 
+    //used to provide the initial information for the player once he joins a game
     pub fn client_provided_data(&mut self, img_url: String, name: String, screen_width: f32, screen_height: f32) {
         self.img_url = img_url;
         self.name = Some(name);
@@ -204,6 +206,9 @@ impl Player {
         self.cells.is_empty()
     }
 
+    // Splits a cell into multiple cells with identical mass
+    // Creates n-1 new cells, and lowers the mass of the original cell
+    // If the resulting cells would be smaller than defaultPlayerMass, creates fewer and bigger cells.
     pub fn split_cell(&mut self, cell_index: usize, max_requested_pieces: u8, default_player_mass: f32, split_dir: Option<f32>) {
         if cell_index >= self.cells.len() {
             return; // Early return if the cell index is out of bounds
@@ -261,6 +266,7 @@ impl Player {
         self.set_last_split();
     }
 
+    //splits the cells randomly
     pub fn split_random(&mut self, cell_index: usize, max_requested_pieces: u8, default_player_mass: f32) {
         if cell_index >= self.cells.len() {
             return; // Early return if the cell index is out of bounds
@@ -301,6 +307,7 @@ impl Player {
         self.set_last_split();
     }
 
+    //returns the direction based on the current position of the player and the target used with the mouse 
     fn calculate_target_direction(&self) -> Point {
         let dx = self.target_x - self.x;
         let dy = self.target_y - self.y;
@@ -330,6 +337,7 @@ impl Player {
         masses
     }
 
+    //function triggered when player overlaps with a virus to explode him 
     pub fn virus_split(&mut self, cell_indexes: &[usize], max_cells: usize, default_player_mass: f32) {
         for &cell_index in cell_indexes {
             if cell_index < self.cells.len() { // Safety check to ensure the index is valid
@@ -339,6 +347,7 @@ impl Player {
         }
     }
 
+    //function triggered when player hits "space"
     pub fn user_split(&mut self, max_cells: usize, default_player_mass: f32) {
         let cells_to_create = if self.cells.len() > max_cells / 2 {
             max_cells.saturating_sub(self.cells.len()) + 1
@@ -362,6 +371,7 @@ impl Player {
         });
     }
 
+    //loops through the players with a sort and sweep algorithm and checks for collision between them
     pub fn enumerate_colliding_cells<F>(&mut self, mut action: F)
     where
         F: FnMut(usize, usize),
@@ -384,8 +394,7 @@ impl Player {
         self.cells.retain(|cell| !cell.to_be_removed);
     }
 
-
-
+    //merges cells into 1 
     pub fn merge_colliding_cells(&mut self) {
         let time_to_merge = self.time_to_merge.map_or(false, |tm| tm <= SystemTime::now());
         if !time_to_merge {
@@ -407,6 +416,7 @@ impl Player {
         self.cells.retain(|cell| !cell.to_be_removed);
     }
 
+    //pushes cells when they are in contact in case the user is still split
     pub fn push_away_colliding_cells(&mut self, time_to_merge: bool) {
         if !time_to_merge {
             return;
@@ -429,6 +439,8 @@ impl Player {
         }
     }
 
+    //called to move all the cells of the player, giving new x and y based on the mouse position
+    //it is also used to push away the cells split if the time_to_merge is still not past, or to merge them into one if the time is right
     fn move_cells(&mut self, slow_base: f32, game_width: i32, game_height: i32, init_mass_log: f32) {
         let current_time = std::time::SystemTime::now();
 
@@ -460,6 +472,7 @@ impl Player {
         }
     }
 
+    //Check if there is a collision between two cells and determine who ate who 
     fn check_for_collisions(player_a: &Player, player_b: &Player, player_a_index: usize, player_b_index: usize, callback: &dyn Fn((usize, usize), (usize, usize))) {
         for (cell_a_index, cell_a) in player_a.cells.iter().enumerate() {
             for (cell_b_index, cell_b) in player_b.cells.iter().enumerate() {
@@ -501,12 +514,14 @@ impl PlayerManager {
         }
     }
 
+    //reduces cell size
     fn shrink_cells(&mut self, mass_loss_rate: f32, default_player_mass: f32, min_mass_loss: f32) {
         for player in &mut self.players {
             player.lose_mass_if_needed(mass_loss_rate, default_player_mass, min_mass_loss);
         }
     }
 
+    //Checks if there is a collision between two players 
     fn handle_collisions(&self, callback: &dyn Fn((usize, usize), (usize, usize))) {
         for (player_a_index, player_a) in self.players.iter().enumerate() {
             for (player_b_index, player_b) in self.players.iter().enumerate().skip(player_a_index + 1) {
@@ -515,6 +530,7 @@ impl PlayerManager {
         }
     }
 
+    //used to generate the leaderboard and send it to the client every second 
     fn get_top_players(&self) -> Vec<(Uuid, String)> {
         // First, clone the players to a mutable local variable to sort
         let mut sorted_players = self.players.clone();
@@ -536,6 +552,7 @@ impl PlayerManager {
             .collect()
     }
 
+    //used to know how much food there is / virus
     pub fn get_total_mass(&self) -> f32 {
         self.players.iter().map(|p| p.mass_total).sum()
     }

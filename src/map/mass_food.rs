@@ -68,14 +68,17 @@ impl MassFoodManager {
         MassFoodManager { data: Vec::new() }
     }
 
+    //get the mouse target to know the direction
     pub fn get_player_target(&self, id: Uuid) -> Option<Point> {
         self.data.iter().find(|&food| food.id == id.try_into().unwrap()).map(|food| food.get_player_target())
     }
 
+    //generate a new mass 
     pub fn add_new(&mut self, player_firing: &Player, cell_index: usize, mass: f32) {
         self.data.push(MassFood::new(player_firing, cell_index, mass));
     }
 
+    //moves the mass until the speed is 0  
     pub fn move_food(&mut self, game_width: f32, game_height: f32) {
         for food in self.data.iter_mut() {
             if food.speed.is_some() {
@@ -84,6 +87,7 @@ impl MassFoodManager {
         }
     }
 
+    //removes the mass food sent by a player, used when it is eaten 
     pub fn remove(&mut self, indexes: Vec<usize>) {
         let mut offset = 0;
         for index in indexes {

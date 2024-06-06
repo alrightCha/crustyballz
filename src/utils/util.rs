@@ -7,20 +7,24 @@ use rand::Rng;
 use std::f32::consts::PI;
 use uuid::Uuid;
 
+//checks if the nickname of the player is valid and can be used within the gam e
 pub fn valid_nick(nickname: &str) -> bool {
     let regex = regex::Regex::new(r"^\w*").unwrap();
     regex.is_match(nickname)
 }
 
-
+//used to determine the radius of the cell / food / virus / massFood, using its mass 
 pub fn mass_to_radius(mass: f32) -> f32 {
     4.0 + (mass.sqrt() * 6.0)
 }
 
+//used to not see an immediate change, sort of a smoothing function 
 pub fn lerp(start: f32, end: f32, factor: f32) -> f32 {
     let difference = end - start;
     start + difference * factor
 }
+
+//same as above but for degrees
 
 pub fn lerp_deg(start: f32, end: f32, factor: f32) -> f32 {
     let mut difference = end - start;
@@ -29,6 +33,7 @@ pub fn lerp_deg(start: f32, end: f32, factor: f32) -> f32 {
     start + difference * factor
 }
 
+//returns the player ratio to know how far the screen should be zoomed out / zoomed in. Mostly between 0.1 and 1.5
 pub fn get_ratio(player: &Player, ratio: &mut f32){
     let new_val = lerp(player.ratio, 0.8 - 0.2 * (player.mass_total / 500.0).ln() - 0.3 * (player.cells.len() as f32) / 18.0, 0.1);
     if new_val > 0.3 {
@@ -38,6 +43,7 @@ pub fn get_ratio(player: &Player, ratio: &mut f32){
     }
 }
 
+//returns a rectangle representing the user's screen on the map 
 pub fn get_visible_area(player: &Player, ratio: &mut f32) -> Rectangle {
     get_ratio(player, ratio);
 
@@ -52,6 +58,7 @@ pub fn math_log(n: f32, base: Option<f32>) -> f32 {
     n.ln() / base_log
 }
 
+//returns distance between two points 
 pub fn get_distance(p1: &Point, p2: &Point) -> f32 {
     ((p2.x - p1.x).powi(2) + (p2.y - p1.y).powi(2)).sqrt() - p1.radius - p2.radius
 }
@@ -75,6 +82,7 @@ pub fn get_position(is_uniform: bool, radius: f32, uniform_positions: Option<&[P
     }
 }
 
+//generates a random point to use its x and y values and know a position on the map 
 fn random_position(radius: f32) -> Point {
     Point {
         x: random_in_range(radius, 10000.0 - radius) as f32,
@@ -83,6 +91,7 @@ fn random_position(radius: f32) -> Point {
     }
 }
 
+//makes sure that the posiiton is not below a player, used to determine the spawning point of a player in accordance to the rest of the players
 fn uniform_position(points: &[Point], radius: f32) -> Point {
     let mut max_distance = 0.0;
     let mut best_candidate = random_position(radius);
@@ -124,6 +133,7 @@ pub fn find_index(arr: &[Player], id: Uuid) -> Option<usize> {
     })
 }
 
+//cheks which cell ate the other one by knowing which one is bigger, if there is an overlap between the cells 
 pub fn check_who_ate_who(cell_a: &Cell, cell_b: &Cell) -> u8 {
     if check_overlap(&cell_a.position, &cell_b.position) {
         let min_cell_rad = f32::min(cell_a.position.radius, cell_b.position.radius);
@@ -136,7 +146,8 @@ pub fn check_who_ate_who(cell_a: &Cell, cell_b: &Cell) -> u8 {
     return 0;
 }
 
-//Rework
+
+//cheks if the entity (point) is visible on the user's screen 
 pub fn is_visible_entity(position_a: Point, player: Player) -> bool {
     if let Some(width) = player.screen_width{
         if let Some(height) = player.screen_height{
@@ -146,6 +157,7 @@ pub fn is_visible_entity(position_a: Point, player: Player) -> bool {
     return false
 }
 
+//takes the screen and an object and checks if they enterfere to know if it should be displayed or not 
 fn test_rectangle_rectangle(center_x_a: f32, center_y_a: f32, radius: f32, 
     center_x_b: f32, center_y_b: f32, width_b: f32, height_b: f32) -> bool {
     let half_width_a = radius / 2.0;
@@ -159,6 +171,8 @@ fn test_rectangle_rectangle(center_x_a: f32, center_y_a: f32, radius: f32,
     center_y_a - half_height_a < center_y_b + half_height_b
 }
 
+
+//checks if two cells are colliding or not (touching borders at least)
 pub fn are_colliding(cell1: &Cell, cell2: &Cell) -> bool {
     // Simple collision detection logic (circle-circle collision)
     let dx = cell1.position.x - cell2.position.x;
@@ -167,6 +181,7 @@ pub fn are_colliding(cell1: &Cell, cell2: &Cell) -> bool {
     distance < (cell1.position.radius + cell2.position.radius)
 }
 
+//returns true if a cell is covering more than 60% of another cell 
 pub fn check_overlap(circle_a: &Point, circle_b: &Point) -> bool {
     let dx = circle_a.x - circle_b.x;
     let dy = circle_a.y - circle_b.y;
@@ -200,6 +215,7 @@ pub fn check_overlap(circle_a: &Point, circle_b: &Point) -> bool {
     false
 }
 
+//generates a random color for the food and the players 
 pub fn random_color() -> (String, String) {
     let mut rng = rand::thread_rng();
     let random_number = rng.gen_range(0..(1 << 24));

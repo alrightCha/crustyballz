@@ -6,6 +6,7 @@ use crate::utils::quad_tree::{QuadTree, Rectangle};
 use crate::utils::util::{is_visible_entity, get_visible_area};
 use crate::config::Config;
 
+//Stores every entity on the map, basically a singleton holding all the objects 
 pub struct Map {
     pub food: FoodManager,
     pub viruses: VirusManager,
@@ -14,6 +15,7 @@ pub struct Map {
     pub food_count: usize,
 }
 
+//Used to return to the player what is visible on his screen
 pub struct VisibleEntities<'a> {
     pub players: Vec<&'a Player>,  
     pub food: Vec<Food>,
@@ -32,6 +34,7 @@ impl Map{
         }
     }
 
+    //Uses the food quadtree with the player's screen information to locate the foods on his screen
     pub fn get_food_in_view(&self, user: Player, ratio: &mut f32) -> Vec<Food> {
         // Assuming get_visible_area is a function that returns a Rectangle or similar structure
         let visible_zone = get_visible_area(&user, ratio);  // This line calls the function and stores its result in visible_area
@@ -44,6 +47,7 @@ impl Map{
     }
     
 
+    //is triggered every second to make sure that there is always food in the map even if many are eaten, so generates food and virus
     pub fn balance_mass(&mut self, game_mass: f32, max_food: usize, max_virus: usize) {
         // Calculate the total mass based on food and player mass
         let total_mass = self.food_count as f32 * Config::default().food_mass + self.players.get_total_mass();
@@ -66,6 +70,7 @@ impl Map{
         }
     }
 
+    //used to loop through each player and return the data available for him to see 
     pub fn enumerate_what_player_sees(&self, player: &Player, ratio: &mut f32) -> VisibleEntities {
         let visible_food = self.get_food_in_view(player.clone(), ratio);
         // Get visible viruses

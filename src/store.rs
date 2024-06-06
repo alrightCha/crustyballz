@@ -7,6 +7,8 @@ use uuid::Uuid;
 /// A struct to manage user sockets
 pub struct UserSockets(RwLock<HashMap<Uuid, Arc<String>>>);
 
+//A struct that stores a mapping of the player ids to their respective socket ids to know which id to send a message to when we 
+//need to target one single user 
 impl UserSockets {
     /// Creates a new UserSockets instance
     pub fn new() -> Self {

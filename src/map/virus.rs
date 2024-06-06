@@ -111,6 +111,8 @@ impl VirusManager {
         }
     }
 
+    //Divides a virus by reducing its mass and creating a new virus with the initial position being the center of the original virus, 
+    //and the new direction being the last direction aimed by the player right before the split
     pub fn shoot_one(&mut self, position: Point, direction: Point) {
         let mass = self.random_in_range(self.virus_config.default_mass.from, self.virus_config.default_mass.to);
         let mut new_virus = Virus::new(position, mass, Some(direction));

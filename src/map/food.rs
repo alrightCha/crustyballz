@@ -45,6 +45,7 @@ impl FoodManager {
         FoodManager { food_mass, quad_tree }
     }
 
+    //adds a new food with a random positioning
     pub fn add_new(&mut self, number: usize) {
         let radius = mass_to_radius(self.food_mass);
         for _ in 0..number {

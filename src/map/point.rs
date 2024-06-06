@@ -1,3 +1,6 @@
+//used as a way to abstract the data on the map to be able to use the same function on many items because 
+//they all have a position and a radius
+
 #[derive(Debug, Clone, Copy, serde::Deserialize, serde::Serialize)]
 pub struct Point {
     pub x: f32,
