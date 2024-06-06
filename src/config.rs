@@ -1,0 +1,92 @@
+use std::env;
+
+#[derive(Debug)]
+pub struct Config {
+    pub host: String,
+    pub port: u16,
+    pub logpath: String,
+    pub food_mass: f32,
+    pub fire_food: u32,
+    pub limit_split: u32,
+    pub split_min: u32,
+    pub default_player_mass: f32,
+    pub virus: VirusConfig,  // Ensure VirusConfig is also publicly accessible if needed
+    pub game_width: u32,
+    pub game_height: u32,
+    pub food_capacity_q: u32,
+    pub admin_pass: String,
+    pub game_mass: u32,
+    pub max_food: u32,
+    pub max_virus: u32,
+    pub slow_base: u32,
+    pub log_chat: bool,
+    pub network_update_factor: u32,
+    pub max_heartbeat_interval: u32,
+    pub food_uniform_disposition: bool,
+    pub new_player_initial_position: String,
+    pub mass_loss_rate: f32,
+    pub min_mass_loss: f32,
+}
+
+#[derive(Debug)]
+pub struct VirusConfig {
+    pub fill: String,
+    pub stroke: String,
+    pub stroke_width: f32,
+    pub default_mass: DefaultMass,
+    pub split_mass: f32,
+    pub uniform_disposition: bool,
+}
+
+#[derive(Debug)]
+pub struct DefaultMass {
+    pub from: f32,
+    pub to: f32,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Config {
+            host: "0.0.0.0".to_string(),
+            port: env::var("PORT").ok().and_then(|p| p.parse().ok()).unwrap_or(8000),
+            logpath: "logger.php".to_string(),
+            food_mass: 1.0,
+            fire_food: 20,
+            limit_split: 16,
+            split_min: 17,
+            default_player_mass: 10.0,
+            virus: VirusConfig::default(),
+            game_width: 10000,
+            game_height: 10000,
+            food_capacity_q: 10,
+            admin_pass: "DEFAULT".to_string(),
+            game_mass: 500000,
+            max_food: 4000,
+            max_virus: 100,
+            slow_base: 50,
+            log_chat: false,
+            network_update_factor: 60,
+            max_heartbeat_interval: 50000,
+            food_uniform_disposition: true,
+            new_player_initial_position: "farthest".to_string(),
+            mass_loss_rate: 1.0,
+            min_mass_loss: 50.0,
+        }
+    }
+}
+
+impl Default for VirusConfig {
+    fn default() -> Self {
+        VirusConfig {
+            fill: "#33ff33".to_string(),
+            stroke: "#19D119".to_string(),
+            stroke_width: 20.0,
+            default_mass: DefaultMass {
+                from: 100.0,
+                to: 150.0,
+            },
+            split_mass: 180.0,
+            uniform_disposition: false,
+        }
+    }
+}
