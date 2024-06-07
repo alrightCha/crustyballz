@@ -1,5 +1,6 @@
 use crate::map::food::Food;
 
+#[derive(Debug)]
 pub struct Rectangle {
     pub x: f32,
     pub y: f32,
@@ -66,10 +67,11 @@ impl QuadTree {
                 self.subdivide();
             }
 
-            if self.northwest.as_mut().unwrap().insert(point) || 
-               self.northeast.as_mut().unwrap().insert(point) ||
-               self.southwest.as_mut().unwrap().insert(point) ||
-               self.southeast.as_mut().unwrap().insert(point) {
+            if self.northwest.as_mut().unwrap().insert(point)
+                || self.northeast.as_mut().unwrap().insert(point)
+                || self.southwest.as_mut().unwrap().insert(point)
+                || self.southeast.as_mut().unwrap().insert(point)
+            {
                 return true;
             }
         }
@@ -83,10 +85,27 @@ impl QuadTree {
         let w = self.boundary.w / 2.0;
         let h = self.boundary.h / 2.0;
 
-        self.northwest = Some(Box::new(QuadTree::new(Rectangle { x, y, w, h }, self.capacity)));
-        self.northeast = Some(Box::new(QuadTree::new(Rectangle { x: x + w, y, w, h }, self.capacity)));
-        self.southwest = Some(Box::new(QuadTree::new(Rectangle { x, y: y + h, w, h }, self.capacity)));
-        self.southeast = Some(Box::new(QuadTree::new(Rectangle { x: x + w, y: y + h, w, h }, self.capacity)));
+        self.northwest = Some(Box::new(QuadTree::new(
+            Rectangle { x, y, w, h },
+            self.capacity,
+        )));
+        self.northeast = Some(Box::new(QuadTree::new(
+            Rectangle { x: x + w, y, w, h },
+            self.capacity,
+        )));
+        self.southwest = Some(Box::new(QuadTree::new(
+            Rectangle { x, y: y + h, w, h },
+            self.capacity,
+        )));
+        self.southeast = Some(Box::new(QuadTree::new(
+            Rectangle {
+                x: x + w,
+                y: y + h,
+                w,
+                h,
+            },
+            self.capacity,
+        )));
 
         self.divided = true;
     }
@@ -116,7 +135,11 @@ impl QuadTree {
         }
 
         // Try to remove the point from the current node
-        if let Some(index) = self.points.iter().position(|p| p.x == point.x && p.y == point.y) {
+        if let Some(index) = self
+            .points
+            .iter()
+            .position(|p| p.x == point.x && p.y == point.y)
+        {
             self.points.remove(index);
             return true;
         }
@@ -130,5 +153,91 @@ impl QuadTree {
         }
 
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::map::{food::Food, player::Player, point::Point};
+
+    use super::{QuadTree, Rectangle};
+
+    #[test]
+    fn test_quad_tree_insert() {
+        let boundary = Rectangle::new(0.0, 0.0, 10_000.0, 10_000.0);
+        let mut quad_tree = QuadTree::new(boundary, 25);
+
+        for i in 0..25 {
+            quad_tree.insert(Food::new(Point {
+                x: 0.0,
+                y: 0.0,
+                radius: 1.0,
+            }));
+        }
+
+        assert_eq!(quad_tree.points.len(), 25);
+        assert_eq!(quad_tree.divided, false);
+
+        quad_tree.insert(Food::new(Point {
+            x: 0.0,
+            y: 0.0,
+            radius: 1.0,
+        }));
+
+        assert_eq!(quad_tree.points.len(), 25);
+        assert_eq!(quad_tree.divided, true);
+
+        match quad_tree.northwest {
+            Some(ref tree) => {
+                assert_eq!(tree.points.len(), 1);
+                assert_eq!(tree.divided, false);
+            }
+            None => panic!(),
+        }
+
+        for i in 0..25 {
+            quad_tree.insert(Food::new(Point {
+                x: 0.0,
+                y: 0.0,
+                radius: 1.0,
+            }));
+        }
+
+        match quad_tree.northwest {
+            Some(ref tree) => match tree.northwest {
+                Some(ref tree_north) => {
+                    assert_eq!(tree_north.points.len(), 1);
+                    assert_eq!(tree_north.divided, false);
+                }
+                None => panic!(),
+            },
+            None => panic!(),
+        }
+    }
+
+    #[test]
+    fn test_quad_tree_retrieve() {
+        let boundary = Rectangle::new(0.0, 0.0, 10_000.0, 10_000.0);
+        let mut quad_tree = QuadTree::new(boundary, 25);
+
+        for i in 0..26 {
+            quad_tree.insert(Food::new(Point {
+                x: 0.0,
+                y: 0.0,
+                radius: 1.0,
+            }));
+        }
+
+        let player_view = Rectangle::new(0.0, 0.0, 1920.0, 1080.0);
+
+        let mut foods = vec![];
+        quad_tree.retrieve(&player_view, &mut foods);
+        assert_eq!(foods.len(), 26);
+
+        let player_view = Rectangle::new(2.0, 2.0, 1920.0, 1080.0);
+    
+        let mut foods = vec![];
+        quad_tree.retrieve(&player_view, &mut foods);
+        assert_eq!(foods.len(), 0);
     }
 }

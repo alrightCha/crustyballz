@@ -1,117 +1,204 @@
 mod config;
+mod game;
+mod managers;
 mod map;
-mod utils;
+mod recv_messages;
+mod send_messages;
 mod store;
+mod utils;
 
-use store::UserSockets;
-use config::Config;
-use map::player::{Cell, Player};
-use map::map::Map;
 use crate::utils::util::{get_position, mass_to_radius};
+use config::{get_current_config, Config};
+use game::Game;
+use map::food::Food;
+use map::player::{Cell, Player};
 use map::point::Point;
-//Debugging 
-use tracing::info;
-use tracing_subscriber::FmtSubscriber;
+use recv_messages::{GotItMessage, TargetMessage, WindowResizedMessage};
+use store::UserSockets;
+use tokio::sync::RwLock;
+//Debugging
 use tower::ServiceBuilder;
 use tower_http::cors::CorsLayer;
+use tracing::info;
+use tracing_subscriber::FmtSubscriber;
 
-//JSON RESP 
-use serde_json::Value;
+//JSON RESP
 use serde_json::json;
+use serde_json::Value;
 //Server routing
-use axum::{Router, Server};
 use axum::routing::get;
-use std::net::SocketAddr;
+use axum::Router;
 use std::env;
+use std::net::SocketAddr;
 
-//For socket reference 
-use std::sync::{Arc, Mutex};
+//For socket reference
 use once_cell::sync::Lazy;
+use std::sync::Arc;
 
-//Websockets 
+//Websockets
 use socketioxide::{
     extract::{Data, SocketRef},
-     SocketIo
+    SocketIo,
 };
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
-struct Username{
-    name: String
+struct Username {
+    name: String,
 }
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 struct Message {
-    message: String, 
-    sender: String
+    message: String,
+    sender: String,
 }
 
-static USER_SOCKETS: Lazy<Arc<UserSockets>> = Lazy::new(|| {
-    Arc::new(UserSockets::new())
-});
+static USER_SOCKETS: Lazy<Arc<UserSockets>> = Lazy::new(|| Arc::new(UserSockets::new()));
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _ = tracing::subscriber::set_global_default(FmtSubscriber::default())?;
     let _config: Config = Config::default();
     let server_port = env::var("SERVER_PORT").unwrap_or_else(|_| "8000".to_string());
-    let map = Map::new();
-    let (layer, io) = SocketIo::new_layer();
+    let (layer, io_socket) = SocketIo::new_layer();
     let mass_init: f32 = _config.default_player_mass;
 
-    let generate_spawnpoint = || {
-        let radius = mass_to_radius(mass_init);
-        let points: Vec<Point> = {
-            let locked_map = map;
-            locked_map.players.players.iter()
-                .flat_map(|player| player.cells.iter().map(|cell| cell.position))
-                .collect()
-        };
-        // Since 'map' is captured by the closure, you can use it directly inside the closure
-        get_position(true, radius, Some(&points))
-    };
+    let game = Arc::new(Game::new(io_socket.clone()));
+    let game_cloned = game.clone();
 
-    io.ns("/", |s: SocketRef| {
+    // tokio spawn game loop
+    tokio::spawn(async move {
+        game_cloned.tick_game().await;
+    });
+
+    let game_cloned = game.clone();
+    let io_socket_cloned = io_socket.clone();
+
+    io_socket.ns("/", |s: SocketRef| {
         info!("Socket connected: {}", s.id);
-        let main = "main"; //main room that holds all the users
+        let main_room: &'static str = "main"; //main room that holds all the users
         let _ = s.leave_all();
-        let _ = s.join(&*main);
-    
-        let mut new_player = Player::new();
-    
+        let _ = s.join(main_room);
+
+        let player = Player::new(s.id);
         // Directly store the socket reference
-        USER_SOCKETS.add_user(new_player.id, s.id.to_string().clone());
+        USER_SOCKETS.add_user(player.id, s.id);
+        let player_ref: Arc<RwLock<Player>> = Arc::new(RwLock::new(player));
+        let game_ref = game_cloned;
 
-        s.on("respawn", |socket: SocketRef, Data::<Username>(name)| {
-            // Log that a respawn request was received
-            info!("Received respawn for user: {:?}", name.name);
+        let player_ref_cloned = player_ref.clone();
+        let game_ref_cloned = game_ref.clone();
 
-            /*
-                        map.players.remove_player_by_id(new_player.id);
-            // Emit 'welcome' back to the socket with configuration details
-            let game_width = Config::default().game_width;  // Ensure these are available in the scope or via a config struct
-            let game_height = Config::default().game_height;
-            let welcome_data = json!({
-                "width": game_width,
-                "height": game_height
-            });
-            let _ = socket.emit("welcome", (new_player, welcome_data));
-            
-            // If a name was provided, emit a global 'respawned' event
-            let _ = socket.within(&*main).emit("respawned", json!({ "name": name.name }));
-            info!("[INFO] User {} has respawned", name.name);
-             */
+        s.on(
+            "respawn",
+            |socket: SocketRef, Data::<Username>(name)| async move {
+                let game_width = Config::default().game_width; // Ensure these are available in the scope or via a config struct
+                let game_height = Config::default().game_height;
+                let welcome_data = json!({
+                    "width": game_width,
+                    "height": game_height
+                });
 
-        });
+                let mut player_data = player_ref_cloned.write().await;
+                let _ = socket.emit("welcome", (player_data.clone(), welcome_data));
 
-        s.on("gotit", |socket: SocketRef, Data::<Value>(data)| {
-            info!("Recieved following user info: {:?}", data);
-            info!("Image got : {:?}", data["imgUrl"]);
+                let _ = io_socket_cloned
+                    .within("main")
+                    .emit("respawned", json!({ "name": name.name }));
+                drop(player_data);
+                game_ref_cloned.add_player(player_ref_cloned).await;
+                info!("Received respawn for user: {:?}", name.name);
+                /*
+                            map.players.remove_player_by_id(new_player.id);
+                // Emit 'welcome' back to the socket with configuration details
 
-        });
+                // If a name was provided, emit a global 'respawned' event
+                info!("[INFO] User {} has respawned", name.name);
+                 */
+            },
+        );
+
+        let new_player_clone = player_ref.clone();
+        s.on(
+            "0",
+            |socket: SocketRef, Data::<TargetMessage>(data)| async move {
+                let mut player = new_player_clone.write().await;
+                player.target_x = data.target.x;
+                player.target_y = data.target.y;
+            },
+        );
+
+        let game_ref_cloned = game_ref.clone();
+        let new_player_clone = player_ref.clone();
+        s.on(
+            "1",
+            |socket: SocketRef, Data::<TargetMessage>(data)| async move {
+                let config = get_current_config();
+                let mut player = new_player_clone.write().await;
+
+                if player.mass_total < config.min_cell_mass() {
+                    return ();
+                }
+
+                let player_position = player.get_position_point();
+                let player_target = player.get_target_point();
+                let player_hue = player.hue;
+
+                let mut mass_food_manager = game_ref_cloned.mass_food_manager.write().await;
+                for (i, cell) in player.cells.iter_mut().enumerate() {
+                    if cell.mass >= config.min_cell_mass() {
+                        cell.remove_mass(config.fire_food as f32);
+                        mass_food_manager.add_new(
+                            &player_position,
+                            &player_target,
+                            &cell.position,
+                            player_hue,
+                            config.fire_food as f32,
+                        );
+                    }
+                }
+
+                let mut player = new_player_clone.write().await;
+                player.target_x = data.target.x;
+                player.target_y = data.target.y;
+            },
+        );
+
+        let new_player_clone = player_ref.clone();
+        s.on(
+            "gotit",
+            |socket: SocketRef, Data::<GotItMessage>(data)| async move {
+                let mut player = new_player_clone.write().await;
+                info!("Image got : {:?}", data.imgUrl);
+                player.init(
+                    Point {
+                        x: 0.0,
+                        y: 0.0,
+                        radius: 0.0,
+                    },
+                    get_current_config().default_player_mass,
+                    data.name,
+                    data.screenWidth as f32,
+                    data.screenHeight as f32,
+                    data.imgUrl,
+                );
+            },
+        );
+
+        let new_player_clone = player_ref.clone();
+        s.on(
+            "windowResized",
+            |socket: SocketRef, Data::<WindowResizedMessage>(data)| async move {
+                let mut player = new_player_clone.write().await;
+                player.screen_height = data.screenHeight as f32;
+                player.screen_width = data.screenWidth as f32;
+            },
+        );
 
         s.on("playerChat", |socket: SocketRef, Data::<Message>(data)| {
             info!("Received data: {:?}", data);
-            let _ = socket.within(&*main).emit("serverSendPlayerChat", data);
+            let _ = socket
+                .within(&*main_room)
+                .emit("serverSendPlayerChat", data);
         });
     });
 
@@ -123,14 +210,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .layer(layer),
         );
 
+    // let address = format!("127.0.0.1:{}", server_port).parse().unwrap();
+    let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{}", server_port))
+        .await
+        .unwrap();
 
-    let address = format!("127.0.0.1:{}", server_port).parse().unwrap();
-    
     info!("Server running {}", server_port);
 
-    Server::bind(&address)
-        .serve(app.into_make_service())
-        .await?;
+    axum::serve(listener, app.into_make_service())
+        .await
+        .unwrap();
 
     Ok(())
 }

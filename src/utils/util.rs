@@ -1,8 +1,7 @@
- 
-
 use super::quad_tree::Rectangle;
 use crate::map::player::{Cell, Player};
 use crate::map::point::Point;
+use chrono::Utc;
 use rand::Rng;
 use std::f32::consts::PI;
 use uuid::Uuid;
@@ -13,7 +12,10 @@ pub fn valid_nick(nickname: &str) -> bool {
     regex.is_match(nickname)
 }
 
-//used to determine the radius of the cell / food / virus / massFood, using its mass 
+pub fn get_current_timestamp() -> i64 {
+    Utc::now().timestamp()
+}
+
 pub fn mass_to_radius(mass: f32) -> f32 {
     4.0 + (mass.sqrt() * 6.0)
 }
@@ -28,29 +30,13 @@ pub fn lerp(start: f32, end: f32, factor: f32) -> f32 {
 
 pub fn lerp_deg(start: f32, end: f32, factor: f32) -> f32 {
     let mut difference = end - start;
-    if difference < -PI { difference += 2.0 * PI };
-    if difference > PI { difference -= 2.0 * PI };
+    if difference < -PI {
+        difference += 2.0 * PI
+    };
+    if difference > PI {
+        difference -= 2.0 * PI
+    };
     start + difference * factor
-}
-
-//returns the player ratio to know how far the screen should be zoomed out / zoomed in. Mostly between 0.1 and 1.5
-pub fn get_ratio(player: &Player, ratio: &mut f32){
-    let new_val = lerp(player.ratio, 0.8 - 0.2 * (player.mass_total / 500.0).ln() - 0.3 * (player.cells.len() as f32) / 18.0, 0.1);
-    if new_val > 0.3 {
-        *ratio = new_val;
-    } else {
-        *ratio = 0.3;
-    }
-}
-
-//returns a rectangle representing the user's screen on the map 
-pub fn get_visible_area(player: &Player, ratio: &mut f32) -> Rectangle {
-    get_ratio(player, ratio);
-
-    let half_width = (player.screen_width.unwrap_or_default() as f32 / player.ratio) / 2.0;
-    let half_height = (player.screen_height.unwrap_or_default() as f32 / player.ratio) / 2.0;
-
-    Rectangle::new(player.x - half_width, player.y - half_height, half_width * 2.0, half_height * 2.0)
 }
 
 pub fn math_log(n: f32, base: Option<f32>) -> f32 {
@@ -124,13 +110,15 @@ fn uniform_position(points: &[Point], radius: f32) -> Point {
 }
 
 pub fn find_index(arr: &[Player], id: Uuid) -> Option<usize> {
-    arr.iter().enumerate().rev().find_map(|(i, player)| {
-        if player.id == id {
-            Some(i)
-        } else {
-            None
-        }
-    })
+    arr.iter().enumerate().rev().find_map(
+        |(i, player)| {
+            if player.id == id {
+                Some(i)
+            } else {
+                None
+            }
+        },
+    )
 }
 
 //cheks which cell ate the other one by knowing which one is bigger, if there is an overlap between the cells 
@@ -138,7 +126,7 @@ pub fn check_who_ate_who(cell_a: &Cell, cell_b: &Cell) -> u8 {
     if check_overlap(&cell_a.position, &cell_b.position) {
         let min_cell_rad = f32::min(cell_a.position.radius, cell_b.position.radius);
         if min_cell_rad == cell_a.position.radius {
-           return 2;
+            return 2;
         } else {
             return 1;
         }
@@ -146,39 +134,47 @@ pub fn check_who_ate_who(cell_a: &Cell, cell_b: &Cell) -> u8 {
     return 0;
 }
 
-
-//cheks if the entity (point) is visible on the user's screen 
-pub fn is_visible_entity(position_a: Point, player: Player) -> bool {
-    if let Some(width) = player.screen_width{
-        if let Some(height) = player.screen_height{
-            return test_rectangle_rectangle(position_a.x, position_a.y, position_a.radius, player.x, player.y, width, height)
-        }
-    }
-    return false
+//Rework
+pub fn is_visible_entity(position_a: Point, player: &Player) -> bool {
+    return test_rectangle_rectangle(
+        position_a.x,
+        position_a.y,
+        position_a.radius,
+        player.x,
+        player.y,
+        player.screen_width,
+        player.screen_height,
+    );
 }
 
-//takes the screen and an object and checks if they enterfere to know if it should be displayed or not 
-fn test_rectangle_rectangle(center_x_a: f32, center_y_a: f32, radius: f32, 
-    center_x_b: f32, center_y_b: f32, width_b: f32, height_b: f32) -> bool {
+fn test_rectangle_rectangle(
+    center_x_a: f32,
+    center_y_a: f32,
+    radius: f32,
+    center_x_b: f32,
+    center_y_b: f32,
+    width_b: f32,
+    height_b: f32,
+) -> bool {
     let half_width_a = radius / 2.0;
     let half_height_a = radius / 2.0;
     let half_width_b = width_b / 2.0;
     let half_height_b = height_b / 2.0;
 
-    center_x_a + half_width_a > center_x_b - half_width_b &&
-    center_x_a - half_width_a < center_x_b + half_width_b &&
-    center_y_a + half_height_a > center_y_b - half_height_b &&
-    center_y_a - half_height_a < center_y_b + half_height_b
+    center_x_a + half_width_a > center_x_b - half_width_b
+        && center_x_a - half_width_a < center_x_b + half_width_b
+        && center_y_a + half_height_a > center_y_b - half_height_b
+        && center_y_a - half_height_a < center_y_b + half_height_b
 }
 
-
-//checks if two cells are colliding or not (touching borders at least)
-pub fn are_colliding(cell1: &Cell, cell2: &Cell) -> bool {
+pub fn are_colliding(cell1: &Point, cell2: &Point) -> bool {
     // Simple collision detection logic (circle-circle collision)
-    let dx = cell1.position.x - cell2.position.x;
-    let dy = cell1.position.y - cell2.position.y;
+    let dx = cell1.x - cell2.x;
+    let dy = cell1.y - cell2.y;
+
     let distance = (dx * dx + dy * dy).sqrt();
-    distance < (cell1.position.radius + cell2.position.radius)
+
+    distance < (cell1.radius + cell2.radius)
 }
 
 //returns true if a cell is covering more than 60% of another cell 
@@ -203,7 +199,13 @@ pub fn check_overlap(circle_a: &Point, circle_b: &Point) -> bool {
         let angle2 = f32::acos((distance * distance + r2 * r2 - r1 * r1) / (2.0 * distance * r2));
         let part1 = r1 * r1 * angle1;
         let part2 = r2 * r2 * angle2;
-        let part3 = 0.5 * f32::sqrt((-distance + r1 + r2) * (distance + r1 - r2) * (distance - r1 + r2) * (distance + r1 + r2));
+        let part3 = 0.5
+            * f32::sqrt(
+                (-distance + r1 + r2)
+                    * (distance + r1 - r2)
+                    * (distance - r1 + r2)
+                    * (distance + r1 + r2),
+            );
         let intersection_area = part1 + part2 - part3;
 
         // Check if the intersection area is at least 60% of the area of the smaller circle

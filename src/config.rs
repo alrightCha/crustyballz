@@ -1,4 +1,4 @@
-use std::env;
+use std::{env, sync::OnceLock};
 
 #[derive(Debug)]
 pub struct Config {
@@ -10,7 +10,7 @@ pub struct Config {
     pub limit_split: u32,
     pub split_min: u32,
     pub default_player_mass: f32,
-    pub virus: VirusConfig,  // Ensure VirusConfig is also publicly accessible if needed
+    pub virus: VirusConfig, // Ensure VirusConfig is also publicly accessible if needed
     pub game_width: u32,
     pub game_height: u32,
     pub food_capacity_q: u32,
@@ -21,11 +21,27 @@ pub struct Config {
     pub slow_base: u32,
     pub log_chat: bool,
     pub network_update_factor: u32,
-    pub max_heartbeat_interval: u32,
+    pub max_heartbeat_interval: i64,
     pub food_uniform_disposition: bool,
     pub new_player_initial_position: String,
     pub mass_loss_rate: f32,
     pub min_mass_loss: f32,
+}
+
+impl Config {
+    pub fn get_init_mass_log(&self) -> f32 {
+        self.default_player_mass.log(self.slow_base as f32)
+    }
+
+    pub fn min_cell_mass(&self) -> f32 {
+        self.split_min as f32 / self.fire_food as f32
+    }
+}
+
+pub fn get_current_config() -> &'static Config {
+    static CONFIG: OnceLock<Config> = OnceLock::new();
+
+    CONFIG.get_or_init(|| Config::default())
 }
 
 #[derive(Debug)]
@@ -48,7 +64,10 @@ impl Default for Config {
     fn default() -> Self {
         Config {
             host: "0.0.0.0".to_string(),
-            port: env::var("PORT").ok().and_then(|p| p.parse().ok()).unwrap_or(8000),
+            port: env::var("PORT")
+                .ok()
+                .and_then(|p| p.parse().ok())
+                .unwrap_or(8000),
             logpath: "logger.php".to_string(),
             food_mass: 1.0,
             fire_food: 20,
@@ -61,7 +80,7 @@ impl Default for Config {
             food_capacity_q: 10,
             admin_pass: "DEFAULT".to_string(),
             game_mass: 500000,
-            max_food: 4000,
+            max_food: 500,
             max_virus: 100,
             slow_base: 50,
             log_chat: false,

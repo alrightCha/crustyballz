@@ -1,44 +1,92 @@
-
-
-use super::point::{Point};
-use crate::utils::util::mass_to_radius;
 use super::player::Player;
-use uuid::Uuid;
+use super::point::Point;
 use crate::utils::game_logic::adjust_for_boundaries;
+use crate::utils::util::{are_colliding, mass_to_radius};
+use serde::Serialize;
+use uuid::Uuid;
+
+#[derive(Serialize)]
+pub struct MassFoodData {
+    pub hue: u16,
+    pub id: Uuid,
+    pub mass: f32,
+    pub direction: Point,
+    pub radius: f32,
+    pub speed: Option<f32>,
+    pub x: f32,
+    pub y: f32,
+}
 
 #[derive(Debug, Clone)]
 pub struct MassFood {
-    id: Uuid,
-    num: usize,
-    mass: f32,
+    pub id: Uuid,
+    pub mass: f32,
     hue: u16,
     direction: Point,
     pub point: Point,
     speed: Option<f32>,
 }
 
+impl Serialize for MassFood {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        MassFoodData {
+            direction: self.direction,
+            hue: self.hue,
+            id: self.id,
+            mass: self.mass,
+            radius: self.point.radius,
+            speed: self.speed,
+            x: self.point.x,
+            y: self.point.y,
+        }
+        .serialize(serializer)
+    }
+}
+
 impl MassFood {
-    pub fn new(player_firing: &Player, cell_index: usize, mass: f32) -> Self {
-        let cell = &player_firing.cells[cell_index];
+    pub fn new(
+        position: &Point,
+        direction: &Point,
+        hue: u16,
+        cell_transform: &Point,
+        mass: f32,
+    ) -> Self {
         let direction = Point {
-            x: 0.4 * (player_firing.x - cell.position.x) + player_firing.target_x,
-            y: 0.4 * (player_firing.y - cell.position.y) + player_firing.target_y,
-            radius: 0.0,  // Radius doesn't participate in direction calculation
-        }.normalize();
+            x: 0.4 * (position.x - cell_transform.x) + direction.x,
+            y: 0.4 * (position.y - cell_transform.y) + direction.y,
+            radius: 0.0, // Radius doesn't participate in direction calculation
+        }
+        .normalize();
 
         MassFood {
             id: Uuid::new_v4(),
-            num: cell_index,
             mass,
-            hue: player_firing.hue,
+            hue,
             direction,
-            point: Point{x: cell.position.x + direction.x * cell.position.radius, y: cell.position.y + direction.y * cell.position.radius, radius: mass_to_radius(mass)},
+            point: Point {
+                x: cell_transform.x + direction.x * cell_transform.radius,
+                y: cell_transform.y + direction.y * cell_transform.radius,
+                radius: mass_to_radius(mass),
+            },
             speed: Some(20.0),
         }
     }
 
     pub fn get_player_target(&self) -> Point {
         self.direction
+    }
+
+    pub fn can_be_eat_by(&self, player_id: &Uuid, cell_mass: f32, cell_position: Point) -> bool {
+        if are_colliding(&cell_position, &self.point) {
+            if &self.id == player_id && self.speed.unwrap_or_default() > 0.0 {
+                return false;
+            }
+            return cell_mass > self.mass * 1.1f32 && self.speed.unwrap_or_default() < 18.0;
+        }
+        false
     }
 
     pub fn move_self(&mut self, game_width: f32, game_height: f32) {
@@ -53,7 +101,14 @@ impl MassFood {
             self.point.x += delta_x;
             self.point.y += delta_y;
 
-            adjust_for_boundaries(&mut self.point.x, &mut self.point.y, self.point.radius, 5.0, game_width, game_height);
+            adjust_for_boundaries(
+                &mut self.point.x,
+                &mut self.point.y,
+                self.point.radius,
+                5.0,
+                game_width,
+                game_height,
+            );
         }
     }
 }
@@ -68,14 +123,28 @@ impl MassFoodManager {
         MassFoodManager { data: Vec::new() }
     }
 
-    //get the mouse target to know the direction
-    pub fn get_player_target(&self, id: Uuid) -> Option<Point> {
-        self.data.iter().find(|&food| food.id == id.try_into().unwrap()).map(|food| food.get_player_target())
-    }
+    // pub fn get_player_target(&self, id: Uuid) -> Option<Point> {
+    //     self.data
+    //         .iter()
+    //         .find(|&food| food.id == id.try_into().unwrap())
+    //         .map(|food| food.get_player_target())
+    // }
 
-    //generate a new mass 
-    pub fn add_new(&mut self, player_firing: &Player, cell_index: usize, mass: f32) {
-        self.data.push(MassFood::new(player_firing, cell_index, mass));
+    pub fn add_new(
+        &mut self,
+        player_position: &Point,
+        player_target: &Point,
+        cell_transform: &Point,
+        hue: u16,
+        mass: f32,
+    ) {
+        self.data.push(MassFood::new(
+            &player_position,
+            &player_target,
+            hue,
+            cell_transform,
+            mass,
+        ));
     }
 
     //moves the mass until the speed is 0  
@@ -87,12 +156,12 @@ impl MassFoodManager {
         }
     }
 
-    //removes the mass food sent by a player, used when it is eaten 
-    pub fn remove(&mut self, indexes: Vec<usize>) {
-        let mut offset = 0;
-        for index in indexes {
-            self.data.remove(index - offset);
-            offset += 1;
+    pub fn remove_food(&mut self, mass_id: Uuid) {
+        match self.data.iter().position(|x| x.id == mass_id) {
+            Some(index) => {
+                self.data.remove(index);
+            }
+            None => {}
         }
     }
 }
