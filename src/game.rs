@@ -292,19 +292,19 @@ impl Game {
             }
 
             // execute tick_player for each player
-            let mut players = vec![];
             for player in players_manager.players.values() {
                 let mut player = player.write().await;
                 self.tick_player(&mut player).await;
-                players.push(player)
             }
 
-            let mut who_ate_who_list = vec![];
+            let mut who_ate_who_list: Vec<((_, _), (_, _))> = vec![];
+
+            let players: Vec<_> = players_manager.players.values().collect();
 
             for player_a_index in 0..players.len() {
                 for player_b_index in player_a_index + 1..players.len() {
-                    let player_a = players.get(player_a_index).unwrap();
-                    let player_b = players.get(player_b_index).unwrap();
+                    let player_a = players.get(player_a_index).unwrap().read().await;
+                    let player_b = players.get(player_b_index).unwrap().read().await;
 
                     for (cell_a_index, cell_a) in player_a.cells.iter().enumerate() {
                         for (cell_b_index, cell_b) in player_b.cells.iter().enumerate() {
@@ -327,20 +327,22 @@ impl Game {
                 }
             }
 
-            // handle collsion
-            // player eater
-            // player got eaten
-            // [x] remove cell from the player got eaten
-            // [x] add mass to the player cell who eated
-            // check if player died
-            //      player socket emit 'RIP'
-            //      io emit 'playerDied' with name of who died, and who killed
-            //      remove player from player_manager
+            // // handle collsion
+            // // player eater
+            // // player got eaten
+            // // [x] remove cell from the player got eaten
+            // // [x] add mass to the player cell who eated
+            // // check if player died
+            // //      player socket emit 'RIP'
+            // //      io emit 'playerDied' with name of who died, and who killed
+            // //      remove player from player_manager
 
             drop(players);
             for ((player_who_eat, cell_who_eat), (player_eated, cell_eated)) in
                 who_ate_who_list.into_iter()
             {
+                //     info!("{} eat {}", player_who_eat, player_eated);
+                // }
                 let mut player_who_eat = match players_manager.players.get(&player_who_eat) {
                     Some(player) => player.write().await,
                     None => continue,
