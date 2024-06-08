@@ -1,6 +1,6 @@
 use uuid::Uuid;
 
-use crate::{config::VirusConfig, map::{point::Point, virus::Virus}, utils::util::{get_position, mass_to_radius, random_in_range}};
+use crate::{config::VirusConfig, map::{point::Point, virus::Virus}, utils::util::{create_random_position, mass_to_radius, random_in_range}};
 
 pub struct VirusManager {
     pub data: Vec<Virus>,
@@ -26,7 +26,7 @@ impl VirusManager {
                 self.virus_config.default_mass.to,
             );
             let radius = mass_to_radius(mass);
-            let position = get_position(self.virus_config.uniform_disposition, radius, None);
+            let position = create_random_position(self.virus_config.uniform_disposition, radius, None);
             let new_virus = Virus::new(position, mass, None);
             self.data.push(new_virus);
         }

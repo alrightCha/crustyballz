@@ -10,7 +10,7 @@ pub enum RecvEvent {
     PlayerSplit,
     PlayerWindowResized,
     PlayerChat,
-    PlayerGoit
+    PlayerGoIt
 }
 
 impl Display for RecvEvent {
@@ -23,7 +23,7 @@ impl Display for RecvEvent {
             RecvEvent::PlayerSplit => "2",
             RecvEvent::PlayerWindowResized => "windowResized",
             RecvEvent::PlayerChat => "playerChat",
-            RecvEvent::PlayerGoit => "gotit",
+            RecvEvent::PlayerGoIt => "gotit",
         }) 
     }
 }
@@ -57,4 +57,15 @@ pub struct GotItMessage {
     pub imgUrl: Option<String>,
     pub screenHeight: i32,
     pub screenWidth: i32
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct UsernameMessage {
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ChatMessage {
+    message: String,
+    sender: String,
 }

@@ -8,7 +8,7 @@ pub struct Config {
     pub food_mass: f32,
     pub fire_food: u32,
     pub limit_split: u32,
-    pub split_min: u32,
+    pub split_min_mass: u32,
     pub default_player_mass: f32,
     pub virus: VirusConfig, // Ensure VirusConfig is also publicly accessible if needed
     pub game_width: u32,
@@ -34,7 +34,7 @@ impl Config {
     }
 
     pub fn min_cell_mass(&self) -> f32 {
-        self.split_min as f32 + self.fire_food as f32
+        self.split_min_mass as f32 + self.fire_food as f32
     }
 }
 
@@ -72,7 +72,7 @@ impl Default for Config {
             food_mass: 1.0,
             fire_food: 20,
             limit_split: 16,
-            split_min: 17,
+            split_min_mass: 17,
             default_player_mass: 10.0,
             virus: VirusConfig::default(),
             game_width: 10000,

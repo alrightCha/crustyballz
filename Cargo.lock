@@ -219,6 +219,7 @@ dependencies = [
  "axum",
  "chrono",
  "fern",
+ "lazy_static",
  "log",
  "once_cell",
  "rand",

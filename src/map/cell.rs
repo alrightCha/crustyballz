@@ -1,3 +1,4 @@
+use log::info;
 use serde::Serialize;
 
 use crate::utils::{
@@ -93,9 +94,9 @@ impl Cell {
         self.position.radius = mass_to_radius(self.mass);
     }
 
-    pub fn move_cell(&mut self, mouse_x: f32, mouse_y: f32, slow_base: f32, init_mass_log: f32) {
-        let target_x = self.position.x - self.position.x + mouse_x;
-        let target_y = self.position.y - self.position.y + mouse_y;
+    pub fn move_cell(&mut self, player_position: &Point, mouse_x: f32, mouse_y: f32, slow_base: f32, init_mass_log: f32) {
+        let target_x = player_position.x - self.position.x + mouse_x;
+        let target_y = player_position.y - self.position.y + mouse_y;
         let dist = (target_y.powi(2) + target_x.powi(2)).sqrt();
         let deg = target_y.atan2(target_x);
 
@@ -104,10 +105,11 @@ impl Cell {
 
         if self.can_move {
             if self.speed <= MIN_SPEED {
-                slow_down = math_log(self.mass, Some(slow_base * 3.0)) - init_mass_log + 1.0;
+                slow_down = self.mass.log(slow_base * 3.0) - init_mass_log + 1.0;
             }
             delta_y = self.speed * deg.sin() / slow_down;
             delta_x = self.speed * deg.cos() / slow_down;
+            
             if dist < (MIN_DISTANCE + self.position.radius) {
                 let ratio = dist / (MIN_DISTANCE + self.position.radius);
                 delta_y *= ratio;
@@ -132,6 +134,7 @@ impl Cell {
                     delta_y *= ratio;
                     delta_x *= ratio;
                 }
+
             } else {
                 delta_y = 0.0;
                 delta_x = 0.0;
@@ -140,5 +143,6 @@ impl Cell {
 
         self.position.y += delta_y;
         self.position.x += delta_x;
+        // info!("speed: {}", self.speed);
     }
 }

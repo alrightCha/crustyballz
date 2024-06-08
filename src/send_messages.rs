@@ -13,12 +13,14 @@ pub enum SendEvent {
     TellPlayerSplit,
     RIP,
     PlayerDied,
-    Kicked,
+    KickPlayer,
+    PlayerKicked,
     Leaderboard,
     Respawned,
     Welcome,
     PongCheck,
     ServerPlayerChat,
+    PlayerJoin
 }
 
 impl Display for SendEvent {
@@ -28,11 +30,13 @@ impl Display for SendEvent {
             SendEvent::TellPlayerSplit => "tellPlayerSplit",
             SendEvent::RIP => "RIP",
             SendEvent::PlayerDied => "playerDied",
-            SendEvent::Kicked => "kicked",
+            SendEvent::PlayerKicked => "kicked",
+            SendEvent::KickPlayer => "kick",
             SendEvent::Leaderboard => "leaderboard",
             SendEvent::PongCheck => "pongcheck",
             SendEvent::ServerPlayerChat => "serverSendPlayerChat",
             SendEvent::Respawned => "respawned",
+            SendEvent::PlayerJoin => "playerJoin",
         })
     }
 }
@@ -77,8 +81,13 @@ pub struct PlayerData {
 }
 
 #[derive(Serialize)]
+pub struct PlayerJoinMessage {
+    pub name: Option<String>,
+}
+
+#[derive(Serialize)]
 pub struct KickMessage {
-    pub name: String,
+    pub name: Option<String>,
     pub id: Uuid,
 }
 #[derive(Serialize)]

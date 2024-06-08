@@ -1,4 +1,5 @@
 use std::{
+    collections::VecDeque,
     ops::{Sub, SubAssign},
     slice::Iter,
     sync::{atomic::AtomicUsize, Arc},
@@ -8,7 +9,13 @@ use std::{
 use chrono::Utc;
 use log::{debug, info};
 use socketioxide::SocketIo;
-use tokio::{sync::RwLock, time::sleep};
+use tokio::{
+    sync::{
+        mpsc::{self, UnboundedReceiver, UnboundedSender},
+        Mutex, RwLock,
+    },
+    time::sleep,
+};
 use uuid::Uuid;
 
 use crate::{
@@ -30,9 +37,10 @@ use crate::{
     },
     utils::{
         quad_tree::{QuadTree, Rectangle},
+        queue_message::QueueMessage,
         util::{
-            are_colliding, check_who_ate_who, get_current_timestamp, is_visible_entity,
-            random_in_range,
+            are_colliding, check_who_ate_who, create_random_position_in_range,
+            get_current_timestamp, is_visible_entity, mass_to_radius, random_in_range,
         },
     },
 };
@@ -46,7 +54,7 @@ pub struct VisibleEntities {
 }
 
 const GAME_LOOP_INTERVAL: i64 = 1 * 60;
-const TICKER_LOOP_FPS: f32 = 60.0;
+const TICKER_LOOP_FPS: f32 = 30.0;
 
 pub struct Game {
     pub food_manager: FoodManager,
@@ -55,11 +63,14 @@ pub struct Game {
     pub player_manager: RwLock<PlayerManager>,
     pub main_room: String,
     pub io_socket: SocketIo,
+    pub update_queue: Mutex<VecDeque<QueueMessage>>,
 }
 
 impl Game {
     pub fn new(io_socket: SocketIo) -> Self {
         let config = get_current_config();
+        let (tx, rx) = mpsc::unbounded_channel::<QueueMessage>();
+
         Game {
             food_manager: FoodManager::new(
                 config.food_mass,
@@ -74,6 +85,7 @@ impl Game {
                 ),
             ),
             virus_manager: RwLock::new(VirusManager::new()),
+            update_queue: Mutex::new(VecDeque::new()),
             mass_food_manager: RwLock::new(MassFoodManager::new()),
             player_manager: RwLock::new(PlayerManager::new()),
             main_room: "main".to_string(),
@@ -96,20 +108,29 @@ impl Game {
         }
     }
 
+    pub async fn kick_player(&self, player_name: Option<String>, player_id: Uuid) {
+        let _ = self.io_socket.emit(
+            SendEvent::KickPlayer,
+            KickMessage {
+                id: player_id,
+                name: player_name,
+            },
+        );
+
+        let mut player_manager = self.player_manager.write().await;
+        player_manager.remove_player_by_id(&player_id);
+    }
+
     pub async fn tick_player(&self, player: &mut Player, config: &Config) {
         if player.last_heartbeat < (get_current_timestamp() - config.max_heartbeat_interval) {
-            let _ = self.io_socket.emit(
-                "kick",
-                KickMessage {
+            self.update_queue
+                .lock()
+                .await
+                .push_back(QueueMessage::KickPlayer {
+                    name: player.name.clone(),
                     id: player.id,
-                    name: player.name.clone().unwrap_or_default(),
-                },
-            );
-
-            // remove_player
-
-            // mtchmkng_socket.emit("kicked", KickedMessage {
-            // });
+                });
+            return ();
         }
 
         player.move_cells(
@@ -213,6 +234,14 @@ impl Game {
             }
             None => {}
         }
+    }
+
+    pub fn create_player_spawn_point(&self) -> Point {
+        let config = get_current_config();
+        create_random_position_in_range(
+            config.game_width as f32 - mass_to_radius(config.default_player_mass),
+            config.game_height as f32 - mass_to_radius(config.default_player_mass),
+        )
     }
 
     // returns the shoot direction if the virus "exploded"
@@ -329,12 +358,31 @@ impl Game {
         who_ate_who_list
     }
 
+    pub async fn handle_queue(&self) {
+        let mut queue = self.update_queue.lock().await;
+
+        loop {
+            match queue.pop_front() {
+                Some(message) => match message {
+                    QueueMessage::KickPlayer { name, id } => {
+                        self.kick_player(name, id).await;
+                    }
+                },
+                None => {
+                    break;
+                }
+            }
+        }
+    }
+
     // equivalent to tick_game in node.js backend
     pub async fn tick_game(&self) {
         let mut last_game_loop: i64 = 0;
         let config = get_current_config();
 
         loop {
+            self.handle_queue().await;
+
             sleep(Duration::from_secs_f32(1.0 / TICKER_LOOP_FPS)).await;
 
             let players_manager = self.player_manager.read().await;

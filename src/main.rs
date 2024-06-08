@@ -6,19 +6,19 @@ mod recv_messages;
 mod send_messages;
 mod utils;
 
-use crate::utils::util::{get_position, mass_to_radius};
+use crate::utils::util::{create_random_position, mass_to_radius};
 use config::{get_current_config, Config};
 use game::Game;
 use map::food::Food;
-use map::player::Player;
+use map::player::{self, Player};
 use map::point::Point;
-use recv_messages::RecvEvent;
+use recv_messages::{ChatMessage, RecvEvent, UsernameMessage};
 use recv_messages::{GotItMessage, TargetMessage, WindowResizedMessage};
-use send_messages::{SendEvent, WelcomeMessage};
+use send_messages::{PlayerJoinMessage, SendEvent, WelcomeMessage};
 use time::OffsetDateTime;
 use tokio::sync::RwLock;
 //Debugging
-use log::info;
+use log::{error, info};
 use tower::ServiceBuilder;
 use tower_http::cors::CorsLayer;
 
@@ -31,6 +31,8 @@ use axum::Router;
 use std::fs::OpenOptions;
 use std::net::SocketAddr;
 use std::{env, fs};
+use utils::queue_message::QueueMessage;
+use utils::util::valid_nick;
 
 //For socket reference
 use once_cell::sync::Lazy;
@@ -41,17 +43,6 @@ use socketioxide::{
     extract::{Data, SocketRef},
     SocketIo,
 };
-
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
-struct Username {
-    name: String,
-}
-
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
-struct Message {
-    message: String,
-    sender: String,
-}
 
 fn setup_logger() -> Result<(), fern::InitError> {
     let logs_folder = "logs";
@@ -106,7 +97,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     let game_cloned = game.clone();
-    let io_socket_cloned = io_socket.clone();
 
     io_socket.ns("/", |s: SocketRef| {
         info!("Socket connected: {}", s.id);
@@ -123,7 +113,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         s.on(
             RecvEvent::Respawn,
-            |socket: SocketRef, Data::<Username>(name)| async move {
+            |socket: SocketRef, Data::<UsernameMessage>(data)| async move {
                 let config = get_current_config();
                 let player_data = player_ref_cloned.read().await.generate_player_data();
                 let _ = socket.emit(
@@ -137,11 +127,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     ),
                 );
 
-                let _ = io_socket_cloned
+                let _ = game_ref_cloned
+                    .io_socket
                     .within("main")
-                    .emit(SendEvent::Respawned, json!({ "name": name.name }));
-                game_ref_cloned.add_player(player_ref_cloned).await;
-                info!("Received respawn for user: {:?}", name.name);
+                    .emit(SendEvent::Respawned, json!({ "name": data.name }));
+                info!("Received respawn for user: {:?}", data.name);
                 /*
                             map.players.remove_player_by_id(new_player.id);
                 // Emit 'welcome' back to the socket with configuration details
@@ -198,31 +188,53 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             },
         );
 
-        let game_ref_cloned = game_ref.clone();
         let new_player_clone = player_ref.clone();
         s.on(RecvEvent::PlayerSplit, |socket: SocketRef| async move {
             let config = get_current_config();
             let mut player = new_player_clone.write().await;
 
-            player.user_split(config.limit_split as usize, config.split_min as f32);
+            player.user_split(config.limit_split as usize, config.split_min_mass as f32);
             let _ = socket.emit(SendEvent::TellPlayerSplit, ());
+            info!("Player[{:?}] - {}", player.name, player.cells.len());
         });
 
         let new_player_clone = player_ref.clone();
+        let game_ref_cloned = game_ref.clone();
         s.on(
-            RecvEvent::PlayerGoit,
+            RecvEvent::PlayerGoIt,
             |socket: SocketRef, Data::<GotItMessage>(data)| async move {
+                if let Some(ref name) = data.name {
+                    if !valid_nick(name) {
+                        // kick_player
+                        let _ = socket.emit(SendEvent::KickPlayer, "invalid username.");
+                        error!("Invalid username");
+                    }
+                }
+
                 let mut player = new_player_clone.write().await;
-                let config = get_current_config();
-                info!("Image got : {:?}", data.imgUrl);
+
                 player.init(
-                    get_position(false, mass_to_radius(config.default_player_mass), None),
+                    game_ref_cloned.create_player_spawn_point(),
                     get_current_config().default_player_mass,
                     data.name,
                     data.screenWidth as f32,
                     data.screenHeight as f32,
                     data.imgUrl,
                 );
+                drop(player);
+
+                game_ref_cloned.add_player(new_player_clone.clone()).await;
+
+                let player = new_player_clone.read().await;
+
+                let _ = game_ref_cloned.io_socket.emit(
+                    SendEvent::PlayerJoin,
+                    PlayerJoinMessage {
+                        name: player.name.clone(),
+                    },
+                );
+
+                info!("Player[{:?} / {}] spawned", player.name, player.id);
             },
         );
 
@@ -238,13 +250,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         s.on(
             RecvEvent::PlayerChat,
-            |socket: SocketRef, Data::<Message>(data)| {
+            |socket: SocketRef, Data::<ChatMessage>(data)| {
                 info!("Received data: {:?}", data);
                 let _ = socket
                     .within(&*main_room)
                     .emit(SendEvent::ServerPlayerChat, data);
             },
         );
+
+        let new_player_clone = player_ref.clone();
+        let game_ref_cloned = game_ref.clone();
+        s.on_disconnect(|| async move {
+            let player = new_player_clone.read().await;
+            info!("Player[{:?}] disconnect -  Needs to be kicked", player.name);
+
+            game_ref_cloned
+                .update_queue
+                .lock()
+                .await
+                .push_back(QueueMessage::KickPlayer {
+                    name: player.name.clone(),
+                    id: player.id,
+                })
+        });
     });
 
     let app = Router::new()

@@ -1,7 +1,7 @@
 use super::point::Point;
 use crate::config::VirusConfig;
 use crate::utils::game_logic::adjust_for_boundaries;
-use crate::utils::util::{are_colliding, get_position, mass_to_radius, random_in_range};
+use crate::utils::util::{are_colliding, create_random_position, mass_to_radius, random_in_range};
 use rand::Rng;
 use serde::Serialize;
 use tokio::sync::RwLock;

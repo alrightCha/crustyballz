@@ -4,13 +4,19 @@ use crate::map::player::Player;
 use crate::map::point::Point;
 use chrono::Utc;
 use rand::Rng;
+use regex::Regex;
 use std::f32::consts::PI;
 use uuid::Uuid;
+use lazy_static::lazy_static;
+
+
+lazy_static! {
+    static ref REGEX_VALID_NICK: Regex = Regex::new(r"^\w*").unwrap();
+}
 
 //checks if the nickname of the player is valid and can be used within the gam e
 pub fn valid_nick(nickname: &str) -> bool {
-    let regex = regex::Regex::new(r"^\w*").unwrap();
-    regex.is_match(nickname)
+    REGEX_VALID_NICK.is_match(nickname)
 }
 
 pub fn get_current_timestamp() -> i64 {
@@ -55,7 +61,19 @@ pub fn random_in_range(from: f32, to: f32) -> f32 {
     rng.gen_range(from..to)
 }
 
-pub fn get_position(is_uniform: bool, radius: f32, uniform_positions: Option<&[Point]>) -> Point {
+pub fn create_random_position_in_range(max_x: f32, max_y: f32) -> Point {
+    Point {
+        x: random_in_range(0.0, max_x),
+        y: random_in_range(0.0, max_y),
+        radius: 0.0,
+    }
+}
+
+pub fn create_random_position(
+    is_uniform: bool,
+    radius: f32,
+    uniform_positions: Option<&[Point]>,
+) -> Point {
     if is_uniform {
         // Check if we have some positions to consider for uniform positioning
         if let Some(positions) = uniform_positions {

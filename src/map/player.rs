@@ -242,6 +242,11 @@ impl Player {
         let max_allowed_pieces = (cell_mass / default_player_mass).floor() as u8;
         let pieces_to_create = max_requested_pieces.min(max_allowed_pieces);
 
+        // info!(
+        //     "max is : {} /// i'm adding : {}",
+        //     max_requested_pieces, pieces_to_create
+        // );
+
         if pieces_to_create == 0 {
             return;
         }
@@ -254,11 +259,13 @@ impl Player {
         if let Some(angle_base) = split_dir {
             for i in 0..pieces_to_create {
                 let angle = angle_base + angle_increment * i as f32;
-                directions.push(Point {
-                    x: angle.cos(),
-                    y: angle.sin(),
-                    radius: 0.0,
-                });
+                directions.push(
+                    Point {
+                        x: angle.cos(),
+                        y: angle.sin(),
+                        radius: 0.0,
+                    },
+                );
             }
         } else {
             let target_direction = self.calculate_target_direction(); // A method to calculate and normalize the target direction
@@ -275,7 +282,7 @@ impl Player {
                 cell_pos_y,
                 new_cells_mass,
                 30.0, // Assuming a fixed speed for new cells
-                true, // Can move
+                false, // Can move
                 Some(direction),
                 cell_img_url.clone(),
             );
@@ -284,6 +291,8 @@ impl Player {
 
         // Set last split time, assuming such a method exists
         self.set_last_split();
+        self.recalculate_total_mass();
+        self.recalculate_ratio();
     }
 
     pub fn split_random(
@@ -385,7 +394,8 @@ impl Player {
         for &cell_index in cell_indexes {
             if cell_index < self.cells.len() {
                 // Safety check to ensure the index is valid
-                let max_requested_pieces = max_cells.saturating_sub(self.cells.len()) + 1;
+                let max_requested_pieces =
+                    max_cells.checked_sub(self.cells.len()).unwrap_or_default() + 1;
                 self.split_cell(
                     cell_index,
                     max_requested_pieces as u8,
@@ -399,7 +409,7 @@ impl Player {
     //function triggered when player hits "space"
     pub fn user_split(&mut self, max_cells: usize, default_player_mass: f32) {
         let cells_to_create = if self.cells.len() > max_cells / 2 {
-            max_cells.saturating_sub(self.cells.len()) + 1
+            max_cells.checked_sub(self.cells.len()).unwrap_or_default() + 1
         } else {
             self.cells.len()
         };
@@ -410,6 +420,12 @@ impl Player {
                 .partial_cmp(&a.mass)
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
+
+        // info!(
+        //     "reallyy max_cells: {} /// we want to create: {}",
+        //     max_cells,
+        //     cells_to_create.min(self.cells.len())
+        // );
 
         for i in 0..cells_to_create.min(self.cells.len()) {
             self.split_cell(i, 2, default_player_mass, None); // No specific split direction provided
@@ -442,7 +458,7 @@ impl Player {
     {
         self.sort_by_left();
 
-        for i in 0..self.cells.len() {
+        for i in 0..self.cells.len() - 1 {
             let (split_a, split_b) = self.cells.split_at_mut(i + 1);
             let cell_a = &mut split_a[i];
 
@@ -491,7 +507,6 @@ impl Player {
         if self.cells.len() > 1 {
             if let Some(time_to_merge) = self.time_to_merge {
                 if current_time > time_to_merge {
-                    info!("merge time");
                     self.merge_colliding_cells();
                 } else {
                     self.push_away_colliding_cells();
@@ -502,9 +517,12 @@ impl Player {
         let mut x_sum = 0.0;
         let mut y_sum = 0.0;
 
-        for cell in &mut self.cells {
+        let player_position = self.get_position_point();
+
+        for cell in self.cells.iter_mut() { // TODO: remove the enumerate
             // Assume cell has a method `move` taking necessary parameters
-            cell.move_cell(self.target_x, self.target_y, slow_base, init_mass_log);
+            // info!("Cell {}", i);
+            cell.move_cell(&player_position, self.target_x, self.target_y, slow_base, init_mass_log);
             adjust_for_boundaries(
                 &mut cell.position.x,
                 &mut cell.position.y,

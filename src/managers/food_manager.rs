@@ -6,7 +6,7 @@ use crate::{
     map::food::Food,
     utils::{
         quad_tree::QuadTree,
-        util::{get_position, mass_to_radius},
+        util::{create_random_position, mass_to_radius},
     },
 };
 
@@ -51,7 +51,7 @@ impl FoodManager {
 
         let radius = mass_to_radius(self.food_mass);
         for _ in 0..food_amount {
-            let position = get_position(false, radius, None);
+            let position = create_random_position(false, radius, None);
             let food = Food::new(position);
             quad_tree.insert(food); // Ensure QuadTree accepts Point
         }

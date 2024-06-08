@@ -1,6 +1,6 @@
 use super::point::{AsPoint, Point};
 use crate::utils::quad_tree::QuadTree;
-use crate::utils::util::{get_position, mass_to_radius};
+use crate::utils::util::{create_random_position, mass_to_radius};
 use rand::Rng;
 use serde::Serialize;
 use tokio::sync::RwLock;
