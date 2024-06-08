@@ -12,16 +12,20 @@ use uuid::Uuid;
 
 use crate::{
     config::{get_current_config, Config},
-    managers::player_manager::PlayerManager,
+    managers::{
+        food_manager::FoodManager, mass_food_manager::MassFoodManager,
+        player_manager::PlayerManager, virus_manager::VirusManager,
+    },
     map::{
-        food::{Food, FoodManager},
-        mass_food::{MassFood, MassFoodManager},
+        food::Food,
+        mass_food::MassFood,
         player::{self, Player},
         point::{AsPoint, Point},
-        virus::{Virus, VirusManager},
+        virus::Virus,
     },
     send_messages::{
-        KickMessage, LeaderboardMessage, PlayerData, ServerTellPlayerMove, UpdateData,
+        KickMessage, KillMessage, LeaderboardMessage, PlayerData, SendEvent, ServerTellPlayerMove,
+        UpdateData,
     },
     utils::{
         quad_tree::{QuadTree, Rectangle},
@@ -287,7 +291,7 @@ impl Game {
                 let leaderboard = players_manager.get_top_players().await;
                 let _ = self
                     .io_socket
-                    .emit("leaderboard", LeaderboardMessage { leaderboard });
+                    .emit(SendEvent::Leaderboard, LeaderboardMessage { leaderboard });
                 // TODO: shrink cells
             }
 
@@ -299,8 +303,9 @@ impl Game {
 
             let mut who_ate_who_list: Vec<((_, _), (_, _))> = vec![];
 
-            let players: Vec<_> = players_manager.players.values().collect();
+            // handling collision btw players
 
+            let players: Vec<_> = players_manager.players.values().collect();
             for player_a_index in 0..players.len() {
                 for player_b_index in player_a_index + 1..players.len() {
                     let player_a = players.get(player_a_index).unwrap().read().await;
@@ -327,22 +332,11 @@ impl Game {
                 }
             }
 
-            // // handle collsion
-            // // player eater
-            // // player got eaten
-            // // [x] remove cell from the player got eaten
-            // // [x] add mass to the player cell who eated
-            // // check if player died
-            // //      player socket emit 'RIP'
-            // //      io emit 'playerDied' with name of who died, and who killed
-            // //      remove player from player_manager
-
             drop(players);
+
             for ((player_who_eat, cell_who_eat), (player_eated, cell_eated)) in
                 who_ate_who_list.into_iter()
             {
-                //     info!("{} eat {}", player_who_eat, player_eated);
-                // }
                 let mut player_who_eat = match players_manager.players.get(&player_who_eat) {
                     Some(player) => player.write().await,
                     None => continue,
@@ -358,16 +352,38 @@ impl Game {
                     None => continue,
                 };
 
+                // add mass to the player cell who eated
                 match player_who_eat.cells.get_mut(cell_who_eat) {
                     Some(cell_who_eat) => cell_who_eat.add_mass(cell_eated_mass),
                     None => continue,
                 };
 
+                // remove cell from the player who got eaten
                 player_eated.cells.remove(cell_eated);
+
                 // check if player died
-                //      player socket emit 'RIP'
-                //      io emit 'playerDied' with name of who died, and who killed
-                //      remove player from player_manager
+                if player_eated.player_is_dead() {
+                    // player eated socket emit 'RIP'
+                    match self.io_socket.get_socket(player_eated.socket_id) {
+                        Some(s) => {
+                            let _ = s.emit(SendEvent::RIP, ());
+                        }
+                        None => {
+                            continue;
+                        }
+                    };
+
+                    // io emit 'playerDied' with name of who died, and who killed
+                    let _ = self.io_socket.emit(
+                        SendEvent::PlayerDied,
+                        KillMessage {
+                            name: player_who_eat.name.clone(),
+                            eater: player_eated.name.clone(),
+                        },
+                    );
+                }
+
+                // remove player from player_manager
             }
 
             // execute the mass_move at the MassFoodManager

@@ -4,17 +4,17 @@ mod managers;
 mod map;
 mod recv_messages;
 mod send_messages;
-mod store;
 mod utils;
 
 use crate::utils::util::{get_position, mass_to_radius};
 use config::{get_current_config, Config};
 use game::Game;
 use map::food::Food;
-use map::player::{Cell, Player};
+use map::player::Player;
 use map::point::Point;
+use recv_messages::RecvEvent;
 use recv_messages::{GotItMessage, TargetMessage, WindowResizedMessage};
-use store::UserSockets;
+use send_messages::SendEvent;
 use tokio::sync::RwLock;
 //Debugging
 use tower::ServiceBuilder;
@@ -52,8 +52,6 @@ struct Message {
     sender: String,
 }
 
-static USER_SOCKETS: Lazy<Arc<UserSockets>> = Lazy::new(|| Arc::new(UserSockets::new()));
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _ = tracing::subscriber::set_global_default(FmtSubscriber::default())?;
@@ -80,8 +78,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let _ = s.join(main_room);
 
         let player = Player::new(s.id);
-        // Directly store the socket reference
-        USER_SOCKETS.add_user(player.id, s.id);
         let player_ref: Arc<RwLock<Player>> = Arc::new(RwLock::new(player));
         let game_ref = game_cloned;
 
@@ -89,7 +85,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let game_ref_cloned = game_ref.clone();
 
         s.on(
-            "respawn",
+            RecvEvent::Respawn,
             |socket: SocketRef, Data::<Username>(name)| async move {
                 let game_width = Config::default().game_width; // Ensure these are available in the scope or via a config struct
                 let game_height = Config::default().game_height;
@@ -99,11 +95,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 });
 
                 let mut player_data = player_ref_cloned.write().await;
-                let _ = socket.emit("welcome", (player_data.clone(), welcome_data));
+                let _ = socket.emit(SendEvent::Welcome, (player_data.clone(), welcome_data));
 
                 let _ = io_socket_cloned
                     .within("main")
-                    .emit("respawned", json!({ "name": name.name }));
+                    .emit(SendEvent::Respawned, json!({ "name": name.name }));
                 drop(player_data);
                 game_ref_cloned.add_player(player_ref_cloned).await;
                 info!("Received respawn for user: {:?}", name.name);
@@ -117,13 +113,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             },
         );
 
-        s.on("pingcheck", |socket: SocketRef| {
-            let _ = socket.emit("pongcheck", ());
+        s.on(RecvEvent::PingCheck, |socket: SocketRef| {
+            let _ = socket.emit(SendEvent::PongCheck, ());
         });
 
         let new_player_clone = player_ref.clone();
         s.on(
-            "0",
+            RecvEvent::PlayerMousePosition,
             |socket: SocketRef, Data::<TargetMessage>(data)| async move {
                 let mut player = new_player_clone.write().await;
                 player.target_x = data.target.x;
@@ -133,46 +129,49 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let game_ref_cloned = game_ref.clone();
         let new_player_clone = player_ref.clone();
-        s.on("1", |socket: SocketRef| async move {
-            let config = get_current_config();
-            let mut player = new_player_clone.write().await;
+        s.on(
+            RecvEvent::PlayerSendingMass,
+            |socket: SocketRef| async move {
+                let config = get_current_config();
+                let mut player = new_player_clone.write().await;
 
-            if player.total_mass < config.min_cell_mass() {
-                return ();
-            }
-
-            let player_position = player.get_position_point();
-            let player_target = player.get_target_point();
-            let player_hue = player.hue;
-
-            let mut mass_food_manager = game_ref_cloned.mass_food_manager.write().await;
-            for cell in player.cells.iter_mut() {
-                if cell.mass >= config.min_cell_mass() {
-                    cell.remove_mass(config.fire_food as f32);
-                    mass_food_manager.add_new(
-                        &player_position,
-                        &player_target,
-                        &cell.position,
-                        player_hue,
-                        config.fire_food as f32,
-                    );
+                if player.total_mass < config.min_cell_mass() {
+                    return ();
                 }
-            }
-        });
+
+                let player_position = player.get_position_point();
+                let player_target = player.get_target_point();
+                let player_hue = player.hue;
+
+                let mut mass_food_manager = game_ref_cloned.mass_food_manager.write().await;
+                for cell in player.cells.iter_mut() {
+                    if cell.mass >= config.min_cell_mass() {
+                        cell.remove_mass(config.fire_food as f32);
+                        mass_food_manager.add_new(
+                            &player_position,
+                            &player_target,
+                            &cell.position,
+                            player_hue,
+                            config.fire_food as f32,
+                        );
+                    }
+                }
+            },
+        );
 
         let game_ref_cloned = game_ref.clone();
         let new_player_clone = player_ref.clone();
-        s.on("2", |socket: SocketRef| async move {
+        s.on(RecvEvent::PlayerSplit, |socket: SocketRef| async move {
             let config = get_current_config();
             let mut player = new_player_clone.write().await;
 
             player.user_split(config.limit_split as usize, config.split_min as f32);
-            let _ = socket.emit("tellPlayerSplit", ());
+            let _ = socket.emit(SendEvent::TellPlayerSplit, ());
         });
 
         let new_player_clone = player_ref.clone();
         s.on(
-            "gotit",
+            RecvEvent::PlayerGoit,
             |socket: SocketRef, Data::<GotItMessage>(data)| async move {
                 let mut player = new_player_clone.write().await;
                 info!("Image got : {:?}", data.imgUrl);
@@ -193,7 +192,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let new_player_clone = player_ref.clone();
         s.on(
-            "windowResized",
+            RecvEvent::PlayerWindowResized,
             |socket: SocketRef, Data::<WindowResizedMessage>(data)| async move {
                 let mut player = new_player_clone.write().await;
                 player.screen_height = data.screenHeight as f32;
@@ -201,12 +200,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             },
         );
 
-        s.on("playerChat", |socket: SocketRef, Data::<Message>(data)| {
-            info!("Received data: {:?}", data);
-            let _ = socket
-                .within(&*main_room)
-                .emit("serverSendPlayerChat", data);
-        });
+        s.on(
+            RecvEvent::PlayerChat,
+            |socket: SocketRef, Data::<Message>(data)| {
+                info!("Received data: {:?}", data);
+                let _ = socket
+                    .within(&*main_room)
+                    .emit(SendEvent::ServerPlayerChat, data);
+            },
+        );
     });
 
     let app = Router::new()

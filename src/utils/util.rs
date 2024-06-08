@@ -1,5 +1,6 @@
 use super::quad_tree::Rectangle;
-use crate::map::player::{Cell, Player};
+use crate::map::cell::Cell;
+use crate::map::player::Player;
 use crate::map::point::Point;
 use chrono::Utc;
 use rand::Rng;

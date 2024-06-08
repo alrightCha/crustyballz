@@ -1,11 +1,47 @@
+use std::{borrow::Cow, fmt::Display};
+
 use serde::Serialize;
 use socketioxide::socket::Sid;
 use uuid::Uuid;
 
 use crate::{
-    map::{food::Food, mass_food::MassFood, player::Cell, virus::Virus},
+    map::{food::Food, mass_food::MassFood, cell::Cell, virus::Virus},
     recv_messages::Target,
 };
+
+pub enum SendEvent {
+    TellPlayerSplit,
+    RIP,
+    PlayerDied,
+    Kicked,
+    Leaderboard,
+    Respawned,
+    Welcome,
+    PongCheck,
+    ServerPlayerChat
+}
+
+impl Display for SendEvent {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match &self {
+            SendEvent::Welcome => "welcome",
+            SendEvent::TellPlayerSplit => "tellPlayerSplit",
+            SendEvent::RIP => "RIP",
+            SendEvent::PlayerDied => "playerDied",
+            SendEvent::Kicked => "kicked",
+            SendEvent::Leaderboard => "leaderboard",
+            SendEvent::PongCheck => "pongcheck",
+            SendEvent::ServerPlayerChat => "serverSendPlayerChat",
+            SendEvent::Respawned => "respawned",
+        }) 
+    }
+}
+
+impl Into<Cow<'static, str>> for SendEvent {
+    fn into(self) -> Cow<'static, str> {
+        self.to_string().into()
+    }
+}
 
 #[derive(Serialize)]
 pub struct ServerTellPlayerMove {
@@ -61,4 +97,12 @@ pub struct LeaderboardPlayer {
     pub id: Uuid,
     pub name: Option<String>,
     pub mass: f32,
+}
+
+
+
+#[derive(Serialize)]
+pub struct KillMessage {
+    pub name: Option<String>,
+    pub eater: Option<String>
 }
