@@ -5,7 +5,7 @@ use socketioxide::socket::Sid;
 use uuid::Uuid;
 
 use crate::{
-    map::{food::Food, mass_food::MassFood, cell::Cell, virus::Virus},
+    map::{cell::Cell, food::Food, mass_food::MassFood, virus::Virus},
     recv_messages::Target,
 };
 
@@ -18,7 +18,7 @@ pub enum SendEvent {
     Respawned,
     Welcome,
     PongCheck,
-    ServerPlayerChat
+    ServerPlayerChat,
 }
 
 impl Display for SendEvent {
@@ -33,7 +33,7 @@ impl Display for SendEvent {
             SendEvent::PongCheck => "pongcheck",
             SendEvent::ServerPlayerChat => "serverSendPlayerChat",
             SendEvent::Respawned => "respawned",
-        }) 
+        })
     }
 }
 
@@ -99,10 +99,14 @@ pub struct LeaderboardPlayer {
     pub mass: f32,
 }
 
-
-
 #[derive(Serialize)]
 pub struct KillMessage {
     pub name: Option<String>,
-    pub eater: Option<String>
+    pub eater: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct WelcomeMessage {
+    pub width: u32,
+    pub height: u32,
 }

@@ -21,7 +21,7 @@ pub fn mass_to_radius(mass: f32) -> f32 {
     4.0 + (mass.sqrt() * 6.0)
 }
 
-//used to not see an immediate change, sort of a smoothing function 
+//used to not see an immediate change, sort of a smoothing function
 pub fn lerp(start: f32, end: f32, factor: f32) -> f32 {
     let difference = end - start;
     start + difference * factor
@@ -45,7 +45,7 @@ pub fn math_log(n: f32, base: Option<f32>) -> f32 {
     n.ln() / base_log
 }
 
-//returns distance between two points 
+//returns distance between two points
 pub fn get_distance(p1: &Point, p2: &Point) -> f32 {
     ((p2.x - p1.x).powi(2) + (p2.y - p1.y).powi(2)).sqrt() - p1.radius - p2.radius
 }
@@ -69,7 +69,7 @@ pub fn get_position(is_uniform: bool, radius: f32, uniform_positions: Option<&[P
     }
 }
 
-//generates a random point to use its x and y values and know a position on the map 
+//generates a random point to use its x and y values and know a position on the map
 fn random_position(radius: f32) -> Point {
     Point {
         x: random_in_range(radius, 10000.0 - radius) as f32,
@@ -122,7 +122,7 @@ pub fn find_index(arr: &[Player], id: Uuid) -> Option<usize> {
     )
 }
 
-//cheks which cell ate the other one by knowing which one is bigger, if there is an overlap between the cells 
+//cheks which cell ate the other one by knowing which one is bigger, if there is an overlap between the cells
 pub fn check_who_ate_who(cell_a: &Cell, cell_b: &Cell) -> u8 {
     if check_overlap(&cell_a.position, &cell_b.position) {
         let min_cell_rad = f32::min(cell_a.position.radius, cell_b.position.radius);
@@ -143,8 +143,8 @@ pub fn is_visible_entity(position_a: Point, player: &Player) -> bool {
         position_a.radius,
         player.x,
         player.y,
-        player.screen_width,
-        player.screen_height,
+        player.screen_width / player.ratio,
+        player.screen_height / player.ratio,
     );
 }
 
@@ -178,7 +178,7 @@ pub fn are_colliding(cell1: &Point, cell2: &Point) -> bool {
     distance < (cell1.radius + cell2.radius)
 }
 
-//returns true if a cell is covering more than 60% of another cell 
+//returns true if a cell is covering more than 60% of another cell
 pub fn check_overlap(circle_a: &Point, circle_b: &Point) -> bool {
     let dx = circle_a.x - circle_b.x;
     let dy = circle_a.y - circle_b.y;
@@ -218,7 +218,7 @@ pub fn check_overlap(circle_a: &Point, circle_b: &Point) -> bool {
     false
 }
 
-//generates a random color for the food and the players 
+//generates a random color for the food and the players
 pub fn random_color() -> (String, String) {
     let mut rng = rand::thread_rng();
     let random_number = rng.gen_range(0..(1 << 24));

@@ -14,13 +14,13 @@ use map::player::Player;
 use map::point::Point;
 use recv_messages::RecvEvent;
 use recv_messages::{GotItMessage, TargetMessage, WindowResizedMessage};
-use send_messages::SendEvent;
+use send_messages::{SendEvent, WelcomeMessage};
+use time::OffsetDateTime;
 use tokio::sync::RwLock;
 //Debugging
+use log::info;
 use tower::ServiceBuilder;
 use tower_http::cors::CorsLayer;
-use tracing::info;
-use tracing_subscriber::FmtSubscriber;
 
 //JSON RESP
 use serde_json::json;
@@ -28,8 +28,9 @@ use serde_json::Value;
 //Server routing
 use axum::routing::get;
 use axum::Router;
-use std::env;
+use std::fs::OpenOptions;
 use std::net::SocketAddr;
+use std::{env, fs};
 
 //For socket reference
 use once_cell::sync::Lazy;
@@ -52,13 +53,49 @@ struct Message {
     sender: String,
 }
 
+fn setup_logger() -> Result<(), fern::InitError> {
+    let logs_folder = "logs";
+    let _ = fs::create_dir(logs_folder);
+    let _ = fs::remove_file(format!("{}/default_output.log", logs_folder));
+
+    let log_name = format!("output_{}", chrono::Utc::now().timestamp());
+
+    fern::Dispatch::new()
+        .format(|out, message, record| {
+            out.finish(format_args!(
+                "[{} {} {}] {}",
+                OffsetDateTime::now_utc(),
+                // humantime::format_rfc3339_seconds(SystemTime::now()),
+                record.level(),
+                record.target(),
+                message
+            ))
+        })
+        .level(log::LevelFilter::Debug)
+        .chain(std::io::stdout())
+        .chain(
+            OpenOptions::new()
+                .write(true)
+                .create(true)
+                .open(format!("{}/default_output.log", logs_folder))?,
+        )
+        .chain(fern::log_file(format!(
+            "{}/{}.log",
+            logs_folder, &log_name
+        ))?)
+        .apply()?;
+
+    info!("Log File: {}", log_name);
+
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let _ = tracing::subscriber::set_global_default(FmtSubscriber::default())?;
-    let _config: Config = Config::default();
+    setup_logger().unwrap();
+
     let server_port = env::var("SERVER_PORT").unwrap_or_else(|_| "8000".to_string());
     let (layer, io_socket) = SocketIo::new_layer();
-    let mass_init: f32 = _config.default_player_mass;
 
     let game = Arc::new(Game::new(io_socket.clone()));
     let game_cloned = game.clone();
@@ -87,20 +124,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         s.on(
             RecvEvent::Respawn,
             |socket: SocketRef, Data::<Username>(name)| async move {
-                let game_width = Config::default().game_width; // Ensure these are available in the scope or via a config struct
-                let game_height = Config::default().game_height;
-                let welcome_data = json!({
-                    "width": game_width,
-                    "height": game_height
-                });
-
-                let mut player_data = player_ref_cloned.write().await;
-                let _ = socket.emit(SendEvent::Welcome, (player_data.clone(), welcome_data));
+                let config = get_current_config();
+                let player_data = player_ref_cloned.read().await.generate_player_data();
+                let _ = socket.emit(
+                    SendEvent::Welcome,
+                    (
+                        player_data,
+                        WelcomeMessage {
+                            height: config.game_height,
+                            width: config.game_width,
+                        },
+                    ),
+                );
 
                 let _ = io_socket_cloned
                     .within("main")
                     .emit(SendEvent::Respawned, json!({ "name": name.name }));
-                drop(player_data);
                 game_ref_cloned.add_player(player_ref_cloned).await;
                 info!("Received respawn for user: {:?}", name.name);
                 /*
@@ -174,13 +213,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             RecvEvent::PlayerGoit,
             |socket: SocketRef, Data::<GotItMessage>(data)| async move {
                 let mut player = new_player_clone.write().await;
+                let config = get_current_config();
                 info!("Image got : {:?}", data.imgUrl);
                 player.init(
-                    Point {
-                        x: 0.0,
-                        y: 0.0,
-                        radius: 0.0,
-                    },
+                    get_position(false, mass_to_radius(config.default_player_mass), None),
                     get_current_config().default_player_mass,
                     data.name,
                     data.screenWidth as f32,

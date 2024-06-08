@@ -11,6 +11,7 @@ use crate::utils::util::{
     mass_to_radius, math_log,
 };
 use chrono::Utc;
+use log::info;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use socketioxide::socket::Sid;
@@ -200,7 +201,8 @@ impl Player {
     }
 
     pub fn set_last_split(&mut self) {
-        let merge_duration = 1000.0 * MERGE_TIMER + self.total_mass / 100.0;
+        // let merge_duration = 1000.0 * MERGE_TIMER + self.total_mass / 100.0;
+        let merge_duration = MERGE_TIMER + self.total_mass / 100.0;
         self.time_to_merge = Some(get_current_timestamp() + merge_duration as i64);
     }
 
@@ -268,7 +270,7 @@ impl Player {
 
         // Create new cells
         for direction in directions {
-            self.cells.push(Cell::new(
+            let new_cell = Cell::new(
                 cell_pos_x,
                 cell_pos_y,
                 new_cells_mass,
@@ -276,7 +278,8 @@ impl Player {
                 true, // Can move
                 Some(direction),
                 cell_img_url.clone(),
-            ));
+            );
+            self.cells.push(new_cell);
         }
 
         // Set last split time, assuming such a method exists
@@ -421,84 +424,59 @@ impl Player {
         });
     }
 
+    pub fn merge_colliding_cells(&mut self) {
+        self.enumerate_colliding_cells(|cell_a, cell_b| {
+            if check_overlap(&cell_a.position, &cell_b.position) {
+                cell_a.add_mass(cell_b.mass);
+                cell_b.mark_for_removal();
+            }
+        });
+
+        self.cells.retain(|cell| !cell.to_be_removed);
+    }
+
     //loops through the players with a sort and sweep algorithm and checks for collision between them
-    pub fn enumerate_colliding_cells<F>(&mut self, mut action: F)
+    pub fn enumerate_colliding_cells<T>(&mut self, callback: T)
     where
-        F: FnMut(usize, usize),
+        T: Fn(&mut Cell, &mut Cell),
     {
         self.sort_by_left();
-        let len = self.cells.len();
-        for i in 0..len {
-            for j in (i + 1)..len {
-                if self.cells[j].position.x - self.cells[j].position.radius
-                    > self.cells[i].position.x + self.cells[i].position.radius
+
+        for i in 0..self.cells.len() {
+            let (split_a, split_b) = self.cells.split_at_mut(i + 1);
+            let cell_a = &mut split_a[i];
+
+            for cell_b in split_b {
+                if (cell_b.position.x - cell_b.position.radius)
+                    > (cell_a.position.x + cell_a.position.radius)
                 {
                     break;
                 }
-                // Inlining collision check for example purposes
-                if (self.cells[i].position.x - self.cells[j].position.x).powi(2)
-                    + (self.cells[i].position.y - self.cells[j].position.y).powi(2)
-                    < (self.cells[i].position.radius + self.cells[j].position.radius).powi(2)
+
+                if cell_a.position.distance(&cell_b.position)
+                    <= (cell_a.position.radius + cell_b.position.radius)
                 {
-                    action(i, j);
+                    callback(cell_a, cell_b);
                 }
             }
         }
-        self.cells.retain(|cell| !cell.to_be_removed);
-    }
-
-    pub fn merge_colliding_cells(&mut self) {
-        let time_to_merge = match self.time_to_merge {
-            Some(tm) => tm <= get_current_timestamp(),
-            None => false,
-        };
-
-        if !time_to_merge {
-            return;
-        }
-
-        let len = self.cells.len();
-        for i in 0..len {
-            let (before, after) = self.cells.split_at_mut(i + 1);
-            let cell_a = &mut before[i];
-            for j in 0..after.len() {
-                let cell_b = &mut after[j];
-                if check_overlap(&cell_a.position, &cell_b.position) {
-                    cell_a.add_mass(cell_b.mass);
-                    cell_b.mark_for_removal();
-                }
-            }
-        }
-        self.cells.retain(|cell| !cell.to_be_removed);
     }
 
     //pushes cells when they are in contact in case the user is still split
-    pub fn push_away_colliding_cells(&mut self, time_to_merge: bool) {
-        if !time_to_merge {
-            return;
-        }
-
-        let len = self.cells.len();
-        for i in 0..len {
-            let (before, after) = self.cells.split_at_mut(i + 1);
-            let cell_a = &mut before[i];
-            for j in 0..after.len() {
-                let cell_b = &mut after[j];
-                if are_colliding(&cell_a.position, &cell_b.position) {
-                    let vector = Point {
-                        x: cell_b.position.x - cell_a.position.x,
-                        y: cell_b.position.y - cell_a.position.y,
-                        radius: 0.0,
-                    }
-                    .normalize()
-                    .scale(PUSHING_AWAY_SPEED);
-                    cell_a.position.x -= vector.x;
-                    cell_a.position.y -= vector.y;
-                    cell_b.position.x += vector.x;
-                    cell_b.position.y += vector.y;
-                }
+    pub fn push_away_colliding_cells(&mut self) {
+        self.enumerate_colliding_cells(|cell_a, cell_b| {
+            let vector = Point {
+                x: cell_b.position.x - cell_a.position.x,
+                y: cell_b.position.y - cell_a.position.y,
+                radius: 0.0,
             }
-        }
+            .normalize()
+            .scale(PUSHING_AWAY_SPEED);
+            cell_a.position.x -= vector.x;
+            cell_a.position.y -= vector.y;
+            cell_b.position.x += vector.x;
+            cell_b.position.y += vector.y;
+        });
     }
 
     pub fn move_cells(
@@ -513,9 +491,10 @@ impl Player {
         if self.cells.len() > 1 {
             if let Some(time_to_merge) = self.time_to_merge {
                 if current_time > time_to_merge {
+                    info!("merge time");
                     self.merge_colliding_cells();
                 } else {
-                    self.push_away_colliding_cells(current_time <= time_to_merge);
+                    self.push_away_colliding_cells();
                 }
             }
         }

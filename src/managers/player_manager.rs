@@ -28,15 +28,16 @@ impl PlayerManager {
     //     self.players.iter().position(|p| p.id == id)
     // }
 
-    pub fn remove_player_by_id(&mut self, id: Uuid) {
+    pub fn remove_player_by_id(&mut self, id: &Uuid) {
         self.players.remove(&id);
     }
 
-    // fn shrink_cells(&mut self, mass_loss_rate: f32, default_player_mass: f32, min_mass_loss: f32) {
-    //     for player in &mut self.players {
-    //         player.lose_mass_if_needed(mass_loss_rate, default_player_mass, min_mass_loss);
-    //     }
-    // }
+    pub async fn shrink_cells(&self, mass_loss_rate: f32, default_player_mass: f32, min_mass_loss: f32) {
+        for player in self.players.values() {
+            let mut player = player.write().await;
+            player.lose_mass_if_needed(mass_loss_rate, default_player_mass, min_mass_loss);
+        }
+    }
 
     pub async fn get_top_players(&self) -> Vec<LeaderboardPlayer> {
         // First, clone the players to a mutable local variable to sort

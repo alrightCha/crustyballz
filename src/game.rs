@@ -1,13 +1,14 @@
 use std::{
-    ops::Sub,
+    ops::{Sub, SubAssign},
+    slice::Iter,
     sync::{atomic::AtomicUsize, Arc},
     time::Duration,
 };
 
 use chrono::Utc;
+use log::{debug, info};
 use socketioxide::SocketIo;
 use tokio::{sync::RwLock, time::sleep};
-use tracing::{debug, info};
 use uuid::Uuid;
 
 use crate::{
@@ -52,7 +53,6 @@ pub struct Game {
     pub virus_manager: RwLock<VirusManager>,
     pub mass_food_manager: RwLock<MassFoodManager>,
     pub player_manager: RwLock<PlayerManager>,
-    pub food_count: AtomicUsize,
     pub main_room: String,
     pub io_socket: SocketIo,
 }
@@ -76,19 +76,9 @@ impl Game {
             virus_manager: RwLock::new(VirusManager::new()),
             mass_food_manager: RwLock::new(MassFoodManager::new()),
             player_manager: RwLock::new(PlayerManager::new()),
-            food_count: AtomicUsize::new(0),
             main_room: "main".to_string(),
             io_socket,
         }
-    }
-
-    fn get_food_count(&self) -> usize {
-        self.food_count.load(std::sync::atomic::Ordering::Relaxed)
-    }
-
-    fn set_food_count(&self, new_count: usize) {
-        self.food_count
-            .store(new_count, std::sync::atomic::Ordering::Relaxed);
     }
 
     pub async fn add_player(&self, player: Arc<RwLock<Player>>) {
@@ -99,16 +89,14 @@ impl Game {
             .push_new(player_id, player);
     }
 
-    pub async fn remove_player(&self, player_id: Uuid) {
-        self.player_manager
-            .write()
-            .await
-            .remove_player_by_id(player_id);
+    pub async fn remove_players(&self, players: impl Iterator<Item = &Uuid>) {
+        let mut player_manager = self.player_manager.write().await;
+        for player_id in players {
+            player_manager.remove_player_by_id(player_id);
+        }
     }
 
-    pub async fn tick_player(&self, player: &mut Player) {
-        let config = get_current_config();
-
+    pub async fn tick_player(&self, player: &mut Player, config: &Config) {
         if player.last_heartbeat < (get_current_timestamp() - config.max_heartbeat_interval) {
             let _ = self.io_socket.emit(
                 "kick",
@@ -130,8 +118,6 @@ impl Game {
             config.game_height as i32,
             config.get_init_mass_log(),
         );
-
-        // let cells_to_split = Vec::new();
 
         let mut player_view = self.enumerate_what_player_sees(player).await;
 
@@ -156,40 +142,52 @@ impl Game {
                 .filter(|virus| virus.can_be_eat_by(p_cell.mass, p_cell.position))
                 .collect();
 
-            let mut virus_manager = self.virus_manager.write().await;
-            for virus in eaten_virus {
-                p_cell.add_mass(virus.mass);
-                virus_manager.delete(virus.id);
-                cells_to_split.push(i);
+            let mut mass_gained: f32 = 0.0;
+
+            if eaten_virus.len() > 0 {
+                let mut virus_manager = self.virus_manager.write().await;
+
+                for virus in eaten_virus {
+                    mass_gained += virus.mass as f32;
+                    virus_manager.delete(virus.id);
+                    cells_to_split.push(i);
+                }
             }
-            drop(virus_manager);
 
-            let mass_gained_with_food: usize = eaten_food.len();
+            if eaten_mass_food.len() > 0 {
+                mass_gained += eaten_mass_food.iter().map(|f| f.mass).sum::<f32>();
+                let mut mass_food_manager = self.mass_food_manager.write().await;
 
-            // Update the ammount of food in the map
-            self.set_food_count(self.get_food_count() - mass_gained_with_food);
-
-            let mass_gained_with_mass_food: f32 = eaten_mass_food.iter().map(|f| f.mass).sum();
-
-            let mut mass_food_manager = self.mass_food_manager.write().await;
-
-            for mass_food in eaten_mass_food {
-                mass_food_manager.remove_food(mass_food.id);
+                for mass_food in eaten_mass_food {
+                    mass_food_manager.remove_food(mass_food.id);
+                }
             }
-            drop(mass_food_manager);
 
-            p_cell.add_mass((mass_gained_with_food as f32 + mass_gained_with_mass_food) * 10.0);
+            if eaten_food.len() > 0 {
+                let mass_gained_with_food: usize = eaten_food.len();
+                // Update the ammount of food in the map
+                mass_gained += mass_gained_with_food as f32;
+            }
 
-            // TODO: delete food
+            p_cell.add_mass(mass_gained * 10.0);
+
             self.food_manager.delete_many_foods(eaten_food).await;
-            // TODO: change leaderboard
         }
 
-        player.virus_split(
-            &cells_to_split,
-            config.limit_split as usize,
-            config.default_player_mass,
-        );
+        if cells_to_split.len() > 0 {
+            match self.io_socket.get_socket(player.socket_id) {
+                Some(player_socket) => {
+                    let _ = player_socket.emit(SendEvent::TellPlayerSplit, ());
+                }
+                None => {}
+            };
+
+            player.virus_split(
+                &cells_to_split,
+                config.limit_split as usize,
+                config.default_player_mass,
+            );
+        }
 
         player.recalculate_total_mass();
         player.recalculate_ratio();
@@ -217,10 +215,12 @@ impl Game {
         }
     }
 
+    // returns the shoot direction if the virus "exploded"
     pub async fn tick_virus(&self, virus: &mut Virus) -> Option<(Point, Point)> {
         let mass_food_manager = self.mass_food_manager.read().await;
 
-        if virus.speed.is_some() {
+        // move virus if virus.speed > 0
+        if virus.speed.unwrap_or_default() > 0.0 {
             virus.move_virus(
                 get_current_config().game_width as f32,
                 get_current_config().game_height as f32,
@@ -233,6 +233,7 @@ impl Game {
 
         let mut player_direction: Option<Point> = None;
 
+        // get mass eated by the virus
         for mass_food in mass_food_manager.data.iter() {
             if are_colliding(&mass_food.point, &virus_point) {
                 eaten_mass_food.push(mass_food.id);
@@ -248,15 +249,19 @@ impl Game {
             return None;
         }
 
+        drop(mass_food_manager);
+
+        // add mass eated
         virus.add_mass(mass_gained);
 
-        drop(mass_food_manager);
         let mut mass_food_manager = self.mass_food_manager.write().await;
 
+        // remove mass eated
         for mass_food_id in eaten_mass_food {
             mass_food_manager.remove_food(mass_food_id)
         }
 
+        // shoot new virus if virus.mass > 320
         if virus.mass > 320.0 {
             let virus_config = &get_current_config().virus;
             virus.set_mass(random_in_range(
@@ -266,6 +271,62 @@ impl Game {
             return Some((virus.get_position(), player_direction.unwrap()));
         }
         None
+    }
+
+    pub async fn game_loop(&self, config: &Config, players_manager: &PlayerManager) {
+        self.balance_mass(
+            config.game_mass as f32,
+            config.max_food as usize,
+            config.max_virus as usize,
+        )
+        .await;
+
+        if players_manager.players.len() > 0 {
+            let leaderboard = players_manager.get_top_players().await;
+            let _ = self
+                .io_socket
+                .emit(SendEvent::Leaderboard, LeaderboardMessage { leaderboard });
+            players_manager
+                .shrink_cells(
+                    config.mass_loss_rate,
+                    config.default_player_mass,
+                    config.min_mass_loss,
+                )
+                .await;
+        }
+    }
+
+    // returns a list of (player_who_eat, player_eated) - (id, cell_index)
+    pub async fn get_players_collision(
+        players_manager: &PlayerManager,
+    ) -> Vec<((Uuid, usize), (Uuid, usize))> {
+        let mut who_ate_who_list: Vec<((_, _), (_, _))> = vec![];
+
+        // handling collision btw players
+        let players: Vec<_> = players_manager.players.values().collect();
+        for player_a_index in 0..players.len() {
+            for player_b_index in player_a_index + 1..players.len() {
+                let player_a = players.get(player_a_index).unwrap().read().await;
+                let player_b = players.get(player_b_index).unwrap().read().await;
+
+                for (cell_a_index, cell_a) in player_a.cells.iter().enumerate() {
+                    for (cell_b_index, cell_b) in player_b.cells.iter().enumerate() {
+                        // 0: nothing happened
+                        // 1: A ate B
+                        // 2: B ate A
+                        match check_who_ate_who(cell_a, cell_b) {
+                            1 => who_ate_who_list
+                                .push(((player_a.id, cell_a_index), (player_b.id, cell_b_index))),
+                            2 => who_ate_who_list
+                                .push(((player_b.id, cell_b_index), (player_a.id, cell_a_index))),
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        }
+
+        who_ate_who_list
     }
 
     // equivalent to tick_game in node.js backend
@@ -280,60 +341,18 @@ impl Game {
 
             if (get_current_timestamp() - last_game_loop) >= GAME_LOOP_INTERVAL {
                 last_game_loop = get_current_timestamp();
-
-                self.balance_mass(
-                    config.game_mass as f32,
-                    config.max_food as usize,
-                    config.max_virus as usize,
-                )
-                .await;
-                // TODO: calculate leaderboard
-                let leaderboard = players_manager.get_top_players().await;
-                let _ = self
-                    .io_socket
-                    .emit(SendEvent::Leaderboard, LeaderboardMessage { leaderboard });
-                // TODO: shrink cells
+                self.game_loop(&config, &players_manager).await;
             }
 
             // execute tick_player for each player
             for player in players_manager.players.values() {
                 let mut player = player.write().await;
-                self.tick_player(&mut player).await;
+                self.tick_player(&mut player, &config).await;
             }
-
-            let mut who_ate_who_list: Vec<((_, _), (_, _))> = vec![];
 
             // handling collision btw players
-
-            let players: Vec<_> = players_manager.players.values().collect();
-            for player_a_index in 0..players.len() {
-                for player_b_index in player_a_index + 1..players.len() {
-                    let player_a = players.get(player_a_index).unwrap().read().await;
-                    let player_b = players.get(player_b_index).unwrap().read().await;
-
-                    for (cell_a_index, cell_a) in player_a.cells.iter().enumerate() {
-                        for (cell_b_index, cell_b) in player_b.cells.iter().enumerate() {
-                            // 0: nothing happened
-                            // 1: A ate B
-                            // 2: B ate A
-                            match check_who_ate_who(cell_a, cell_b) {
-                                1 => who_ate_who_list.push((
-                                    (player_a.id, cell_a_index),
-                                    (player_b.id, cell_b_index),
-                                )),
-                                2 => who_ate_who_list.push((
-                                    (player_b.id, cell_b_index),
-                                    (player_a.id, cell_a_index),
-                                )),
-                                _ => {}
-                            }
-                        }
-                    }
-                }
-            }
-
-            drop(players);
-
+            let who_ate_who_list = Self::get_players_collision(&players_manager).await;
+            let mut players_who_died: Vec<Uuid> = vec![];
             for ((player_who_eat, cell_who_eat), (player_eated, cell_eated)) in
                 who_ate_who_list.into_iter()
             {
@@ -377,14 +396,18 @@ impl Game {
                     let _ = self.io_socket.emit(
                         SendEvent::PlayerDied,
                         KillMessage {
-                            name: player_who_eat.name.clone(),
-                            eater: player_eated.name.clone(),
+                            name: player_eated.name.clone(),
+                            eater: player_who_eat.name.clone(),
                         },
                     );
                 }
 
                 // remove player from player_manager
+                players_who_died.push(player_eated.id);
             }
+
+            drop(players_manager);
+            self.remove_players(players_who_died.iter()).await;
 
             // execute the mass_move at the MassFoodManager
             self.mass_food_manager
@@ -405,7 +428,6 @@ impl Game {
             }
 
             for (position, direction) in shoot_virus.into_iter() {
-                info!("Shoot from pos {:?} to direction {:?}", position, direction);
                 virus_manager.shoot_one(position, direction);
             }
         }
@@ -429,7 +451,7 @@ impl Game {
 
     pub async fn balance_mass(&self, game_mass: f32, max_food: usize, max_virus: usize) {
         // Calculate the total mass based on food and player mass
-        let food_count = self.get_food_count();
+        let food_count = self.food_manager.get_food_count();
         let mut total_mass = food_count as f32 * get_current_config().food_mass;
 
         total_mass += self.player_manager.read().await.get_total_mass().await;
@@ -439,14 +461,12 @@ impl Game {
         // Calculate the amount of food that can be added based on available capacity and needed mass
         let food_free_capacity = max_food - food_count;
         let food_diff = mass_diff / get_current_config().food_mass;
-        // let food_to_add = food_diff.floor().min(food_free_capacity as f32) as usize;
-        let food_to_add = food_free_capacity;
+        let food_to_add = food_diff.floor().min(food_free_capacity as f32) as usize;
 
         // Add food if there is a need
         if food_to_add > 0 {
             info!("Adding {} food's", food_to_add);
             self.food_manager.create_many_foods(food_to_add).await;
-            self.set_food_count(food_count + food_to_add);
         }
 
         let mut virus_manager = self.virus_manager.write().await;
@@ -459,7 +479,7 @@ impl Game {
     }
 
     pub async fn enumerate_what_player_sees(&self, player: &Player) -> VisibleEntities {
-        let mut visible_food = self.get_food_in_view(player).await;
+        let visible_food = self.get_food_in_view(player).await;
 
         // Get visible viruses
         let visible_viruses = self
