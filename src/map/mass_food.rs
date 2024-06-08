@@ -22,7 +22,7 @@ pub struct MassFood {
     pub id: Uuid,
     pub mass: f32,
     hue: u16,
-    direction: Point,
+    pub direction: Point,
     pub point: Point,
     speed: Option<f32>,
 }

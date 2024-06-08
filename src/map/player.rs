@@ -171,7 +171,7 @@ pub struct Player {
     pub last_heartbeat: i64,
     // Properties to be initialized later
     pub cells: Vec<Cell>,
-    pub mass_total: f32,
+    pub total_mass: f32,
     pub x: f32,
     pub y: f32,
     pub target_x: f32,
@@ -194,7 +194,7 @@ impl Player {
             last_heartbeat: get_current_timestamp(),
             // Initial states for properties to be initialized later
             cells: Vec::new(),
-            mass_total: get_current_config().default_player_mass,
+            total_mass: get_current_config().default_player_mass,
             x: 0.0,
             y: 0.0,
             target_x: 0.0,
@@ -223,7 +223,7 @@ impl Player {
         )];
         self.name = name;
         self.img_url = img_url.clone();
-        self.mass_total = default_player_mass;
+        self.total_mass = default_player_mass;
         self.x = position.x;
         self.y = position.y;
         self.screen_width = screen_width;
@@ -237,7 +237,7 @@ impl Player {
         Point {
             x: self.x,
             y: self.y,
-            radius: mass_to_radius(self.mass_total),
+            radius: mass_to_radius(self.total_mass),
         }
     }
 
@@ -245,14 +245,14 @@ impl Player {
         Point {
             x: self.target_x,
             y: self.target_y,
-            radius: mass_to_radius(self.mass_total),
+            radius: mass_to_radius(self.total_mass),
         }
     }
 
     pub fn recalculate_ratio(&mut self) {
         let new_val = lerp(
             self.ratio,
-            0.8 - 0.2 * (self.mass_total / 500.0).ln() - 0.3 * (self.cells.len() as f32) / 18.0,
+            0.8 - 0.2 * (self.total_mass / 500.0).ln() - 0.3 * (self.cells.len() as f32) / 18.0,
             0.1,
         );
         if new_val > 0.3 {
@@ -260,6 +260,10 @@ impl Player {
         } else {
             self.ratio = 0.3;
         }
+    }
+
+    pub fn recalculate_total_mass(&mut self) {
+        self.total_mass = self.cells.iter().map(|c| c.mass).sum();
     }
 
     pub fn generate_player_data(&self) -> PlayerData {
@@ -279,7 +283,7 @@ impl Player {
             hue: self.hue,
             id: self.id,
             imgUrl: self.img_url.clone(),
-            massTotal: self.mass_total,
+            massTotal: self.total_mass,
             x: self.x,
             y: self.y,
         }
@@ -319,7 +323,7 @@ impl Player {
     ) {
         for i in 0..self.cells.len() {
             if self.cells[i].mass * (1.0 - (mass_loss_rate / 1000.0)) > default_player_mass
-                && self.mass_total > min_mass_loss
+                && self.total_mass > min_mass_loss
             {
                 let mass_loss = self.cells[i].mass * (mass_loss_rate / 1000.0);
                 self.change_cell_mass(i as u8, -mass_loss);
@@ -332,17 +336,17 @@ impl Player {
     }
 
     pub fn set_last_split(&mut self) {
-        //     let merge_duration = Duration::from_secs_f64((1000.0 * MERGE_TIMER + self.mass_total / 100.0).into());
-        //     self.time_to_merge = Some(get_current_timestamp() + (merge_duration));
+        let merge_duration = 1000.0 * MERGE_TIMER + self.total_mass / 100.0;
+        self.time_to_merge = Some(get_current_timestamp() + merge_duration as i64);
     }
 
     pub fn change_cell_mass(&mut self, cell_index: u8, mass_diff: f32) {
         self.cells[cell_index as usize].add_mass(mass_diff);
-        self.mass_total += mass_diff;
+        self.total_mass += mass_diff;
     }
 
     pub fn remove_cell(&mut self, cell_index: u8) -> bool {
-        self.mass_total -= self.cells[cell_index as usize].mass;
+        self.total_mass -= self.cells[cell_index as usize].mass;
         self.cells.remove(cell_index as usize);
         self.cells.is_empty()
     }
@@ -464,7 +468,7 @@ impl Player {
         self.set_last_split();
     }
 
-    //returns the direction based on the current position of the player and the target used with the mouse 
+    //returns the direction based on the current position of the player and the target used with the mouse
     fn calculate_target_direction(&self) -> Point {
         let dx = self.target_x - self.x;
         let dy = self.target_y - self.y;
@@ -677,7 +681,7 @@ impl Player {
         }
     }
 
-    fn check_for_collisions(
+    pub fn check_for_collisions(
         player_a: &Player,
         player_b: &Player,
         player_a_index: usize,

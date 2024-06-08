@@ -2,14 +2,15 @@ use serde::Serialize;
 use socketioxide::socket::Sid;
 use uuid::Uuid;
 
-use crate::{map::{food::Food, mass_food::MassFood, player::Cell, virus::Virus}, recv_messages::Target};
-
+use crate::{
+    map::{food::Food, mass_food::MassFood, player::Cell, virus::Virus},
+    recv_messages::Target,
+};
 
 #[derive(Serialize)]
 pub struct ServerTellPlayerMove {
-    pub playerData : PlayerData,
+    pub playerData: PlayerData,
     pub updates: UpdateData,
-
 }
 
 #[derive(Serialize, Default, Clone)]
@@ -19,7 +20,6 @@ pub struct UpdateData {
     pub visibleMass: Vec<MassFood>,
     pub visibleViruses: Vec<Virus>,
 }
-
 
 #[derive(Serialize, Clone)]
 pub struct PlayerData {
@@ -40,14 +40,25 @@ pub struct PlayerData {
     pub y: f32,
 }
 
-
 #[derive(Serialize)]
 pub struct KickMessage {
     pub name: String,
-    pub id: Uuid
+    pub id: Uuid,
 }
 #[derive(Serialize)]
 pub struct KickedMessage {
     pub socketId: Sid,
-    pub port: u16
+    pub port: u16,
+}
+
+#[derive(Serialize)]
+pub struct LeaderboardMessage {
+    pub leaderboard: Vec<LeaderboardPlayer>,
+}
+
+#[derive(Serialize)]
+pub struct LeaderboardPlayer {
+    pub id: Uuid,
+    pub name: Option<String>,
+    pub mass: f32,
 }

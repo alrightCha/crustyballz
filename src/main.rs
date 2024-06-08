@@ -117,6 +117,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             },
         );
 
+        s.on("pingcheck", |socket: SocketRef| {
+            let _ = socket.emit("pongcheck", ());
+        });
+
         let new_player_clone = player_ref.clone();
         s.on(
             "0",
@@ -129,39 +133,42 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let game_ref_cloned = game_ref.clone();
         let new_player_clone = player_ref.clone();
-        s.on(
-            "1",
-            |socket: SocketRef, Data::<TargetMessage>(data)| async move {
-                let config = get_current_config();
-                let mut player = new_player_clone.write().await;
+        s.on("1", |socket: SocketRef| async move {
+            let config = get_current_config();
+            let mut player = new_player_clone.write().await;
 
-                if player.mass_total < config.min_cell_mass() {
-                    return ();
+            if player.total_mass < config.min_cell_mass() {
+                return ();
+            }
+
+            let player_position = player.get_position_point();
+            let player_target = player.get_target_point();
+            let player_hue = player.hue;
+
+            let mut mass_food_manager = game_ref_cloned.mass_food_manager.write().await;
+            for cell in player.cells.iter_mut() {
+                if cell.mass >= config.min_cell_mass() {
+                    cell.remove_mass(config.fire_food as f32);
+                    mass_food_manager.add_new(
+                        &player_position,
+                        &player_target,
+                        &cell.position,
+                        player_hue,
+                        config.fire_food as f32,
+                    );
                 }
+            }
+        });
 
-                let player_position = player.get_position_point();
-                let player_target = player.get_target_point();
-                let player_hue = player.hue;
+        let game_ref_cloned = game_ref.clone();
+        let new_player_clone = player_ref.clone();
+        s.on("2", |socket: SocketRef| async move {
+            let config = get_current_config();
+            let mut player = new_player_clone.write().await;
 
-                let mut mass_food_manager = game_ref_cloned.mass_food_manager.write().await;
-                for (i, cell) in player.cells.iter_mut().enumerate() {
-                    if cell.mass >= config.min_cell_mass() {
-                        cell.remove_mass(config.fire_food as f32);
-                        mass_food_manager.add_new(
-                            &player_position,
-                            &player_target,
-                            &cell.position,
-                            player_hue,
-                            config.fire_food as f32,
-                        );
-                    }
-                }
-
-                let mut player = new_player_clone.write().await;
-                player.target_x = data.target.x;
-                player.target_y = data.target.y;
-            },
-        );
+            player.user_split(config.limit_split as usize, config.split_min as f32);
+            let _ = socket.emit("tellPlayerSplit", ());
+        });
 
         let new_player_clone = player_ref.clone();
         s.on(

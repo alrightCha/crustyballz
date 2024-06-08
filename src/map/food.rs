@@ -19,12 +19,13 @@ pub struct Food {
 impl Food {
     pub fn new(point: Point) -> Self {
         let mut rng = rand::thread_rng();
+        let mass = rng.gen_range(2..3);
         Food {
             id: Uuid::new_v4(),
             x: point.x,
             y: point.y,
-            radius: point.radius,
-            mass: rng.gen_range(2..3),
+            radius: mass_to_radius(mass as f32),
+            mass,
             hue: rng.gen_range(0..360),
         }
     }

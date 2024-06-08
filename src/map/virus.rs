@@ -1,7 +1,7 @@
 use super::point::Point;
 use crate::config::VirusConfig;
 use crate::utils::game_logic::adjust_for_boundaries;
-use crate::utils::util::{are_colliding, get_position, mass_to_radius};
+use crate::utils::util::{are_colliding, get_position, mass_to_radius, random_in_range};
 use rand::Rng;
 use serde::Serialize;
 use tokio::sync::RwLock;
@@ -9,7 +9,7 @@ use uuid::Uuid;
 
 #[derive(Clone, Serialize)]
 pub struct Virus {
-    id: Uuid,
+    pub id: Uuid,
     x: f32,
     y: f32,
     radius: f32,
@@ -17,7 +17,7 @@ pub struct Virus {
     stroke: String,
     stroke_width: f32,
     direction: Option<Point>,
-    speed: Option<f32>,
+    pub speed: Option<f32>,
     fill: String,
 }
 
@@ -28,7 +28,7 @@ impl Virus {
             id: Uuid::new_v4(),
             x: point.x,
             y: point.y,
-            radius: point.radius,
+            radius: mass_to_radius(mass),
             mass: mass,
             speed: Some(0.0),
             direction: direction,
@@ -54,7 +54,7 @@ impl Virus {
         self.speed = Some(new_speed);
     }
 
-    fn move_virus(&mut self, game_width: f32, game_height: f32) {
+    pub fn move_virus(&mut self, game_width: f32, game_height: f32) {
         if let Some(speed) = self.speed {
             if let Some(dir) = &self.direction {
                 let delta_x = speed * dir.x;
@@ -81,12 +81,12 @@ impl Virus {
         }
     }
 
-    fn set_mass(&mut self, new_mass: f32) {
+    pub fn set_mass(&mut self, new_mass: f32) {
         self.mass = new_mass;
         self.recalculate_radius();
     }
 
-    fn add_mass(&mut self, to_add: f32) {
+    pub fn add_mass(&mut self, to_add: f32) {
         self.set_mass(self.mass + to_add)
     }
 
@@ -96,44 +96,39 @@ impl Virus {
 }
 
 pub struct VirusManager {
-    pub data: RwLock<Vec<Virus>>,
+    pub data: Vec<Virus>,
     virus_config: VirusConfig,
 }
 
 impl VirusManager {
     pub fn new() -> Self {
         VirusManager {
-            data: RwLock::new(Vec::new()),
+            data: Vec::new(),
             virus_config: VirusConfig::default(), // Correctly assign the `virus` field from `config`
         }
     }
 
-    pub async fn push_new(&self, virus: Virus) {
-        self.data.write().await.push(virus);
+    pub fn push_new(&mut self, virus: Virus) {
+        self.data.push(virus);
     }
 
-    fn random_in_range(&self, low: f32, high: f32) -> f32 {
-        rand::thread_rng().gen_range(low..high)
-    }
-
-    pub async fn add_new(&self, number: usize) {
-        let mut data = self.data.write().await;
+    pub fn add_new(&mut self, number: usize) {
         for _ in 0..number {
-            let mass = self.random_in_range(
+            let mass = random_in_range(
                 self.virus_config.default_mass.from,
                 self.virus_config.default_mass.to,
             );
             let radius = mass_to_radius(mass);
             let position = get_position(self.virus_config.uniform_disposition, radius, None);
             let new_virus = Virus::new(position, mass, None);
-            data.push(new_virus);
+            self.data.push(new_virus);
         }
     }
 
-    //Divides a virus by reducing its mass and creating a new virus with the initial position being the center of the original virus, 
+    //Divides a virus by reducing its mass and creating a new virus with the initial position being the center of the original virus,
     //and the new direction being the last direction aimed by the player right before the split
     pub fn shoot_one(&mut self, position: Point, direction: Point) {
-        let mass = self.random_in_range(
+        let mass = random_in_range(
             self.virus_config.default_mass.from,
             self.virus_config.default_mass.to,
         );
@@ -142,13 +137,16 @@ impl VirusManager {
         self.push_new(new_virus);
     }
 
-    // pub fn delete(&mut self, index: usize) {
-    //     if index < self.data.len() {
-    //         self.data.remove(index);
-    //     }
-    // }
+    pub fn delete(&mut self, virus_id: Uuid) {
+        match self.data.iter().position(|x| x.id == virus_id) {
+            Some(index) => {
+                self.data.remove(index);
+            }
+            None => {}
+        }
+    }
 
-    pub async fn count(&self) -> usize {
-        self.data.read().await.len()
+    pub fn count(&self) -> usize {
+        self.data.len()
     }
 }

@@ -34,7 +34,7 @@ impl Config {
     }
 
     pub fn min_cell_mass(&self) -> f32 {
-        self.split_min as f32 / self.fire_food as f32
+        self.split_min as f32 + self.fire_food as f32
     }
 }
 
@@ -80,7 +80,7 @@ impl Default for Config {
             food_capacity_q: 10,
             admin_pass: "DEFAULT".to_string(),
             game_mass: 500000,
-            max_food: 500,
+            max_food: 4000,
             max_virus: 100,
             slow_base: 50,
             log_chat: false,

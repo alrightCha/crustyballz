@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
-use crate::map::player::Player;
+use crate::{map::player::Player, send_messages::LeaderboardPlayer};
 
 pub struct PlayerManager {
     pub players: HashMap<Uuid, Arc<RwLock<Player>>>,
@@ -38,39 +38,28 @@ impl PlayerManager {
     //     }
     // }
 
-    // fn handle_collisions(&self, callback: &dyn Fn((usize, usize), (usize, usize))) {
-    //     for (player_a_index, player_a) in self.players.iter().enumerate() {
-    //         for (player_b_index, player_b) in self.players.iter().enumerate().skip(player_a_index + 1) {
-    //             Player::check_for_collisions(player_a, player_b, player_a_index, player_b_index, callback);
-    //         }
-    //     }
-    // }
+    pub async fn get_top_players(&self) -> Vec<LeaderboardPlayer> {
+        // First, clone the players to a mutable local variable to sort
 
-    // fn get_top_players(&self) -> Vec<(Uuid, String)> {
-    //     // First, clone the players to a mutable local variable to sort
-    //     let mut sorted_players = self.players.clone();
-    //     sorted_players.sort_by(|a, b|
-    //         b.cells.iter().map(|c| c.mass).sum::<f32>()
-    //             .partial_cmp(&a.cells.iter().map(|c| c.mass).sum::<f32>())
-    //             .unwrap_or(std::cmp::Ordering::Equal)
-    //     );
+        let mut players = vec![];
+        for player in self.players.values() {
+            let player = player.read().await;
+            players.push(LeaderboardPlayer {
+                id: player.id,
+                name: player.name.clone(),
+                mass: player.total_mass,
+            });
+        }
 
-    //     // Now collect the top 10 players, safely handling Option<String>
-    //     sorted_players.iter()
-    //         .filter_map(|p| {
-    //             Some((
-    //                 p.id.clone(), // If id is None, the player will be skipped
-    //                 p.name.clone()? // If name is None, the player will also be skipped
-    //             ))
-    //         })
-    //         .take(10)
-    //         .collect()
-    // }
+        players.sort_by(|a, b| b.mass.total_cmp(&a.mass));
+
+        players.into_iter().take(10).collect()
+    }
 
     pub async fn get_total_mass(&self) -> f32 {
         let mut sum: f32 = 0.0;
         for player in self.players.values() {
-            sum += player.read().await.mass_total;
+            sum += player.read().await.total_mass;
         }
         sum
     }
