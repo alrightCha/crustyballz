@@ -190,7 +190,7 @@ impl Game {
                 mass_gained += mass_gained_with_food as f32;
             }
 
-            p_cell.add_mass(mass_gained * 10.0);
+            p_cell.add_mass(mass_gained);
 
             self.food_manager.delete_many_foods(eaten_food).await;
         }

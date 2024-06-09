@@ -269,6 +269,8 @@ impl Player {
             }
         } else {
             let target_direction = self.calculate_target_direction(); // A method to calculate and normalize the target direction
+            info!("we are here");
+            info!("{:?}", target_direction);
             directions.resize(pieces_to_create as usize, target_direction);
         }
 
@@ -281,14 +283,13 @@ impl Player {
                 cell_pos_x,
                 cell_pos_y,
                 new_cells_mass,
-                30.0, // Assuming a fixed speed for new cells
+                80.0, // Assuming a fixed speed for new cells
                 false, // Can move
                 Some(direction),
                 cell_img_url.clone(),
             );
             self.cells.push(new_cell);
         }
-
         // Set last split time, assuming such a method exists
         self.set_last_split();
         self.recalculate_total_mass();
@@ -346,14 +347,13 @@ impl Player {
 
     //returns the direction based on the current position of the player and the target used with the mouse
     fn calculate_target_direction(&self) -> Point {
-        let dx = self.target_x - self.x;
-        let dy = self.target_y - self.y;
-        let norm = (dx.powi(2) + dy.powi(2)).sqrt();
+        let dx = self.target_x;
+        let dy = self.target_y;
         Point {
-            x: dx / norm,
-            y: dy / norm,
+            x: dx,
+            y: dy,
             radius: 0.0,
-        }
+        }.normalize().scale(20.0)
     }
 
     pub fn distribute_mass_randomly(
@@ -428,7 +428,7 @@ impl Player {
         // );
 
         for i in 0..cells_to_create.min(self.cells.len()) {
-            self.split_cell(i, 2, default_player_mass, None); // No specific split direction provided
+            self.split_cell(i, 1, default_player_mass, None); 
         }
     }
 
