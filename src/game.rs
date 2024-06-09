@@ -114,7 +114,7 @@ impl Game {
         }
     }
 
-    pub async fn kick_player(&self, player_name: Option<String>, player_id: Uuid) {
+    async fn kick_player(&self, player_name: Option<String>, player_id: Uuid) {
         let _ = self.io_socket.emit(
             SendEvent::KickPlayer,
             KickMessage {

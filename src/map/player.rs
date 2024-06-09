@@ -217,7 +217,7 @@ impl Player {
         self.cells.is_empty()
     }
 
-    pub fn split_cell(
+    fn split_cell(
         &mut self,
         cell_index: usize,
         max_requested_pieces: u8,
@@ -409,10 +409,14 @@ impl Player {
     //function triggered when player hits "space"
     pub fn user_split(&mut self, max_cells: usize, default_player_mass: f32) {
         let cells_to_create = if self.cells.len() > max_cells / 2 {
-            max_cells.checked_sub(self.cells.len()).unwrap_or_default() + 1
+            max_cells.checked_sub(self.cells.len()).unwrap_or_default()
         } else {
             self.cells.len()
         };
+
+        if cells_to_create == 0 {
+            return;
+        }
 
         // Sort cells by mass in descending order
         self.cells.sort_by(|a, b| {
@@ -421,15 +425,18 @@ impl Player {
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
 
-        // info!(
-        //     "reallyy max_cells: {} /// we want to create: {}",
-        //     max_cells,
-        //     cells_to_create.min(self.cells.len())
-        // );
+        info!(
+            "player mass: {} - max_cells: {} - we want to create: {}",
+            self.total_mass,
+            max_cells,
+            cells_to_create.min(self.cells.len())
+        );
 
         for i in 0..cells_to_create.min(self.cells.len()) {
             self.split_cell(i, 1, default_player_mass, None); 
         }
+        self.recalculate_total_mass();
+        info!("player mass after split: {}", self.total_mass);
     }
 
     fn sort_by_left(&mut self) {

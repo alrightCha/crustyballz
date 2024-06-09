@@ -289,7 +289,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let game_ref_cloned = game_ref.clone();
         s.on_disconnect(|| async move {
             let player = new_player_clone.read().await;
-            info!("Player[{:?}] disconnect -  Needs to be kicked", player.name);
 
             game_ref_cloned
                 .update_queue
