@@ -68,12 +68,12 @@ pub struct Game {
     pub player_manager: RwLock<PlayerManager>,
     pub main_room: String,
     pub io_socket: SocketIo,
-    pub matchmaking_socket: Mutex<ClientWebSocket>,
+    pub matchmaking_socket: Option<Mutex<ClientWebSocket>>,
     pub update_queue: Mutex<VecDeque<QueueMessage>>,
 }
 
 impl Game {
-    pub fn new(io_socket: SocketIo, matchmaking_socket: ClientWebSocket) -> Self {
+    pub fn new(io_socket: SocketIo, matchmaking_socket: Option<Mutex<ClientWebSocket>>) -> Self {
         let config = get_current_config();
 
         Game {
@@ -95,7 +95,7 @@ impl Game {
             player_manager: RwLock::new(PlayerManager::new()),
             main_room: "main".to_string(),
             io_socket,
-            matchmaking_socket: Mutex::new(matchmaking_socket),
+            matchmaking_socket,
         }
     }
 
@@ -122,15 +122,20 @@ impl Game {
                 name: player_name.clone(),
             },
         );
-        let mut match_making_socket = self.matchmaking_socket.lock().await;
 
-        let kicked_message = KickMessage {
-            id: player_id,
-            name: player_name.clone()
-        };
-        let kicked_message = serde_json::to_string(&kicked_message).unwrap();
+        if let Some(ref match_making_socket) = self.matchmaking_socket {
+            let mut match_making_socket = match_making_socket.lock().await;
 
-        let _ = match_making_socket.send(Message::Text(kicked_message)).await;
+            let kicked_message = KickMessage {
+                id: player_id,
+                name: player_name.clone(),
+            };
+            let kicked_message = serde_json::to_string(&kicked_message).unwrap();
+
+            let _ = match_making_socket
+                .send(Message::Text(kicked_message))
+                .await;
+        }
 
         let mut player_manager = self.player_manager.write().await;
         player_manager.remove_player_by_id(&player_id);

@@ -18,7 +18,7 @@ use recv_messages::{GotItMessage, TargetMessage, WindowResizedMessage};
 use send_messages::{PlayerJoinMessage, SendEvent, WelcomeMessage};
 use time::OffsetDateTime;
 use tokio::net::TcpStream;
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 //Debugging
 use dotenv::dotenv;
 use log::{error, info};
@@ -92,13 +92,19 @@ fn setup_logger() -> Result<(), fern::InitError> {
 
 pub type ClientWebSocket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
-async fn setup_matchmaking_service() -> ClientWebSocket {
+async fn setup_matchmaking_service() -> Option<Mutex<ClientWebSocket>> {
+    let mode = env::var("MODE").unwrap_or("DEBUG".to_string());
+
+    if mode == "DEBUG" {
+        return None;
+    }
+
     let url = "https://127.0.0.1:443";
 
     let (ws_stream, _) = connect_async(url).await.expect("Failed to connect");
     println!("WebSocket handshake has been successfully completed");
 
-    ws_stream
+    Some(Mutex::new(ws_stream))
 }
 
 #[tokio::main]
@@ -296,16 +302,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
     });
 
-    // configure certificate and private key used by https
-    let config = RustlsConfig::from_pem_file(
-        PathBuf::from(env::var("CERTIFICATE_DIR").expect("Certificate directory not defined"))
-            .join("cert.pem"),
-        PathBuf::from(env::var("CERTIFICATE_DIR").expect("Certificate directory not defined"))
-            .join("fullchain.pem"),
-    )
-    .await
-    .unwrap();
-
     let app = Router::new()
         .route("/", get(|| async { "wow much big ballz" }))
         .layer(
@@ -314,19 +310,40 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .layer(layer),
         );
 
-    let port: u16 = env::args()
-        .nth(0)
+    let ws_port: u16 = env::args()
+        .nth(1)
         .unwrap_or("8000".to_string())
         .parse()
-        .expect("Error parsing port");
+        .expect("Error parsing ws port, invalid argument.");
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], port));
+    let addr = SocketAddr::from(([127, 0, 0, 1], ws_port));
 
-    info!("Server running: {}", addr);
-    axum_server::bind_rustls(addr, config)
-        .serve(app.into_make_service())
+    let mode = env::var("MODE").unwrap_or("DEBUG".to_string());
+
+    info!("Starting Server [{}] at: {}", mode, addr);
+
+    if mode == "PRODUCTION" {
+        // configure certificate and private key used by https
+        let config = RustlsConfig::from_pem_file(
+            PathBuf::from(env::var("CERTIFICATE_DIR").expect("Certificate directory not defined"))
+                .join("cert.pem"),
+            PathBuf::from(env::var("CERTIFICATE_DIR").expect("Certificate directory not defined"))
+                .join("fullchain.pem"),
+        )
         .await
         .unwrap();
 
+        axum_server::bind_rustls(addr, config)
+            .serve(app.into_make_service())
+            .await
+            .unwrap();
+    } else {
+        // DEBUG MODE
+        let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+
+        axum::serve(listener, app.into_make_service())
+            .await
+            .unwrap();
+    }
     Ok(())
 }
