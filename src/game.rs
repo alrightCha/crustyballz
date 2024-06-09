@@ -434,6 +434,8 @@ impl Game {
                     None => continue,
                 };
 
+                info!("Player [{:?}] eat Player [{:?}]", player_who_eat.name, player_eated.name);
+
                 let cell_eated_mass = match player_eated.cells.get(cell_eated) {
                     Some(cell_eated) => cell_eated.mass,
                     None => continue,
@@ -468,10 +470,12 @@ impl Game {
                             eater: player_who_eat.name.clone(),
                         },
                     );
-                }
 
-                // remove player from player_manager
-                players_who_died.push(player_eated.id);
+                    info!("Player [{:?}] was killed !", player_eated.name);
+                    
+                    // remove player from player_manager
+                    players_who_died.push(player_eated.id);
+                }
             }
 
             drop(players_manager);

@@ -251,7 +251,7 @@ impl Player {
             return;
         }
 
-        let new_cells_mass = cell_mass / (pieces_to_create+1) as f32;
+        let new_cells_mass = cell_mass / (pieces_to_create + 1) as f32;
         let angle_increment = 1.6 * std::f32::consts::PI / pieces_to_create as f32;
 
         let mut directions = Vec::new();
@@ -259,13 +259,11 @@ impl Player {
         if let Some(angle_base) = split_dir {
             for i in 0..pieces_to_create {
                 let angle = angle_base + angle_increment * i as f32;
-                directions.push(
-                    Point {
-                        x: angle.cos(),
-                        y: angle.sin(),
-                        radius: 0.0,
-                    },
-                );
+                directions.push(Point {
+                    x: angle.cos(),
+                    y: angle.sin(),
+                    radius: 0.0,
+                });
             }
         } else {
             let target_direction = self.calculate_target_direction(); // A method to calculate and normalize the target direction
@@ -283,7 +281,7 @@ impl Player {
                 cell_pos_x,
                 cell_pos_y,
                 new_cells_mass,
-                80.0, // Assuming a fixed speed for new cells
+                80.0,  // Assuming a fixed speed for new cells
                 false, // Can move
                 Some(direction),
                 cell_img_url.clone(),
@@ -353,7 +351,9 @@ impl Player {
             x: dx,
             y: dy,
             radius: 0.0,
-        }.normalize().scale(20.0)
+        }
+        .normalize()
+        .scale(20.0)
     }
 
     pub fn distribute_mass_randomly(
@@ -395,7 +395,12 @@ impl Player {
             if cell_index < self.cells.len() {
                 // Safety check to ensure the index is valid
                 let max_requested_pieces =
-                    max_cells.checked_sub(self.cells.len()).unwrap_or_default() + 1;
+                    max_cells.checked_sub(self.cells.len()).unwrap_or_default();
+
+                if max_requested_pieces == 0 {
+                    continue;
+                }
+
                 self.split_cell(
                     cell_index,
                     max_requested_pieces as u8,
@@ -407,7 +412,11 @@ impl Player {
     }
 
     //function triggered when player hits "space"
-    pub fn user_split(&mut self, max_cells: usize, default_player_mass: f32) {
+    pub fn user_split(
+        &mut self,
+        max_cells: usize,
+        default_player_mass: f32
+    ) {
         let cells_to_create = if self.cells.len() > max_cells / 2 {
             max_cells.checked_sub(self.cells.len()).unwrap_or_default()
         } else {
@@ -433,7 +442,10 @@ impl Player {
         );
 
         for i in 0..cells_to_create.min(self.cells.len()) {
-            self.split_cell(i, 1, default_player_mass, None); 
+            if self.cells[i].mass < default_player_mass*2.0 {
+                break; // break because the cells are sorted by mass, the next cells are smaller than this one
+            }
+            self.split_cell(i, 1, default_player_mass, None);
         }
         self.recalculate_total_mass();
         info!("player mass after split: {}", self.total_mass);
@@ -526,10 +538,17 @@ impl Player {
 
         let player_position = self.get_position_point();
 
-        for cell in self.cells.iter_mut() { // TODO: remove the enumerate
+        for cell in self.cells.iter_mut() {
+            // TODO: remove the enumerate
             // Assume cell has a method `move` taking necessary parameters
             // info!("Cell {}", i);
-            cell.move_cell(&player_position, self.target_x, self.target_y, slow_base, init_mass_log);
+            cell.move_cell(
+                &player_position,
+                self.target_x,
+                self.target_y,
+                slow_base,
+                init_mass_log,
+            );
             adjust_for_boundaries(
                 &mut cell.position.x,
                 &mut cell.position.y,

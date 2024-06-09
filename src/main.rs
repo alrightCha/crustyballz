@@ -222,7 +222,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             player.user_split(config.limit_split as usize, config.split_min_mass as f32);
             let _ = socket.emit(SendEvent::TellPlayerSplit, ());
-            info!("Player[{:?}] - {}", player.name, player.cells.len());
         });
 
         let new_player_clone = player_ref.clone();
