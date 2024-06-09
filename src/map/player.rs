@@ -251,7 +251,7 @@ impl Player {
             return;
         }
 
-        let new_cells_mass = cell_mass / pieces_to_create as f32;
+        let new_cells_mass = cell_mass / (pieces_to_create+1) as f32;
         let angle_increment = 1.6 * std::f32::consts::PI / pieces_to_create as f32;
 
         let mut directions = Vec::new();
