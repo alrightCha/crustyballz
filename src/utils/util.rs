@@ -33,6 +33,10 @@ pub fn lerp(start: f32, end: f32, factor: f32) -> f32 {
     start + difference * factor
 }
 
+pub fn lerp_move(start: f32, end: f32, factor: f32) -> f32 {
+    let difference = start - end;
+    start - difference * factor
+}
 //same as above but for degrees
 
 pub fn lerp_deg(start: f32, end: f32, factor: f32) -> f32 {
