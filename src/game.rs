@@ -7,7 +7,9 @@ use std::{
 };
 
 use chrono::Utc;
+use futures_util::SinkExt;
 use log::{debug, info};
+use serde::Serialize;
 use socketioxide::SocketIo;
 use tokio::{
     sync::{
@@ -16,6 +18,7 @@ use tokio::{
     },
     time::sleep,
 };
+use tokio_tungstenite::tungstenite::Message;
 use uuid::Uuid;
 
 use crate::{
@@ -31,9 +34,10 @@ use crate::{
         point::{AsPoint, Point},
         virus::Virus,
     },
+    recv_messages::UsernameMessage,
     send_messages::{
-        KickMessage, KillMessage, LeaderboardMessage, PlayerData, SendEvent, ServerTellPlayerMove,
-        UpdateData,
+        KickMessage, KickedMessage, KillMessage, LeaderboardMessage, PlayerData, SendEvent,
+        ServerTellPlayerMove, UpdateData,
     },
     utils::{
         quad_tree::{QuadTree, Rectangle},
@@ -43,6 +47,7 @@ use crate::{
             get_current_timestamp, is_visible_entity, mass_to_radius, random_in_range,
         },
     },
+    ClientWebSocket,
 };
 
 //Used to return to the player what is visible on his screen
@@ -63,13 +68,13 @@ pub struct Game {
     pub player_manager: RwLock<PlayerManager>,
     pub main_room: String,
     pub io_socket: SocketIo,
+    pub matchmaking_socket: Mutex<ClientWebSocket>,
     pub update_queue: Mutex<VecDeque<QueueMessage>>,
 }
 
 impl Game {
-    pub fn new(io_socket: SocketIo) -> Self {
+    pub fn new(io_socket: SocketIo, matchmaking_socket: ClientWebSocket) -> Self {
         let config = get_current_config();
-        let (tx, rx) = mpsc::unbounded_channel::<QueueMessage>();
 
         Game {
             food_manager: FoodManager::new(
@@ -90,6 +95,7 @@ impl Game {
             player_manager: RwLock::new(PlayerManager::new()),
             main_room: "main".to_string(),
             io_socket,
+            matchmaking_socket: Mutex::new(matchmaking_socket),
         }
     }
 
@@ -113,9 +119,18 @@ impl Game {
             SendEvent::KickPlayer,
             KickMessage {
                 id: player_id,
-                name: player_name,
+                name: player_name.clone(),
             },
         );
+        let mut match_making_socket = self.matchmaking_socket.lock().await;
+
+        let kicked_message = KickMessage {
+            id: player_id,
+            name: player_name.clone()
+        };
+        let kicked_message = serde_json::to_string(&kicked_message).unwrap();
+
+        let _ = match_making_socket.send(Message::Text(kicked_message)).await;
 
         let mut player_manager = self.player_manager.write().await;
         player_manager.remove_player_by_id(&player_id);
@@ -190,7 +205,7 @@ impl Game {
                 mass_gained += mass_gained_with_food as f32;
             }
 
-            p_cell.add_mass(mass_gained * 10.0);
+            p_cell.add_mass(mass_gained);
 
             self.food_manager.delete_many_foods(eaten_food).await;
         }

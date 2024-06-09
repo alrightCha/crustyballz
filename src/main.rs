@@ -7,6 +7,7 @@ mod send_messages;
 mod utils;
 
 use crate::utils::util::{create_random_position, mass_to_radius};
+use axum_server::tls_rustls::RustlsConfig;
 use config::{get_current_config, Config};
 use game::Game;
 use map::food::Food;
@@ -16,9 +17,14 @@ use recv_messages::{ChatMessage, RecvEvent, UsernameMessage};
 use recv_messages::{GotItMessage, TargetMessage, WindowResizedMessage};
 use send_messages::{PlayerJoinMessage, SendEvent, WelcomeMessage};
 use time::OffsetDateTime;
+use tokio::net::TcpStream;
 use tokio::sync::RwLock;
 //Debugging
+use dotenv::dotenv;
 use log::{error, info};
+use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
+
+use std::{net::SocketAddr, path::PathBuf};
 use tower::ServiceBuilder;
 use tower_http::cors::CorsLayer;
 
@@ -29,7 +35,6 @@ use serde_json::Value;
 use axum::routing::get;
 use axum::Router;
 use std::fs::OpenOptions;
-use std::net::SocketAddr;
 use std::{env, fs};
 use utils::queue_message::QueueMessage;
 use utils::util::valid_nick;
@@ -38,7 +43,11 @@ use utils::util::valid_nick;
 use once_cell::sync::Lazy;
 use std::sync::Arc;
 
-//Websockets
+//Websockets Client
+use futures_util::{SinkExt, StreamExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
+//Websockets Server
 use socketioxide::{
     extract::{Data, SocketRef},
     SocketIo,
@@ -81,14 +90,26 @@ fn setup_logger() -> Result<(), fern::InitError> {
     Ok(())
 }
 
+pub type ClientWebSocket = WebSocketStream<MaybeTlsStream<TcpStream>>;
+
+async fn setup_matchmaking_service() -> ClientWebSocket {
+    let url = "https://127.0.0.1:443";
+
+    let (ws_stream, _) = connect_async(url).await.expect("Failed to connect");
+    println!("WebSocket handshake has been successfully completed");
+
+    ws_stream
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let _ = dotenv().unwrap();
     setup_logger().unwrap();
 
-    let server_port = env::var("SERVER_PORT").unwrap_or_else(|_| "8000".to_string());
     let (layer, io_socket) = SocketIo::new_layer();
+    let match_marking_socket = setup_matchmaking_service().await;
 
-    let game = Arc::new(Game::new(io_socket.clone()));
+    let game = Arc::new(Game::new(io_socket.clone(), match_marking_socket));
     let game_cloned = game.clone();
 
     // tokio spawn game loop
@@ -275,6 +296,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
     });
 
+    // configure certificate and private key used by https
+    let config = RustlsConfig::from_pem_file(
+        PathBuf::from(env::var("CERTIFICATE_DIR").expect("Certificate directory not defined"))
+            .join("cert.pem"),
+        PathBuf::from(env::var("CERTIFICATE_DIR").expect("Certificate directory not defined"))
+            .join("fullchain.pem"),
+    )
+    .await
+    .unwrap();
+
     let app = Router::new()
         .route("/", get(|| async { "wow much big ballz" }))
         .layer(
@@ -283,14 +314,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .layer(layer),
         );
 
-    // let address = format!("127.0.0.1:{}", server_port).parse().unwrap();
-    let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{}", server_port))
-        .await
-        .unwrap();
+    let port: u16 = env::args()
+        .nth(0)
+        .unwrap_or("8000".to_string())
+        .parse()
+        .expect("Error parsing port");
 
-    info!("Server running {}", server_port);
+    let addr = SocketAddr::from(([127, 0, 0, 1], port));
 
-    axum::serve(listener, app.into_make_service())
+    info!("Server running: {}", addr);
+    axum_server::bind_rustls(addr, config)
+        .serve(app.into_make_service())
         .await
         .unwrap();
 

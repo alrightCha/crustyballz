@@ -23,6 +23,10 @@ fern = "0.6.2"
 log = "0.4.21"
 time = "0.3.36"
 lazy_static = "1.4.0"
+axum-server = { version = "0.6.0", features = ["tls-rustls"] }
+dotenv = "0.15.0"
+tokio-tungstenite = { version = "0.23.0", features = ["native-tls"] }
+futures-util = "0.3.30"
 
 # Enable a small amount of optimization in debug mode
 [profile.dev]
