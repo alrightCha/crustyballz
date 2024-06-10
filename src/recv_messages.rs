@@ -1,5 +1,6 @@
 use std::{borrow::Cow, fmt::Display};
 
+use rust_socketio::Event;
 use serde::{Deserialize, Serialize};
 
 pub enum RecvEvent {
@@ -10,7 +11,7 @@ pub enum RecvEvent {
     PlayerSplit,
     PlayerWindowResized,
     PlayerChat,
-    PlayerGoIt
+    PlayerGoIt,
 }
 
 impl Display for RecvEvent {
@@ -24,7 +25,7 @@ impl Display for RecvEvent {
             RecvEvent::PlayerWindowResized => "windowResized",
             RecvEvent::PlayerChat => "playerChat",
             RecvEvent::PlayerGoIt => "gotit",
-        }) 
+        })
     }
 }
 
@@ -34,21 +35,27 @@ impl Into<Cow<'static, str>> for RecvEvent {
     }
 }
 
+impl Into<Event> for RecvEvent {
+    fn into(self) -> Event {
+        self.to_string().into()
+    }
+}
+
 #[derive(Deserialize)]
 pub struct TargetMessage {
-    pub target : Target
+    pub target: Target,
 }
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct Target {
     pub x: f32,
-    pub y: f32
+    pub y: f32,
 }
 
 #[derive(Deserialize)]
 pub struct WindowResizedMessage {
     pub screenHeight: i32,
-    pub screenWidth: i32
+    pub screenWidth: i32,
 }
 
 #[derive(Deserialize)]
@@ -56,7 +63,7 @@ pub struct GotItMessage {
     pub name: Option<String>,
     pub imgUrl: Option<String>,
     pub screenHeight: i32,
-    pub screenWidth: i32
+    pub screenWidth: i32,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

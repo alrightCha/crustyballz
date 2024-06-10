@@ -1,6 +1,8 @@
 use std::{borrow::Cow, fmt::Display};
 
+use rust_socketio::{Event, Payload};
 use serde::Serialize;
+use serde_json::json;
 use socketioxide::socket::Sid;
 use uuid::Uuid;
 
@@ -20,7 +22,7 @@ pub enum SendEvent {
     Welcome,
     PongCheck,
     ServerPlayerChat,
-    PlayerJoin
+    PlayerJoin,
 }
 
 impl Display for SendEvent {
@@ -43,6 +45,12 @@ impl Display for SendEvent {
 
 impl Into<Cow<'static, str>> for SendEvent {
     fn into(self) -> Cow<'static, str> {
+        self.to_string().into()
+    }
+}
+
+impl Into<Event> for SendEvent {
+    fn into(self) -> Event {
         self.to_string().into()
     }
 }
@@ -94,6 +102,12 @@ pub struct KickMessage {
 pub struct KickedMessage {
     pub socketId: Sid,
     pub port: u16,
+}
+
+impl Into<Payload> for KickedMessage {
+    fn into(self) -> Payload {
+        serde_json::to_value(self).unwrap().into()
+    }
 }
 
 #[derive(Serialize)]
