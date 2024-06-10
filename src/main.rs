@@ -99,7 +99,7 @@ async fn setup_matchmaking_service() -> Option<Mutex<ClientWebSocket>> {
         return None;
     }
 
-    let url = "https://127.0.0.1:443";
+    let url = "wss://127.0.0.1:443";
 
     let (ws_stream, _) = connect_async(url).await.expect("Failed to connect");
     println!("WebSocket handshake has been successfully completed");
