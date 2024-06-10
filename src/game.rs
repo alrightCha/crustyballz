@@ -58,7 +58,7 @@ pub struct VisibleEntities {
     pub visible_mass_food: Vec<MassFood>,
 }
 
-const GAME_LOOP_INTERVAL: i64 = 1 * 60;
+const GAME_LOOP_INTERVAL: i64 = 1;
 const TICKER_LOOP_FPS: f32 = 30.0;
 
 pub struct Game {
@@ -399,14 +399,13 @@ impl Game {
     pub async fn tick_game(&self) {
         let mut last_game_loop: i64 = 0;
         let config = get_current_config();
+        
+        self.handle_queue().await;
 
         loop {
             self.handle_queue().await;
 
-            sleep(Duration::from_secs_f32(1.0 / TICKER_LOOP_FPS)).await;
-
             let players_manager = self.player_manager.read().await;
-
             if (get_current_timestamp() - last_game_loop) >= GAME_LOOP_INTERVAL {
                 last_game_loop = get_current_timestamp();
                 self.game_loop(&config, &players_manager).await;
@@ -502,6 +501,8 @@ impl Game {
             for (position, direction) in shoot_virus.into_iter() {
                 virus_manager.shoot_one(position, direction);
             }
+
+            sleep(Duration::from_secs_f32(1.0 / TICKER_LOOP_FPS)).await;
         }
     }
 

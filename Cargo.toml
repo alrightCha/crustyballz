@@ -27,6 +27,8 @@ axum-server = { version = "0.6.0", features = ["tls-rustls"] }
 dotenv = "0.15.0"
 tokio-tungstenite = { version = "0.23.0", features = ["native-tls"] }
 futures-util = "0.3.30"
+# socket.io client impl
+rust_socketio = { version = "*", features = ["async"] }
 
 # Enable a small amount of optimization in debug mode
 [profile.dev]

@@ -281,7 +281,7 @@ impl Player {
                 cell_pos_x,
                 cell_pos_y,
                 new_cells_mass,
-                80.0,  // Assuming a fixed speed for new cells
+                SPLIT_CELL_SPEED,  // Assuming a fixed speed for new cells
                 false, // Can move
                 Some(direction),
                 cell_img_url.clone(),
@@ -333,7 +333,7 @@ impl Player {
                 cell_position.0,
                 cell_position.1,
                 mass,
-                SPLIT_CELL_SPEED * 10.0 / mass,
+                SPLIT_CELL_SPEED,
                 true,
                 None, // Assuming no direction needed or using default direction
                 cell_img_url.clone(),
@@ -353,7 +353,6 @@ impl Player {
             radius: 0.0,
         }
         .normalize()
-        .scale(20.0)
     }
 
     pub fn distribute_mass_randomly(

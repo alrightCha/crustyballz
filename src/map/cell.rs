@@ -3,7 +3,7 @@ use serde::Serialize;
 
 use crate::utils::{
     consts::{MIN_DISTANCE, MIN_SPEED, SPEED_DECREMENT, SPLIT_CELL_SPEED},
-    util::{lerp_move, lerp_deg, mass_to_radius, math_log},
+    util::{lerp_move, lerp, lerp_deg, mass_to_radius, math_log},
 };
 
 use super::point::Point;
@@ -100,7 +100,7 @@ impl Cell {
         let dist = (target_y.powi(2) + target_x.powi(2)).sqrt();
         let deg = target_y.atan2(target_x);
 
-        let mut slow_down = 1.0;
+        let mut slow_down = 0.03;
         let (mut delta_y, mut delta_x);
 
         if self.can_move {
@@ -116,8 +116,8 @@ impl Cell {
                 delta_x *= ratio;
             }
         } else {
-            self.speed = lerp_move(self.speed, self.speed - SPEED_DECREMENT, 0.9); // Assuming lerp function exists
-            if self.speed <= MIN_SPEED {
+            self.speed = lerp_move(self.speed, self.speed - SPEED_DECREMENT, 0.90);
+            if self.speed <=  MIN_SPEED {
                 self.speed = MIN_SPEED;
                 self.can_move = true;
             }
@@ -125,7 +125,7 @@ impl Cell {
             if let Some(direction_shot) = self.direction_shot {
                 let not_dis = f32::hypot(direction_shot.y, direction_shot.x);
                 let not_deg = direction_shot.y.atan2(direction_shot.x);
-                let real_deg = lerp_deg(not_deg, deg, 0.08 * SPLIT_CELL_SPEED / self.speed); // Assuming lerp_deg function exists
+                let real_deg = lerp_deg(not_deg, deg, 0.2 * SPLIT_CELL_SPEED / self.speed); // Assuming lerp_deg function exists
                 delta_y = self.speed * real_deg.sin();
                 delta_x = self.speed * real_deg.cos();
                 if not_dis < MIN_DISTANCE + self.position.radius {
@@ -133,8 +133,6 @@ impl Cell {
                     delta_y *= ratio;
                     delta_x *= ratio;
                 }
-                self.position.y += delta_y;
-                self.position.x += delta_x;
             } else {
                 delta_y = 0.0;
                 delta_x = 0.0;

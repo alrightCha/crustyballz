@@ -84,7 +84,7 @@ impl Default for Config {
             max_virus: 100,
             slow_base: 50,
             log_chat: false,
-            network_update_factor: 60,
+            network_update_factor: 30,
             max_heartbeat_interval: 50000,
             food_uniform_disposition: true,
             new_player_initial_position: "farthest".to_string(),
