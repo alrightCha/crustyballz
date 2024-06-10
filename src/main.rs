@@ -22,9 +22,12 @@ use tokio::net::TcpStream;
 use tokio::sync::{Mutex, RwLock};
 //Debugging
 use dotenv::dotenv;
-use log::{error, info};
+use log::{error, info, warn};
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 
+use std::env::args;
+use std::net::Ipv4Addr;
+use std::str::FromStr;
 use std::{net::SocketAddr, path::PathBuf};
 use tower::ServiceBuilder;
 use tower_http::cors::CorsLayer;
@@ -42,7 +45,7 @@ use utils::util::valid_nick;
 
 //For socket reference
 use once_cell::sync::Lazy;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 //Websockets Client
 use futures_util::{SinkExt, StreamExt};
@@ -91,31 +94,31 @@ fn setup_logger() -> Result<(), fern::InitError> {
     Ok(())
 }
 
-// pub type ClientWebSocket = WebSocketStream<MaybeTlsStream<TcpStream>>;
+pub fn get_websockets_port() -> &'static u16 {
+    static PORT: OnceLock<u16> = OnceLock::new();
 
-async fn setup_matchmaking_service() -> Option<Client> {
-    let url = "https://127.0.0.1:443";
-
-    Some(ClientBuilder::new(url)
-        .connect()
-        .await
-        .expect("Matchmaking websockets connection failed"))
+    PORT.get_or_init(|| {
+        env::args()
+            .nth(1)
+            .unwrap_or_else(|| {
+                warn!("Websockets port not passed, using default port: 8000");
+                "8000".to_string()
+            })
+            .parse()
+            .expect("Error parsing ws port, invalid argument.")
+    })
 }
 
-// async fn setup_matchmaking_service() -> Option<Mutex<ClientWebSocket>> {
-//     let mode = env::var("MODE").unwrap_or("DEBUG".to_string());
+async fn setup_matchmaking_service() -> Option<Client> {
+    let url_domain = env::args().nth(2).expect("Url Domain is not being passed");
 
-//     if mode == "DEBUG" {
-//         return None;
-//     }
-
-//     let url = "https://127.0.0.1:443";
-
-//     let (ws_stream, _) = connect_async(url).await.expect("Failed to connect");
-//     println!("WebSocket handshake has been successfully completed");
-
-//     Some(Mutex::new(ws_stream))
-// }
+    Some(
+        ClientBuilder::new(url_domain)
+            .connect()
+            .await
+            .expect("Matchmaking websockets connection failed"),
+    )
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -128,7 +131,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let match_marking_socket = match mode.as_str() {
         "DEBUG" => None,
-        _ => setup_matchmaking_service().await
+        _ => setup_matchmaking_service().await,
     };
 
     let game = Arc::new(Game::new(io_socket.clone(), match_marking_socket));
@@ -312,7 +315,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .push_back(QueueMessage::KickPlayer {
                     name: player.name.clone(),
                     id: player.id,
-                    socket_id: player.socket_id
+                    socket_id: player.socket_id,
                 })
         });
     });
@@ -325,13 +328,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .layer(layer),
         );
 
-    let ws_port: u16 = env::args()
-        .nth(1)
-        .unwrap_or("8000".to_string())
-        .parse()
-        .expect("Error parsing ws port, invalid argument.");
+    let ws_port: u16 = *get_websockets_port();
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], ws_port));
+    let ip_address = Ipv4Addr::from_str(
+        env::var("HOST_IPV4")
+            .unwrap_or("127.0.0.1".to_string())
+            .as_str(),
+    )
+    .unwrap();
+    let addr = SocketAddr::from((ip_address, ws_port));
 
     info!("Starting Server [{}] at: {}", mode, addr);
 

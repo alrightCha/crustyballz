@@ -24,31 +24,26 @@ use tokio_tungstenite::tungstenite::Message;
 use uuid::Uuid;
 
 use crate::{
-    config::{get_current_config, Config},
-    managers::{
+    config::{get_current_config, Config}, get_websockets_port, managers::{
         food_manager::FoodManager, mass_food_manager::MassFoodManager,
         player_manager::PlayerManager, virus_manager::VirusManager,
-    },
-    map::{
+    }, map::{
         food::Food,
         mass_food::MassFood,
         player::{self, Player},
         point::{AsPoint, Point},
         virus::Virus,
-    },
-    recv_messages::UsernameMessage,
-    send_messages::{
+    }, recv_messages::UsernameMessage, send_messages::{
         KickMessage, KickedMessage, KillMessage, LeaderboardMessage, PlayerData, SendEvent,
         ServerTellPlayerMove, UpdateData,
-    },
-    utils::{
+    }, utils::{
         quad_tree::{QuadTree, Rectangle},
         queue_message::QueueMessage,
         util::{
             are_colliding, check_who_ate_who, create_random_position_in_range,
             get_current_timestamp, is_visible_entity, mass_to_radius, random_in_range,
         },
-    },
+    }
 };
 
 //Used to return to the player what is visible on his screen
@@ -134,15 +129,15 @@ impl Game {
 
             let kicked_message = KickedMessage {
                 socketId: player_socket_id,
-                port: 999,
+                port: *get_websockets_port(),
             };
 
             let _ = match_making_socket
                 .emit(
                     SendEvent::PlayerKicked.to_string(),
                     json!({
-                        "socketId": player_socket_id,
-                        "port": 999,
+                        "socketId": kicked_message.socketId,
+                        "port": kicked_message.port,
                     }),
                 )
                 .await;
