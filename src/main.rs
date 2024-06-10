@@ -344,9 +344,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // configure certificate and private key used by https
         let config = RustlsConfig::from_pem_file(
             PathBuf::from(env::var("CERTIFICATE_DIR").expect("Certificate directory not defined"))
-                .join("cert.pem"),
-            PathBuf::from(env::var("CERTIFICATE_DIR").expect("Certificate directory not defined"))
                 .join("fullchain.pem"),
+            PathBuf::from(env::var("CERTIFICATE_DIR").expect("Certificate directory not defined"))
+                .join("privkey.pem"),
         )
         .await
         .unwrap();
