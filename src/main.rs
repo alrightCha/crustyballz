@@ -8,6 +8,7 @@ mod utils;
 
 use crate::utils::util::{create_random_position, mass_to_radius};
 use axum_server::tls_rustls::RustlsConfig;
+use clap::Parser;
 use config::{get_current_config, Config};
 use game::Game;
 use map::food::Food;
@@ -23,7 +24,6 @@ use tokio::sync::{Mutex, RwLock};
 //Debugging
 use dotenv::dotenv;
 use log::{error, info, warn};
-use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 
 use std::env::args;
 use std::net::Ipv4Addr;
@@ -50,12 +50,17 @@ use std::sync::{Arc, OnceLock};
 //Websockets Client
 use futures_util::{SinkExt, StreamExt};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 //Websockets Server
 use socketioxide::{
     extract::{Data, SocketRef},
     SocketIo,
 };
+
+#[derive(Parser)]
+struct Cli {
+    pub sub_domain: String,
+    pub port: u16,
+}
 
 fn setup_logger() -> Result<(), fern::InitError> {
     let logs_folder = "logs";
@@ -97,20 +102,18 @@ fn setup_logger() -> Result<(), fern::InitError> {
 pub fn get_websockets_port() -> &'static u16 {
     static PORT: OnceLock<u16> = OnceLock::new();
 
-    PORT.get_or_init(|| {
-        env::args()
-            .nth(1)
-            .unwrap_or_else(|| {
-                warn!("Websockets port not passed, using default port: 8000");
-                "8000".to_string()
-            })
-            .parse()
-            .expect("Error parsing ws port, invalid argument.")
+    PORT.get_or_init(|| match Cli::try_parse() {
+        Ok(cli) => cli.port,
+        Err(err) => {
+            error!("Error parsing CLI args: {:?}", err);
+            warn!("Websockets port not passed, using default port: 8000");
+            8000
+        }
     })
 }
 
 async fn setup_matchmaking_service() -> Option<Client> {
-    let url_domain = env::args().nth(2).expect("Url Domain is not being passed");
+    let url_domain = Cli::try_parse().expect("Error parsing CLI args").sub_domain;
 
     Some(
         ClientBuilder::new(url_domain)
