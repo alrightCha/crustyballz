@@ -94,7 +94,7 @@ fn setup_logger() -> Result<(), fern::InitError> {
 // pub type ClientWebSocket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
 async fn setup_matchmaking_service() -> Option<Client> {
-    let url = "https://127.0.0.1:443";
+    let url = "https://eu.cryptoballz.xyz:443";
 
     Some(ClientBuilder::new(url)
         .connect()
@@ -331,7 +331,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .parse()
         .expect("Error parsing ws port, invalid argument.");
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], ws_port));
+    let addr = SocketAddr::from(([0, 0, 0, 0], ws_port));
 
     info!("Starting Server [{}] at: {}", mode, addr);
 
@@ -339,9 +339,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // configure certificate and private key used by https
         let config = RustlsConfig::from_pem_file(
             PathBuf::from(env::var("CERTIFICATE_DIR").expect("Certificate directory not defined"))
-                .join("cert.pem"),
-            PathBuf::from(env::var("CERTIFICATE_DIR").expect("Certificate directory not defined"))
                 .join("fullchain.pem"),
+            PathBuf::from(env::var("CERTIFICATE_DIR").expect("Certificate directory not defined"))
+                .join("privkey.pem"),
         )
         .await
         .unwrap();
