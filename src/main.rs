@@ -15,6 +15,7 @@ use map::player::{self, Player};
 use map::point::Point;
 use recv_messages::{ChatMessage, RecvEvent, UsernameMessage};
 use recv_messages::{GotItMessage, TargetMessage, WindowResizedMessage};
+use rust_socketio::asynchronous::{Client, ClientBuilder};
 use send_messages::{PlayerJoinMessage, SendEvent, WelcomeMessage};
 use time::OffsetDateTime;
 use tokio::net::TcpStream;
@@ -90,22 +91,31 @@ fn setup_logger() -> Result<(), fern::InitError> {
     Ok(())
 }
 
-pub type ClientWebSocket = WebSocketStream<MaybeTlsStream<TcpStream>>;
+// pub type ClientWebSocket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
-async fn setup_matchmaking_service() -> Option<Mutex<ClientWebSocket>> {
-    let mode = env::var("MODE").unwrap_or("DEBUG".to_string());
-
-    if mode == "DEBUG" {
-        return None;
-    }
-
+async fn setup_matchmaking_service() -> Option<Client> {
     let url = "https://127.0.0.1:443";
 
-    let (ws_stream, _) = connect_async(url).await.expect("Failed to connect");
-    println!("WebSocket handshake has been successfully completed");
-
-    Some(Mutex::new(ws_stream))
+    Some(ClientBuilder::new(url)
+        .connect()
+        .await
+        .expect("Matchmaking websockets connection failed"))
 }
+
+// async fn setup_matchmaking_service() -> Option<Mutex<ClientWebSocket>> {
+//     let mode = env::var("MODE").unwrap_or("DEBUG".to_string());
+
+//     if mode == "DEBUG" {
+//         return None;
+//     }
+
+//     let url = "https://127.0.0.1:443";
+
+//     let (ws_stream, _) = connect_async(url).await.expect("Failed to connect");
+//     println!("WebSocket handshake has been successfully completed");
+
+//     Some(Mutex::new(ws_stream))
+// }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -113,7 +123,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     setup_logger().unwrap();
 
     let (layer, io_socket) = SocketIo::new_layer();
-    let match_marking_socket = setup_matchmaking_service().await;
+
+    let mode = env::var("MODE").unwrap_or("DEBUG".to_string());
+
+    let match_marking_socket = match mode.as_str() {
+        "DEBUG" => None,
+        _ => setup_matchmaking_service().await
+    };
 
     let game = Arc::new(Game::new(io_socket.clone(), match_marking_socket));
     let game_cloned = game.clone();
@@ -296,6 +312,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .push_back(QueueMessage::KickPlayer {
                     name: player.name.clone(),
                     id: player.id,
+                    socket_id: player.socket_id
                 })
         });
     });
@@ -315,8 +332,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect("Error parsing ws port, invalid argument.");
 
     let addr = SocketAddr::from(([127, 0, 0, 1], ws_port));
-
-    let mode = env::var("MODE").unwrap_or("DEBUG".to_string());
 
     info!("Starting Server [{}] at: {}", mode, addr);
 

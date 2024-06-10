@@ -9,8 +9,10 @@ use std::{
 use chrono::Utc;
 use futures_util::SinkExt;
 use log::{debug, info};
+use rust_socketio::asynchronous::Client;
 use serde::Serialize;
-use socketioxide::SocketIo;
+use serde_json::json;
+use socketioxide::{socket::Sid, SocketIo};
 use tokio::{
     sync::{
         mpsc::{self, UnboundedReceiver, UnboundedSender},
@@ -47,7 +49,6 @@ use crate::{
             get_current_timestamp, is_visible_entity, mass_to_radius, random_in_range,
         },
     },
-    ClientWebSocket,
 };
 
 //Used to return to the player what is visible on his screen
@@ -68,12 +69,12 @@ pub struct Game {
     pub player_manager: RwLock<PlayerManager>,
     pub main_room: String,
     pub io_socket: SocketIo,
-    pub matchmaking_socket: Option<Mutex<ClientWebSocket>>,
+    pub matchmaking_socket: Option<Client>,
     pub update_queue: Mutex<VecDeque<QueueMessage>>,
 }
 
 impl Game {
-    pub fn new(io_socket: SocketIo, matchmaking_socket: Option<Mutex<ClientWebSocket>>) -> Self {
+    pub fn new(io_socket: SocketIo, matchmaking_socket: Option<Client>) -> Self {
         let config = get_current_config();
 
         Game {
@@ -114,7 +115,12 @@ impl Game {
         }
     }
 
-    async fn kick_player(&self, player_name: Option<String>, player_id: Uuid) {
+    async fn kick_player(
+        &self,
+        player_name: Option<String>,
+        player_id: Uuid,
+        player_socket_id: Sid,
+    ) {
         let _ = self.io_socket.emit(
             SendEvent::KickPlayer,
             KickMessage {
@@ -124,16 +130,21 @@ impl Game {
         );
 
         if let Some(ref match_making_socket) = self.matchmaking_socket {
-            let mut match_making_socket = match_making_socket.lock().await;
+            // let mut match_making_socket = match_making_socket.lock().await;
 
-            let kicked_message = KickMessage {
-                id: player_id,
-                name: player_name.clone(),
+            let kicked_message = KickedMessage {
+                socketId: player_socket_id,
+                port: 999,
             };
-            let kicked_message = serde_json::to_string(&kicked_message).unwrap();
 
             let _ = match_making_socket
-                .send(Message::Text(kicked_message))
+                .emit(
+                    SendEvent::PlayerKicked.to_string(),
+                    json!({
+                        "socketId": player_socket_id,
+                        "port": 999,
+                    }),
+                )
                 .await;
         }
 
@@ -149,6 +160,7 @@ impl Game {
                 .push_back(QueueMessage::KickPlayer {
                     name: player.name.clone(),
                     id: player.id,
+                    socket_id: player.socket_id
                 });
             return ();
         }
@@ -384,8 +396,8 @@ impl Game {
         loop {
             match queue.pop_front() {
                 Some(message) => match message {
-                    QueueMessage::KickPlayer { name, id } => {
-                        self.kick_player(name, id).await;
+                    QueueMessage::KickPlayer { name, id , socket_id} => {
+                        self.kick_player(name, id, socket_id).await;
                     }
                 },
                 None => {
@@ -399,7 +411,7 @@ impl Game {
     pub async fn tick_game(&self) {
         let mut last_game_loop: i64 = 0;
         let config = get_current_config();
-        
+
         self.handle_queue().await;
 
         loop {
@@ -433,7 +445,10 @@ impl Game {
                     None => continue,
                 };
 
-                info!("Player [{:?}] eat Player [{:?}]", player_who_eat.name, player_eated.name);
+                info!(
+                    "Player [{:?}] eat Player [{:?}]",
+                    player_who_eat.name, player_eated.name
+                );
 
                 let cell_eated_mass = match player_eated.cells.get(cell_eated) {
                     Some(cell_eated) => cell_eated.mass,
@@ -471,7 +486,7 @@ impl Game {
                     );
 
                     info!("Player [{:?}] was killed !", player_eated.name);
-                    
+
                     // remove player from player_manager
                     players_who_died.push(player_eated.id);
                 }
