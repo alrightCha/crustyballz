@@ -57,9 +57,10 @@ use socketioxide::{
 };
 
 #[derive(Parser)]
+#[command(about, long_about = None)]
 struct Cli {
-    pub sub_domain: String,
     pub port: u16,
+    pub sub_domain: String,
 }
 
 fn setup_logger() -> Result<(), fern::InitError> {
