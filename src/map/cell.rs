@@ -116,7 +116,7 @@ impl Cell {
                 delta_x *= ratio;
             }
         }  else {
-            self.speed = lerp_move(self.speed, math_log(self.speed, Some(10.0), 5.0), 0.06);
+            self.speed = lerp_move(self.speed, math_log(self.speed, Some(7.5), 5.0), 0.06);
             if self.speed <=  MIN_SPEED {
                 self.can_move = true;
                 self.speed = MIN_SPEED;
