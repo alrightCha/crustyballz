@@ -115,7 +115,7 @@ pub fn get_websockets_port() -> &'static u16 {
 
 async fn setup_matchmaking_service() -> Option<Client> {
     let url_domain = Cli::try_parse().expect("Error parsing CLI args").sub_domain;
-
+    info!("URL DOMAIN FOR MATCHMAKING : {:?}", url_domain);
     Some(
         ClientBuilder::new(url_domain)
             .connect()
