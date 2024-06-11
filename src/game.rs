@@ -548,7 +548,6 @@ impl Game {
 
         // Add food if there is a need
         if food_to_add > 0 {
-            info!("Adding {} food's", food_to_add);
             self.food_manager.create_many_foods(food_to_add).await;
         }
 
