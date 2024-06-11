@@ -40,7 +40,7 @@ impl VirusManager {
             self.virus_config.default_mass.to,
         );
         let mut new_virus = Virus::new(position, mass, Some(direction));
-        new_virus.set_speed(25.0);
+        new_virus.set_speed(50.0);
         self.push_new(new_virus);
     }
 

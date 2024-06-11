@@ -211,12 +211,6 @@ impl Player {
         self.total_mass += mass_diff;
     }
 
-    pub fn remove_cell(&mut self, cell_index: u8) -> bool {
-        self.total_mass -= self.cells[cell_index as usize].mass;
-        self.cells.remove(cell_index as usize);
-        self.cells.is_empty()
-    }
-
     fn split_cell(
         &mut self,
         cell_index: usize,

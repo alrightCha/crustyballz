@@ -1,4 +1,3 @@
-use super::quad_tree::Rectangle;
 use crate::map::cell::Cell;
 use crate::map::player::Player;
 use crate::map::point::Point;
@@ -50,9 +49,10 @@ pub fn lerp_deg(start: f32, end: f32, factor: f32) -> f32 {
     start + difference * factor
 }
 
-pub fn math_log(n: f32, base: Option<f32>) -> f32 {
+pub fn math_log(n: f32, base: Option<f32>, min_speed: f32) -> f32 {
     let base_log = base.map_or(1.0, |b| b.ln());
-    n.ln() / base_log
+    let x = n / min_speed;
+    base_log / x.ln()
 }
 
 //returns distance between two points
@@ -179,8 +179,8 @@ fn test_rectangle_rectangle(
     width_b: f32,
     height_b: f32,
 ) -> bool {
-    let half_width_a = radius / 2.0;
-    let half_height_a = radius / 2.0;
+    let half_width_a = radius;
+    let half_height_a = radius;
     let half_width_b = width_b / 2.0;
     let half_height_b = height_b / 2.0;
 

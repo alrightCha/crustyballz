@@ -7,8 +7,37 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug",
-            "program": "${workspaceFolder}/<executable file>",
+            "name": "Debug executable 'crustyballz'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=crustyballz",
+                    "--package=crustyballz"
+                ],
+                "filter": {
+                    "name": "crustyballz",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'crustyballz'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=crustyballz",
+                    "--package=crustyballz"
+                ],
+                "filter": {
+                    "name": "crustyballz",
+                    "kind": "bin"
+                }
+            },
             "args": [],
             "cwd": "${workspaceFolder}"
         }

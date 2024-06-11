@@ -1,0 +1,68 @@
+[2024-06-11 13:42:09.029512 +00:00:00 INFO crustyballz] Log File: output_1718113329
+[2024-06-11 13:42:09.030451 +00:00:00 ERROR crustyballz] Error parsing CLI args: ErrorInner { kind: MissingRequiredArgument, context: FlatMap { keys: [InvalidArg, Usage], values: [Strings(["<PORT>", "<SUB_DOMAIN>"]), StyledStr(StyledStr("\u{1b}[1m\u{1b}[4mUsage:\u{1b}[0m \u{1b}[1mcrustyballz\u{1b}[0m <PORT> <SUB_DOMAIN>"))] }, message: None, source: None, help_flag: Some("--help"), styles: Styles { header: Style { fg: None, bg: None, underline: None, effects: Effects(BOLD | UNDERLINE) }, error: Style { fg: Some(Ansi(Red)), bg: None, underline: None, effects: Effects(BOLD) }, usage: Style { fg: None, bg: None, underline: None, effects: Effects(BOLD | UNDERLINE) }, literal: Style { fg: None, bg: None, underline: None, effects: Effects(BOLD) }, placeholder: Style { fg: None, bg: None, underline: None, effects: Effects() }, valid: Style { fg: Some(Ansi(Green)), bg: None, underline: None, effects: Effects() }, invalid: Style { fg: Some(Ansi(Yellow)), bg: None, underline: None, effects: Effects() } }, color_when: Auto, color_help_when: Auto, backtrace: None }
+[2024-06-11 13:42:09.030781 +00:00:00 WARN crustyballz] Websockets port not passed, using default port: 8000
+[2024-06-11 13:42:09.030632 +00:00:00 INFO crustyballz::game] Adding 4000 food's
+[2024-06-11 13:42:09.030816 +00:00:00 INFO crustyballz] Starting Server [DEBUG] at: 127.0.0.1:8000
+[2024-06-11 13:42:12.015592 +00:00:00 INFO crustyballz] Socket connected: 3Auh5EwaoPB5hi4r
+[2024-06-11 13:42:12.028817 +00:00:00 INFO crustyballz] Received respawn for user: Some("$pepe")
+[2024-06-11 13:42:12.054651 +00:00:00 INFO crustyballz] Player[Some("$pepe") / 316bed0d-8904-44c6-aa91-3b14b615752e] spawned
+[2024-06-11 13:42:13.001559 +00:00:00 INFO crustyballz::game] Adding 1 food's
+[2024-06-11 13:42:14.025745 +00:00:00 INFO crustyballz::game] Adding 2 food's
+[2024-06-11 13:42:15.010557 +00:00:00 INFO crustyballz::game] Adding 6 food's
+[2024-06-11 13:42:16.032922 +00:00:00 INFO crustyballz::game] Adding 3 food's
+[2024-06-11 13:42:17.018705 +00:00:00 INFO crustyballz::game] Adding 2 food's
+[2024-06-11 13:42:21.016739 +00:00:00 INFO crustyballz::game] Adding 2 food's
+[2024-06-11 13:42:22.01349 +00:00:00 INFO crustyballz::game] Adding 1 food's
+[2024-06-11 13:42:24.00346 +00:00:00 INFO crustyballz::game] Adding 2 food's
+[2024-06-11 13:42:25.025076 +00:00:00 INFO crustyballz::game] Adding 1 food's
+[2024-06-11 13:42:26.015194 +00:00:00 INFO crustyballz::game] Adding 4 food's
+[2024-06-11 13:42:27.020723 +00:00:00 INFO crustyballz::game] Adding 2 food's
+[2024-06-11 13:42:28.011593 +00:00:00 INFO crustyballz::game] Adding 6 food's
+[2024-06-11 13:42:29.030175 +00:00:00 INFO crustyballz::game] Adding 1 food's
+[2024-06-11 13:42:30.015702 +00:00:00 INFO crustyballz::game] Adding 1 food's
+[2024-06-11 13:42:31.034102 +00:00:00 INFO crustyballz::game] Adding 2 food's
+[2024-06-11 13:42:32.031041 +00:00:00 INFO crustyballz::game] Adding 3 food's
+[2024-06-11 13:42:33.023273 +00:00:00 INFO crustyballz::game] Adding 1 food's
+[2024-06-11 13:42:34.016245 +00:00:00 INFO crustyballz::game] Adding 1 food's
+[2024-06-11 13:42:35.006009 +00:00:00 INFO crustyballz::game] Adding 2 food's
+[2024-06-11 13:42:36.031035 +00:00:00 INFO crustyballz::game] Adding 1 food's
+[2024-06-11 13:42:37.026577 +00:00:00 INFO crustyballz::game] Adding 1 food's
+[2024-06-11 13:42:39.031686 +00:00:00 INFO crustyballz::game] Adding 3 food's
+[2024-06-11 13:42:40.017207 +00:00:00 INFO crustyballz::game] Adding 1 food's
+[2024-06-11 13:42:41.009053 +00:00:00 INFO crustyballz::game] Adding 1 food's
+[2024-06-11 13:42:42.001031 +00:00:00 INFO crustyballz::game] Adding 3 food's
+[2024-06-11 13:42:43.020685 +00:00:00 INFO crustyballz::game] Adding 2 food's
+[2024-06-11 13:42:45.030346 +00:00:00 INFO crustyballz::game] Adding 1 food's
+[2024-06-11 13:42:46.01981 +00:00:00 INFO crustyballz::game] Adding 2 food's
+[2024-06-11 13:42:47.010621 +00:00:00 INFO crustyballz::game] Adding 1 food's
+[2024-06-11 13:42:48.032687 +00:00:00 INFO crustyballz::game] Adding 1 food's
+[2024-06-11 13:42:49.018864 +00:00:00 INFO crustyballz::game] Adding 1 food's
+[2024-06-11 13:42:50.010973 +00:00:00 INFO crustyballz::game] Adding 3 food's
+[2024-06-11 13:42:51.035375 +00:00:00 INFO crustyballz::game] Adding 2 food's
+[2024-06-11 13:42:52.025836 +00:00:00 INFO crustyballz::game] Adding 1 food's
+[2024-06-11 13:42:53.028953 +00:00:00 INFO crustyballz::game] Adding 1 food's
+[2024-06-11 13:42:55.011845 +00:00:00 INFO crustyballz::game] Adding 2 food's
+[2024-06-11 13:42:56.012475 +00:00:00 INFO crustyballz::game] Adding 4 food's
+[2024-06-11 13:42:56.065729 +00:00:00 INFO crustyballz::map::player] player mass: 82.48629 - max_cells: 16 - we want to create: 1
+[2024-06-11 13:42:56.066612 +00:00:00 INFO crustyballz::map::player] we are here
+[2024-06-11 13:42:56.06664 +00:00:00 INFO crustyballz::map::player] Point { x: -0.9208133, y: 0.39000377, radius: 0.0 }
+[2024-06-11 13:42:56.066715 +00:00:00 INFO crustyballz::map::player] player mass after split: 82.48629
+[2024-06-11 13:42:57.002637 +00:00:00 INFO crustyballz::game] Adding 2 food's
+[2024-06-11 13:42:58.032305 +00:00:00 INFO crustyballz::game] Adding 4 food's
+[2024-06-11 13:42:59.023446 +00:00:00 INFO crustyballz::game] Adding 5 food's
+[2024-06-11 13:43:00.011691 +00:00:00 INFO crustyballz::game] Adding 7 food's
+[2024-06-11 13:43:00.35987 +00:00:00 INFO crustyballz::map::player] player mass: 102.11987 - max_cells: 16 - we want to create: 2
+[2024-06-11 13:43:00.359966 +00:00:00 INFO crustyballz::map::player] we are here
+[2024-06-11 13:43:00.35999 +00:00:00 INFO crustyballz::map::player] Point { x: 0.98327035, y: 0.18215209, radius: 0.0 }
+[2024-06-11 13:43:00.360019 +00:00:00 INFO crustyballz::map::player] we are here
+[2024-06-11 13:43:00.360042 +00:00:00 INFO crustyballz::map::player] Point { x: 0.98327035, y: 0.18215209, radius: 0.0 }
+[2024-06-11 13:43:00.360066 +00:00:00 INFO crustyballz::map::player] player mass after split: 102.11987
+[2024-06-11 13:43:01.010551 +00:00:00 INFO crustyballz::game] Adding 6 food's
+[2024-06-11 13:43:02.03017 +00:00:00 INFO crustyballz::game] Adding 4 food's
+[2024-06-11 13:43:03.023015 +00:00:00 INFO crustyballz::game] Adding 4 food's
+[2024-06-11 13:43:04.007376 +00:00:00 INFO crustyballz::game] Adding 3 food's
+[2024-06-11 13:43:05.033517 +00:00:00 INFO crustyballz::game] Adding 7 food's
+[2024-06-11 13:43:06.022582 +00:00:00 INFO crustyballz::game] Adding 2 food's
+[2024-06-11 13:43:07.014729 +00:00:00 INFO crustyballz::game] Adding 2 food's
+[2024-06-11 13:43:08.014621 +00:00:00 INFO crustyballz::game] Adding 1 food's
+[2024-06-11 13:43:09.01534 +00:00:00 INFO crustyballz::game] Adding 2 food's

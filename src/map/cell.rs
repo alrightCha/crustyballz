@@ -2,8 +2,8 @@ use log::info;
 use serde::Serialize;
 
 use crate::utils::{
-    consts::{MIN_DISTANCE, MIN_SPEED, SPEED_DECREMENT, SPLIT_CELL_SPEED},
-    util::{lerp_move, lerp, lerp_deg, mass_to_radius, math_log},
+    consts::{MIN_DISTANCE, MIN_SPEED, SPLIT_CELL_SPEED},
+    util::{lerp_deg, lerp_move, mass_to_radius, math_log},
 };
 
 use super::point::Point;
@@ -109,20 +109,26 @@ impl Cell {
             }
             delta_y = self.speed * deg.sin() / slow_down;
             delta_x = self.speed * deg.cos() / slow_down;
-        } else {
-            self.speed = self.speed / SPEED_DECREMENT;
-            if self.speed <=  (MIN_SPEED * 1.5) {
+            
+            if dist < (MIN_DISTANCE + self.position.radius) {
+                let ratio = dist / (MIN_DISTANCE + self.position.radius);
+                delta_y *= ratio;
+                delta_x *= ratio;
+            }
+        }  else {
+            self.speed = lerp_move(self.speed, math_log(self.speed, Some(10.0), 5.0), 0.06);
+            if self.speed <=  MIN_SPEED {
                 self.can_move = true;
                 self.speed = MIN_SPEED;
             }
             if let Some(direction_shot) = self.direction_shot {
                 let not_dis = f32::hypot(direction_shot.y, direction_shot.x);
                 let not_deg = direction_shot.y.atan2(direction_shot.x);
-                let real_deg = lerp_deg(not_deg, deg, 0.14 * SPLIT_CELL_SPEED / self.speed); // Assuming lerp_deg function exists
+                let real_deg = lerp_deg(not_deg, deg, 0.1 * SPLIT_CELL_SPEED / self.speed); // Assuming lerp_deg function exists
                 delta_y = self.speed * real_deg.sin();
                 delta_x = self.speed * real_deg.cos();
                 if not_dis < MIN_DISTANCE + self.position.radius {
-                    let ratio = not_dis / (MIN_DISTANCE + self.position.radius) / slow_down;
+                    let ratio = not_dis / (MIN_DISTANCE + (self.position.radius * 0.01)) / slow_down;
                     delta_y *= ratio;
                     delta_x *= ratio;
                 }

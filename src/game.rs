@@ -45,8 +45,7 @@ use crate::{
         quad_tree::{QuadTree, Rectangle},
         queue_message::QueueMessage,
         util::{
-            are_colliding, check_who_ate_who, create_random_position_in_range,
-            get_current_timestamp, is_visible_entity, mass_to_radius, random_in_range,
+            are_colliding, check_overlap, check_who_ate_who, create_random_position_in_range, get_current_timestamp, is_visible_entity, mass_to_radius, random_in_range
         },
     },
 };
@@ -184,7 +183,7 @@ impl Game {
             let eaten_virus: Vec<&Virus> = player_view
                 .visible_viruses
                 .iter()
-                .filter(|virus| virus.can_be_eat_by(p_cell.mass, p_cell.position))
+                .filter(|virus| check_overlap(&p_cell.position, &virus.get_position()) && p_cell.mass > virus.mass * 1.1)
                 .collect();
 
             let mut mass_gained: f32 = 0.0;
