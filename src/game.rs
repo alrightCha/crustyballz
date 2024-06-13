@@ -45,7 +45,9 @@ use crate::{
         quad_tree::{QuadTree, Rectangle},
         queue_message::QueueMessage,
         util::{
-            are_colliding, check_overlap, check_who_ate_who, create_random_position_in_range, get_current_timestamp, is_visible_entity, mass_to_radius, random_in_range
+            are_colliding, check_overlap, check_who_ate_who,
+            create_random_position_in_range, get_current_timestamp, is_visible_entity,
+            mass_to_radius, random_in_range,
         },
     },
 };
@@ -183,7 +185,10 @@ impl Game {
             let eaten_virus: Vec<&Virus> = player_view
                 .visible_viruses
                 .iter()
-                .filter(|virus| check_overlap(&p_cell.position, &virus.get_position()) && p_cell.mass > virus.mass * 1.1)
+                .filter(|virus| {
+                    check_overlap(&p_cell.position, &virus.get_position())
+                        && p_cell.mass > virus.mass * 1.1
+                })
                 .collect();
 
             let mut mass_gained: f32 = 0.0;
@@ -242,18 +247,17 @@ impl Game {
 
         match self.io_socket.get_socket(player.socket_id) {
             Some(l) => {
-                let _ = l.emit(
-                    "serverTellPlayerMove",
-                    ServerTellPlayerMove {
-                        playerData: player.generate_player_data(),
-                        updates: UpdateData {
-                            visiblePlayers: player_view.visible_players,
-                            visibleFood: player_view.visible_foods,
-                            visibleMass: player_view.visible_mass_food,
-                            visibleViruses: player_view.visible_viruses,
-                        },
+                //Compress data here
+                let game_data = ServerTellPlayerMove {
+                    playerData: player.generate_player_data(),
+                    updates: UpdateData {
+                        visiblePlayers: player_view.visible_players,
+                        visibleFood: player_view.visible_foods,
+                        visibleMass: player_view.visible_mass_food,
+                        visibleViruses: player_view.visible_viruses,
                     },
-                );
+                };
+                let _ = l.emit("serverTellPlayerMove", game_data);
             }
             None => {}
         }

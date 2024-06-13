@@ -8,14 +8,14 @@ use std::f32::consts::PI;
 use uuid::Uuid;
 use lazy_static::lazy_static;
 
-
 lazy_static! {
-    static ref REGEX_VALID_NICK: Regex = Regex::new(r"^\w*").unwrap();
+    // Regex matches any string of 0 to 14 word characters.
+    static ref REGEX_VALID_NICK: Regex = Regex::new(r"^\w{0,14}$").unwrap();
 }
 
-//checks if the nickname of the player is valid and can be used within the gam e
+/// Checks if the nickname of the player is valid and can be used within the game
 pub fn valid_nick(nickname: &str) -> bool {
-    REGEX_VALID_NICK.is_match(nickname)
+    REGEX_VALID_NICK.is_match(nickname) && nickname.len() < 15
 }
 
 pub fn get_current_timestamp() -> i64 {

@@ -1,5 +1,5 @@
 use log::info;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::utils::{
     consts::{MIN_DISTANCE, MIN_SPEED, SPLIT_CELL_SPEED},
@@ -19,7 +19,7 @@ pub struct CellData {
     pub y: f32,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Cell {
     pub position: Point,
     pub mass: f32,

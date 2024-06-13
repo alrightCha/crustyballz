@@ -1,7 +1,7 @@
 use std::{borrow::Cow, fmt::Display};
 
 use rust_socketio::{Event, Payload};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use socketioxide::socket::Sid;
 use uuid::Uuid;
@@ -69,7 +69,7 @@ pub struct UpdateData {
     pub visibleViruses: Vec<Virus>,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, Deserialize)]
 pub struct PlayerData {
     pub admin: bool,
     pub cells: Vec<Cell>,

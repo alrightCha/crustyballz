@@ -31,7 +31,7 @@ use std::str::FromStr;
 use std::{net::SocketAddr, path::PathBuf};
 use tower::ServiceBuilder;
 use tower_http::cors::CorsLayer;
-
+use tower_http::compression::{CompressionLayer};
 //JSON RESP
 use serde_json::json;
 use serde_json::Value;
@@ -44,7 +44,6 @@ use utils::queue_message::QueueMessage;
 use utils::util::valid_nick;
 
 //For socket reference
-use once_cell::sync::Lazy;
 use std::sync::{Arc, OnceLock};
 
 //Websockets Client
@@ -324,10 +323,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
     });
 
+    let compression_layer: CompressionLayer = CompressionLayer::new()
+        .deflate(true);
+
     let app = Router::new()
         .route("/", get(|| async { "wow much big ballz" }))
         .layer(
             ServiceBuilder::new()
+                .layer(compression_layer)
                 .layer(CorsLayer::permissive())
                 .layer(layer),
         );
