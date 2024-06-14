@@ -191,7 +191,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let player_ref_cloned = player_ref.clone();
         let game_ref_cloned = game_ref.clone();
-        s.on(RecvEvent::PlayerGoIt, |socket: SocketRef| async move {
+        s.on(RecvEvent::PlayerGotIt, |socket: SocketRef| async move {
             //
             game_ref_cloned.add_player(player_ref_cloned.clone()).await;
 

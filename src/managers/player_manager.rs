@@ -17,19 +17,17 @@ impl PlayerManager {
     pub fn new() -> Self {
         PlayerManager {
             players: HashMap::new(),
-            id_counter: 0,
+            id_counter: PlayerID::MAX,
         }
     }
 
     pub fn get_new_id(&mut self) -> PlayerID {
-        let mut new_id;
-
         loop {
-            new_id = self.id_counter.wrapping_add(1);
-            if self.players.contains_key(&new_id) {
+            self.id_counter = self.id_counter.wrapping_add(1);
+            if self.players.contains_key(&self.id_counter) {
                 continue;
             }
-            return new_id;
+            return self.id_counter;
         }
     }
 

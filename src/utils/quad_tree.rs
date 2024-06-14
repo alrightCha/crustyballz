@@ -182,16 +182,24 @@ impl QuadTree {
 
         if self.divided {
             if let Some(ref node) = self.north_west {
-                return node.contains_food(food_id);
+                if node.contains_food(food_id) {
+                    return true;
+                }
             }
             if let Some(ref node) = self.north_east {
-                return node.contains_food(food_id);
+                if node.contains_food(food_id) {
+                    return true;
+                }
             }
             if let Some(ref node) = self.south_west {
-                return node.contains_food(food_id);
+                if node.contains_food(food_id) {
+                    return true;
+                }
             }
             if let Some(ref node) = self.south_east {
-                return node.contains_food(food_id);
+                if node.contains_food(food_id) {
+                    return true;
+                }
             }
         }
 
@@ -212,16 +220,24 @@ impl QuadTree {
         // If the point is not in the current node and the tree is divided, try to remove it from the children
         if self.divided {
             if let Some(ref mut node) = self.north_west {
-                return node.remove(food);
+                if node.remove(food) {
+                    return true;
+                }
             }
             if let Some(ref mut node) = self.north_east {
-                return node.remove(food);
+                if node.remove(food) {
+                    return true;
+                }
             }
             if let Some(ref mut node) = self.south_west {
-                return node.remove(food);
+                if node.remove(food) {
+                    return true;
+                }
             }
             if let Some(ref mut node) = self.south_east {
-                return node.remove(food);
+                if node.remove(food) {
+                    return true;
+                }
             }
         }
 

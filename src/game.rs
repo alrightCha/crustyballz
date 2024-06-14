@@ -594,7 +594,7 @@ impl Game {
                 removed_virus,
             };
 
-            let _ = self.io_socket.emit(SendEvent::PlayersMovement, game_data);
+            let _ = self.io_socket.emit(SendEvent::GameUpdate, game_data);
 
             sleep(Duration::from_secs_f32(1.0 / TICKER_LOOP_FPS)).await;
         }

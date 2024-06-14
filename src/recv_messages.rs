@@ -10,7 +10,7 @@ pub enum RecvEvent {
     PlayerSendingMass,
     PlayerSplit,
     PlayerChat,
-    PlayerGoIt,
+    PlayerGotIt,
     LetMeIn
 }
 
@@ -24,7 +24,7 @@ impl Display for RecvEvent {
             RecvEvent::PlayerSendingMass => "1",
             RecvEvent::PlayerSplit => "2",
             RecvEvent::PlayerChat => "playerChat",
-            RecvEvent::PlayerGoIt => "gotit",
+            RecvEvent::PlayerGotIt => "gotit",
         })
     }
 }
