@@ -1,26 +1,37 @@
 use super::cell::Cell;
 use super::point::Point;
 use crate::config::get_current_config;
-use crate::recv_messages::Target;
-use crate::send_messages::PlayerData;
-use crate::utils::consts::{MERGE_TIMER, MIN_SPEED, PUSHING_AWAY_SPEED, SPLIT_CELL_SPEED};
+use crate::utils::consts::{
+    Mass, TotalMass, MERGE_TIMER, MIN_SPEED, PUSHING_AWAY_SPEED, SPLIT_CELL_SPEED,
+};
 use crate::utils::game_logic::adjust_for_boundaries;
+use crate::utils::id::PlayerID;
 use crate::utils::quad_tree::Rectangle;
 use crate::utils::util::{
-    are_colliding, check_overlap, check_who_ate_who, get_current_timestamp, lerp, lerp_deg,
-    mass_to_radius, math_log,
+    check_overlap, check_who_ate_who, get_current_timestamp, lerp, total_mass_to_radius,
 };
-use chrono::Utc;
 use log::info;
-use rand::Rng;
 use serde::{Deserialize, Serialize};
 use socketioxide::socket::Sid;
-use std::time::{Duration, SystemTime};
-use uuid::Uuid;
+
+#[derive(Serialize, Clone, Deserialize)]
+pub struct PlayerUpdateData {
+    pub id: PlayerID,
+    pub cells: Vec<Cell>,
+}
+
+#[derive(Serialize, Clone, Deserialize)]
+pub struct PlayerInitData {
+    pub admin: bool,
+    pub id: PlayerID,
+    pub hue: u16,
+    pub img_url: Option<String>,
+    pub name: Option<String>,
+}
 
 #[derive(Clone, Serialize)]
 pub struct Player {
-    pub id: Uuid,
+    pub id: PlayerID,
     pub socket_id: Sid,
     pub hue: u16,
     pub name: Option<String>,
@@ -32,7 +43,7 @@ pub struct Player {
     pub last_heartbeat: i64,
     // Properties to be initialized later
     pub cells: Vec<Cell>,
-    pub total_mass: f32,
+    pub total_mass: TotalMass,
     pub x: f32,
     pub y: f32,
     pub target_x: f32,
@@ -41,9 +52,9 @@ pub struct Player {
 }
 
 impl Player {
-    pub fn new(socket_id: Sid) -> Self {
+    pub fn new(player_id: PlayerID, socket_id: Sid) -> Self {
         Self {
-            id: Uuid::new_v4(),
+            id: player_id,
             socket_id: socket_id,
             hue: rand::random::<u16>() % 360,
             name: None,
@@ -55,7 +66,7 @@ impl Player {
             last_heartbeat: get_current_timestamp(),
             // Initial states for properties to be initialized later
             cells: Vec::new(),
-            total_mass: get_current_config().default_player_mass,
+            total_mass: get_current_config().default_player_mass as usize,
             x: 0.0,
             y: 0.0,
             target_x: 0.0,
@@ -64,34 +75,27 @@ impl Player {
         }
     }
 
-    pub fn init(
-        &mut self,
-        position: Point,
-        default_player_mass: f32,
-        name: Option<String>,
-        screen_width: f32,
-        screen_height: f32,
-        img_url: Option<String>,
-    ) {
-        self.cells = vec![Cell::new(
-            position.x,
-            position.y,
-            default_player_mass,
-            MIN_SPEED,
-            true, // Assuming cells can move when initialized
-            None, // No direction shot specified, assuming it is not required at initialization
-            img_url.clone(),
-        )];
-        self.name = name;
-        self.img_url = img_url.clone();
-        self.total_mass = default_player_mass;
-        self.x = position.x;
-        self.y = position.y;
-        self.screen_width = screen_width;
-        self.screen_height = screen_height;
+    pub fn reset(&mut self, new_position: &Point, new_mass: Mass) {
+        self.x = new_position.x;
+        self.y = new_position.y;
         self.target_x = 0.0;
         self.target_y = 0.0;
-        self.ratio = 1.0;
+
+        self.cells = vec![
+            Cell::new(new_position.x, new_position.y, new_mass, MIN_SPEED, true, None)
+        ];
+
+        self.recalculate_total_mass();
+        self.recalculate_ratio();
+    }
+
+    pub fn setup(
+        &mut self,
+        name: Option<String>,
+        img_url: Option<String>,
+    ) {
+        self.name = name;
+        self.img_url = img_url.clone();
     }
 
     pub fn player_is_dead(&self) -> bool {
@@ -102,7 +106,7 @@ impl Player {
         Point {
             x: self.x,
             y: self.y,
-            radius: mass_to_radius(self.total_mass),
+            radius: total_mass_to_radius(self.total_mass),
         }
     }
 
@@ -110,14 +114,15 @@ impl Player {
         Point {
             x: self.target_x,
             y: self.target_y,
-            radius: mass_to_radius(self.total_mass),
+            radius: total_mass_to_radius(self.total_mass),
         }
     }
 
     pub fn recalculate_ratio(&mut self) {
         let new_val = lerp(
             self.ratio,
-            0.8 - 0.2 * (self.total_mass / 500.0).ln() - 0.3 * (self.cells.len() as f32) / 18.0,
+            0.8 - 0.2 * ((self.total_mass as f32) / 500.0).ln()
+                - 0.3 * (self.cells.len() as f32) / 18.0,
             0.1,
         );
         if new_val > 0.3 {
@@ -128,29 +133,23 @@ impl Player {
     }
 
     pub fn recalculate_total_mass(&mut self) {
-        self.total_mass = self.cells.iter().map(|c| c.mass).sum();
+        self.total_mass = self.cells.iter().map(|c| c.mass as TotalMass).sum();
     }
 
-    pub fn generate_player_data(&self) -> PlayerData {
-        PlayerData {
+    pub fn generate_init_player_data(&self) -> PlayerInitData {
+        PlayerInitData {
             admin: false,
-            lastHeartbeat: self.last_heartbeat,
-            name: self.name.clone().unwrap_or_default(),
-            screenHeight: 1920.0,
-            screenWidth: 1080.0,
-            target: Target {
-                x: self.target_x,
-                y: self.target_y,
-            },
-            timeToMerge: self.time_to_merge,
-            cells: self.cells.clone(),
-            ratio: self.ratio,
-            hue: self.hue,
             id: self.id,
-            imgUrl: self.img_url.clone(),
-            massTotal: self.total_mass,
-            x: self.x,
-            y: self.y,
+            name: self.name.clone(),
+            hue: self.hue,
+            img_url: self.img_url.clone(),
+        }
+    }
+
+    pub fn generate_update_player_data(&self) -> PlayerUpdateData {
+        PlayerUpdateData {
+            id: self.id,
+            cells: self.cells.clone(),
         }
     }
 
@@ -183,15 +182,16 @@ impl Player {
     pub fn lose_mass_if_needed(
         &mut self,
         mass_loss_rate: f32,
-        default_player_mass: f32,
-        min_mass_loss: f32,
+        default_player_mass: Mass,
+        min_mass_loss: Mass,
     ) {
         for i in 0..self.cells.len() {
-            if self.cells[i].mass * (1.0 - (mass_loss_rate / 1000.0)) > default_player_mass
-                && self.total_mass > min_mass_loss
+            if (self.cells[i].mass as f32) * (1.0 - (mass_loss_rate / 1000.0))
+                > (default_player_mass as f32)
+                && self.total_mass > (min_mass_loss as TotalMass)
             {
-                let mass_loss = self.cells[i].mass * (mass_loss_rate / 1000.0);
-                self.change_cell_mass(i as u8, -mass_loss);
+                let mass_loss = ((self.cells[i].mass as f32) * (mass_loss_rate / 1000.0)) as Mass;
+                self.reduce_cell_mass(i as u8, mass_loss);
             }
         }
     }
@@ -202,20 +202,20 @@ impl Player {
 
     pub fn set_last_split(&mut self) {
         // let merge_duration = 1000.0 * MERGE_TIMER + self.total_mass / 100.0;
-        let merge_duration = MERGE_TIMER + self.total_mass / 100.0;
+        let merge_duration = MERGE_TIMER + (self.total_mass as f32) / 100.0;
         self.time_to_merge = Some(get_current_timestamp() + merge_duration as i64);
     }
 
-    pub fn change_cell_mass(&mut self, cell_index: u8, mass_diff: f32) {
-        self.cells[cell_index as usize].add_mass(mass_diff);
-        self.total_mass += mass_diff;
+    pub fn reduce_cell_mass(&mut self, cell_index: u8, mass: Mass) {
+        self.cells[cell_index as usize].remove_mass(mass);
+        self.total_mass = self.total_mass.saturating_add(mass as usize);
     }
 
     fn split_cell(
         &mut self,
         cell_index: usize,
         max_requested_pieces: u8,
-        default_player_mass: f32,
+        default_player_mass: Mass,
         split_dir: Option<f32>,
     ) {
         if cell_index >= self.cells.len() {
@@ -223,17 +223,12 @@ impl Player {
         }
 
         // Extract all necessary data from the cell
-        let (cell_pos_x, cell_pos_y, cell_mass, cell_img_url) = {
+        let (cell_pos_x, cell_pos_y, cell_mass) = {
             let cell = &self.cells[cell_index];
-            (
-                cell.position.x,
-                cell.position.y,
-                cell.mass,
-                cell.img_url.clone(),
-            )
+            (cell.position.x, cell.position.y, cell.mass)
         };
 
-        let max_allowed_pieces = (cell_mass / default_player_mass).floor() as u8;
+        let max_allowed_pieces = (cell_mass / default_player_mass) as u8;
         let pieces_to_create = max_requested_pieces.min(max_allowed_pieces);
 
         // info!(
@@ -245,7 +240,7 @@ impl Player {
             return;
         }
 
-        let new_cells_mass = cell_mass / (pieces_to_create + 1) as f32;
+        let new_cells_mass = cell_mass / (pieces_to_create.saturating_add(1) as Mass);
         let angle_increment = 1.6 * std::f32::consts::PI / pieces_to_create as f32;
 
         let mut directions = Vec::new();
@@ -275,10 +270,9 @@ impl Player {
                 cell_pos_x,
                 cell_pos_y,
                 new_cells_mass,
-                SPLIT_CELL_SPEED,  // Assuming a fixed speed for new cells
-                false, // Can move
+                SPLIT_CELL_SPEED, // Assuming a fixed speed for new cells
+                false,            // Can move
                 Some(direction),
-                cell_img_url.clone(),
             );
             self.cells.push(new_cell);
         }
@@ -288,54 +282,51 @@ impl Player {
         self.recalculate_ratio();
     }
 
-    pub fn split_random(
-        &mut self,
-        cell_index: usize,
-        max_requested_pieces: u8,
-        default_player_mass: f32,
-    ) {
-        if cell_index >= self.cells.len() {
-            return; // Early return if the cell index is out of bounds
-        }
+    // pub fn split_random(
+    //     &mut self,
+    //     cell_index: usize,
+    //     max_requested_pieces: u8,
+    //     default_player_mass: Mass,
+    // ) {
+    //     if cell_index >= self.cells.len() {
+    //         return; // Early return if the cell index is out of bounds
+    //     }
 
-        let cell_mass = self.cells[cell_index].mass;
-        if cell_mass < default_player_mass {
-            return; // Cannot split cells smaller than the minimum cell mass.
-        }
+    //     let cell_mass = self.cells[cell_index].mass;
+    //     if cell_mass < default_player_mass {
+    //         return; // Cannot split cells smaller than the minimum cell mass.
+    //     }
 
-        let max_allowed_pieces = (cell_mass / default_player_mass).floor() as u8;
-        let pieces_to_create: usize = max_requested_pieces.min(max_allowed_pieces).into();
-        if pieces_to_create <= 1 {
-            return; // Not enough mass to split into more than one piece
-        }
+    //     let max_allowed_pieces = (cell_mass / default_player_mass) as u8;
+    //     let pieces_to_create: usize = max_requested_pieces.min(max_allowed_pieces).into();
+    //     if pieces_to_create <= 1 {
+    //         return; // Not enough mass to split into more than one piece
+    //     }
 
-        let masses =
-            self.distribute_mass_randomly(cell_mass, pieces_to_create, default_player_mass);
+    //     let masses =
+    //         self.distribute_mass_randomly(cell_mass, pieces_to_create, default_player_mass);
 
-        let cell_position = (
-            self.cells[cell_index].position.x,
-            self.cells[cell_index].position.y,
-        );
-        let cell_img_url = self.cells[cell_index].img_url.clone(); // Assuming img_url needs to be cloned
+    //     let cell_position = (
+    //         self.cells[cell_index].position.x,
+    //         self.cells[cell_index].position.y,
+    //     );
+    //     // Update the original cell's mass to the last piece's mass before creating new cells
+    //     self.cells[cell_index].set_mass(masses[pieces_to_create as usize - 1]);
 
-        // Update the original cell's mass to the last piece's mass before creating new cells
-        self.cells[cell_index].set_mass(masses[pieces_to_create as usize - 1]);
+    //     // Create new cells with the distributed masses
+    //     for &mass in &masses[..pieces_to_create as usize - 1] {
+    //         self.cells.push(Cell::new(
+    //             cell_position.0,
+    //             cell_position.1,
+    //             mass,
+    //             SPLIT_CELL_SPEED,
+    //             true,
+    //             None, // Assuming no direction needed or using default direction
+    //         ));
+    //     }
 
-        // Create new cells with the distributed masses
-        for &mass in &masses[..pieces_to_create as usize - 1] {
-            self.cells.push(Cell::new(
-                cell_position.0,
-                cell_position.1,
-                mass,
-                SPLIT_CELL_SPEED,
-                true,
-                None, // Assuming no direction needed or using default direction
-                cell_img_url.clone(),
-            ));
-        }
-
-        self.set_last_split();
-    }
+    //     self.set_last_split();
+    // }
 
     //returns the direction based on the current position of the player and the target used with the mouse
     fn calculate_target_direction(&self) -> Point {
@@ -349,40 +340,40 @@ impl Player {
         .normalize()
     }
 
-    pub fn distribute_mass_randomly(
-        &mut self,
-        total_mass: f32,
-        pieces: usize,
-        min_mass: f32,
-    ) -> Vec<f32> {
-        let mut rng = rand::thread_rng();
-        let mut masses = vec![min_mass; pieces];
-        let mut remaining_mass = total_mass - min_mass * pieces as f32;
+    // pub fn distribute_mass_randomly(
+    //     &mut self,
+    //     total_mass: TotalMass,
+    //     pieces: usize,
+    //     min_mass: Mass,
+    // ) -> Vec<f32> {
+    //     let mut rng = rand::thread_rng();
+    //     let mut masses = vec![min_mass; pieces];
+    //     let mut remaining_mass = total_mass - min_mass * pieces as f32;
 
-        let mut i = 0;
-        while remaining_mass > 0.0 {
-            let add_mass = (rng.gen::<f32>() * remaining_mass)
-                .floor()
-                .min(remaining_mass);
-            masses[i] += add_mass;
-            remaining_mass -= add_mass;
-            i = (i + 1) % pieces;
-        }
+    //     let mut i = 0;
+    //     while remaining_mass > 0.0 {
+    //         let add_mass = (rng.gen::<f32>() * remaining_mass)
+    //             .floor()
+    //             .min(remaining_mass);
+    //         masses[i] += add_mass;
+    //         remaining_mass -= add_mass;
+    //         i = (i + 1) % pieces;
+    //     }
 
-        // Shuffle the array to randomize which cells get which mass
-        for i in (1..masses.len()).rev() {
-            let j = rng.gen_range(0..=i);
-            masses.swap(i, j);
-        }
+    //     // Shuffle the array to randomize which cells get which mass
+    //     for i in (1..masses.len()).rev() {
+    //         let j = rng.gen_range(0..=i);
+    //         masses.swap(i, j);
+    //     }
 
-        masses
-    }
+    //     masses
+    // }
 
     pub fn virus_split(
         &mut self,
         cell_indexes: &[usize],
         max_cells: usize,
-        default_player_mass: f32,
+        default_player_mass: Mass,
     ) {
         for &cell_index in cell_indexes {
             if cell_index < self.cells.len() {
@@ -405,11 +396,7 @@ impl Player {
     }
 
     //function triggered when player hits "space"
-    pub fn user_split(
-        &mut self,
-        max_cells: usize,
-        default_player_mass: f32
-    ) {
+    pub fn user_split(&mut self, max_cells: usize, default_player_mass: Mass) {
         let cells_to_create = if self.cells.len() > max_cells / 2 {
             max_cells.checked_sub(self.cells.len()).unwrap_or_default()
         } else {
@@ -435,7 +422,7 @@ impl Player {
         );
 
         for i in 0..cells_to_create.min(self.cells.len()) {
-            if self.cells[i].mass < default_player_mass*2.0 {
+            if self.cells[i].mass < default_player_mass * 2 {
                 break; // break because the cells are sorted by mass, the next cells are smaller than this one
             }
             self.split_cell(i, 1, default_player_mass, None);

@@ -1,26 +1,46 @@
 use std::{collections::HashMap, sync::Arc};
 
 use tokio::sync::RwLock;
-use uuid::Uuid;
 
-use crate::{map::player::Player, send_messages::LeaderboardPlayer};
+use crate::{
+    map::player::{Player, PlayerInitData},
+    send_messages::LeaderboardPlayer,
+    utils::{consts::{Mass, TotalMass}, id::PlayerID},
+};
 
 pub struct PlayerManager {
-    pub players: HashMap<Uuid, Arc<RwLock<Player>>>,
+    pub players: HashMap<PlayerID, Arc<RwLock<Player>>>,
+    id_counter: PlayerID,
 }
 
 impl PlayerManager {
     pub fn new() -> Self {
         PlayerManager {
             players: HashMap::new(),
+            id_counter: 0,
         }
     }
 
-    pub fn push_new(&mut self, player_id: Uuid, player: Arc<RwLock<Player>>) {
+    pub fn get_new_id(&mut self) -> PlayerID {
+        let mut new_id;
+
+        loop {
+            new_id = self.id_counter.wrapping_add(1);
+            if self.players.contains_key(&new_id) {
+                continue;
+            }
+            return new_id;
+        }
+    }
+
+    pub async fn push_new(&mut self, player: Arc<RwLock<Player>>) {
+        let player_id = self.get_new_id();
+        player.write().await.id = player_id;
+        // TODO: check limit
         self.players.insert(player_id, player);
     }
 
-    // fn async find_index_by_id(&self, id: Uuid) -> Option<usize> {
+    // fn async find_index_by_id(&self, id: PlayerID) -> Option<usize> {
     //     for player in self.players {
     //         return
     //         player.read().await.id == id
@@ -28,15 +48,28 @@ impl PlayerManager {
     //     self.players.iter().position(|p| p.id == id)
     // }
 
-    pub fn remove_player_by_id(&mut self, id: &Uuid) {
+    pub fn remove_player_by_id(&mut self, id: &PlayerID) {
         self.players.remove(&id);
     }
 
-    pub async fn shrink_cells(&self, mass_loss_rate: f32, default_player_mass: f32, min_mass_loss: f32) {
+    pub async fn shrink_cells(
+        &self,
+        mass_loss_rate: f32,
+        default_player_mass: Mass,
+        min_mass_loss: Mass,
+    ) {
         for player in self.players.values() {
             let mut player = player.write().await;
             player.lose_mass_if_needed(mass_loss_rate, default_player_mass, min_mass_loss);
         }
+    }
+
+    pub async fn get_players_init_data(&self) -> Vec<PlayerInitData> {
+        let mut players_data = vec![];
+        for player in self.players.values() {
+            players_data.push(player.read().await.generate_init_player_data());
+        }
+        players_data
     }
 
     pub async fn get_top_players(&self) -> Vec<LeaderboardPlayer> {
@@ -47,20 +80,23 @@ impl PlayerManager {
             let player = player.read().await;
             players.push(LeaderboardPlayer {
                 id: player.id,
-                name: player.name.clone(),
                 mass: player.total_mass,
             });
         }
 
-        players.sort_by(|a, b| b.mass.total_cmp(&a.mass));
+        players.sort_by(|a, b| {
+            b.mass
+                .partial_cmp(&a.mass)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         players.into_iter().take(10).collect()
     }
 
-    pub async fn get_total_mass(&self) -> f32 {
-        let mut sum: f32 = 0.0;
+    pub async fn get_total_mass(&self) -> TotalMass {
+        let mut sum: TotalMass = 0;
         for player in self.players.values() {
-            sum += player.read().await.total_mass;
+            sum = sum.saturating_add(player.read().await.total_mass as TotalMass);
         }
         sum
     }

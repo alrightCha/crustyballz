@@ -3,23 +3,28 @@ use std::sync::atomic::AtomicUsize;
 use tokio::sync::RwLock;
 
 use crate::{
-    map::food::Food,
+    map::{
+        food::{Food, FoodData},
+        point::Point,
+    },
     utils::{
+        consts::Mass,
+        id::from_position,
         quad_tree::QuadTree,
-        util::{create_random_position, mass_to_radius},
+        util::{create_random_number_u32, create_random_position, mass_to_radius},
     },
 };
 
 pub struct FoodManager {
-    food_mass: f32,
+    default_food_mass: Mass,
     pub quad_tree: RwLock<QuadTree>,
     food_count: AtomicUsize,
 }
 
 impl FoodManager {
-    pub fn new(food_mass: f32, quad_tree: QuadTree) -> Self {
+    pub fn new(food_mass: Mass, quad_tree: QuadTree) -> Self {
         FoodManager {
-            food_mass,
+            default_food_mass: food_mass,
             quad_tree: RwLock::new(quad_tree),
             food_count: AtomicUsize::new(0),
         }
@@ -46,17 +51,41 @@ impl FoodManager {
         self.set_food_count(self.get_food_count() + add_amount);
     }
 
-    pub async fn create_many_foods(&self, food_amount: usize) {
+    pub async fn create_many_foods(&self, food_amount: usize) -> Vec<FoodData> {
+        let mut new_foods_data: Vec<FoodData> = vec![];
         let mut quad_tree = self.quad_tree.write().await;
 
-        let radius = mass_to_radius(self.food_mass);
+        let radius = mass_to_radius(self.default_food_mass);
         for _ in 0..food_amount {
-            let position = create_random_position(false, radius, None);
-            let food = Food::new(position);
+            let mut food_id;
+            let position;
+
+            loop {
+                let x = create_random_number_u32(0, u16::MAX);
+                let y = create_random_number_u32(0, u16::MAX);
+
+                food_id = from_position(x, y);
+
+                if quad_tree.contains_food(food_id) {
+                    continue;
+                }
+
+                position = Point {
+                    x: x as f32,
+                    y: y as f32,
+                    radius,
+                };
+                break;
+            }
+
+            let food = Food::new(food_id, position);
+            new_foods_data.push(food.generate_data());
             quad_tree.insert(food); // Ensure QuadTree accepts Point
         }
 
-        self.add_food_count(food_amount)
+        self.add_food_count(food_amount);
+
+        new_foods_data
     }
 
     pub async fn delete_many_foods(&self, foods_to_delete: Vec<&Food>) {
@@ -65,5 +94,15 @@ impl FoodManager {
             quad_tree.remove(&food);
         }
         self.sub_food_count(foods_to_delete.len())
+    }
+
+    pub async fn get_foods_init_data(&self) -> Vec<FoodData> {
+        let mut foods_data = vec![];
+
+        for food in self.quad_tree.read().await.get_all_foods() {
+            foods_data.push(food.generate_data());
+        }
+
+        foods_data
     }
 }

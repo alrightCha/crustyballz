@@ -12,26 +12,26 @@ use clap::Parser;
 use config::{get_current_config, Config};
 use game::Game;
 use map::food::Food;
-use map::player::{self, Player};
+use map::player::{self, Player, PlayerInitData};
 use map::point::Point;
-use recv_messages::{ChatMessage, RecvEvent, UsernameMessage};
-use recv_messages::{GotItMessage, TargetMessage, WindowResizedMessage};
+use recv_messages::{ChatMessage, LetMeInMessage, RecvEvent, TargetMessage, UsernameMessage};
 use rust_socketio::asynchronous::{Client, ClientBuilder};
-use send_messages::{PlayerJoinMessage, SendEvent, WelcomeMessage};
+use send_messages::{PlayerJoinMessage, PlayerRespawnedMessage, SendEvent, WelcomeMessage};
 use time::OffsetDateTime;
 use tokio::net::TcpStream;
 use tokio::sync::{Mutex, RwLock};
 //Debugging
 use dotenv::dotenv;
 use log::{error, info, warn};
+use utils::id::PlayerID;
 
 use std::env::args;
 use std::net::Ipv4Addr;
 use std::str::FromStr;
 use std::{net::SocketAddr, path::PathBuf};
 use tower::ServiceBuilder;
+use tower_http::compression::CompressionLayer;
 use tower_http::cors::CorsLayer;
-use tower_http::compression::{CompressionLayer};
 //JSON RESP
 use serde_json::json;
 use serde_json::Value;
@@ -153,43 +153,67 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let _ = s.leave_all();
         let _ = s.join(main_room);
 
-        let player = Player::new(s.id);
+        // create a player with a id place holder
+        let player = Player::new(PlayerID::MAX, s.id);
+
         let player_ref: Arc<RwLock<Player>> = Arc::new(RwLock::new(player));
         let game_ref = game_cloned;
 
         let player_ref_cloned = player_ref.clone();
         let game_ref_cloned = game_ref.clone();
-
         s.on(
-            RecvEvent::Respawn,
-            |socket: SocketRef, Data::<UsernameMessage>(data)| async move {
+            RecvEvent::LetMeIn,
+            |socket: SocketRef, Data::<LetMeInMessage>(data)| async move {
                 let config = get_current_config();
-                let player_data = player_ref_cloned.read().await.generate_player_data();
+
+                if let Some(ref name) = data.name {
+                    if !valid_nick(name) {
+                        // kick_player
+                        let _ = socket.emit(SendEvent::KickPlayer, "invalid username.");
+                        error!("Invalid username");
+                    }
+                }
+
+                let mut player = player_ref_cloned.write().await;
+
+                player.setup(data.name, data.img_url);
+                drop(player);
+
                 let _ = socket.emit(
                     SendEvent::Welcome,
-                    (
-                        player_data,
-                        WelcomeMessage {
-                            height: config.game_height,
-                            width: config.game_width,
-                        },
-                    ),
+                    WelcomeMessage {
+                        height: config.game_height,
+                        width: config.game_width,
+                    },
                 );
-
-                let _ = game_ref_cloned
-                    .io_socket
-                    .within("main")
-                    .emit(SendEvent::Respawned, json!({ "name": data.name }));
-                info!("Received respawn for user: {:?}", data.name);
-                /*
-                            map.players.remove_player_by_id(new_player.id);
-                // Emit 'welcome' back to the socket with configuration details
-
-                // If a name was provided, emit a global 'respawned' event
-                info!("[INFO] User {} has respawned", name.name);
-                 */
             },
         );
+
+        let player_ref_cloned = player_ref.clone();
+        let game_ref_cloned = game_ref.clone();
+        s.on(RecvEvent::PlayerGoIt, |socket: SocketRef| async move {
+            //
+            game_ref_cloned.add_player(player_ref_cloned.clone()).await;
+
+            let player = player_ref_cloned.read().await;
+            let player_init_data = player.generate_init_player_data();
+
+            let _ = socket.emit(SendEvent::PlayerInitData, player_init_data.clone());
+
+            let _ = game_ref_cloned.io_socket.emit(
+                SendEvent::NotifyPlayerJoined,
+                PlayerJoinMessage(player_init_data),
+            );
+
+            info!("Player[{:?} / {}] joined", player.name, player.id);
+        });
+
+        let player_ref_cloned = player_ref.clone();
+        let game_ref_cloned = game_ref.clone();
+
+        s.on(RecvEvent::Respawn, |_: SocketRef| async move {
+            game_ref_cloned.respawn_player(player_ref_cloned).await;
+        });
 
         s.on(RecvEvent::PingCheck, |socket: SocketRef| {
             let _ = socket.emit(SendEvent::PongCheck, ());
@@ -213,7 +237,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let config = get_current_config();
                 let mut player = new_player_clone.write().await;
 
-                if player.total_mass < config.min_cell_mass() {
+                if player.total_mass < config.min_cell_mass() as usize {
                     return ();
                 }
 
@@ -224,13 +248,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let mut mass_food_manager = game_ref_cloned.mass_food_manager.write().await;
                 for cell in player.cells.iter_mut() {
                     if cell.mass >= config.min_cell_mass() {
-                        cell.remove_mass(config.fire_food as f32);
+                        cell.remove_mass(config.fire_food);
                         mass_food_manager.add_new(
                             &player_position,
                             &player_target,
                             &cell.position,
                             player_hue,
-                            config.fire_food as f32,
+                            config.fire_food,
                         );
                     }
                 }
@@ -242,59 +266,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let config = get_current_config();
             let mut player = new_player_clone.write().await;
 
-            player.user_split(config.limit_split as usize, config.split_min_mass as f32);
-            let _ = socket.emit(SendEvent::TellPlayerSplit, ());
+            player.user_split(config.limit_split as usize, config.split_min_mass);
+            let _ = socket.emit(SendEvent::NotifyPlayerSplit, ());
         });
-
-        let new_player_clone = player_ref.clone();
-        let game_ref_cloned = game_ref.clone();
-        s.on(
-            RecvEvent::PlayerGoIt,
-            |socket: SocketRef, Data::<GotItMessage>(data)| async move {
-                if let Some(ref name) = data.name {
-                    if !valid_nick(name) {
-                        // kick_player
-                        let _ = socket.emit(SendEvent::KickPlayer, "invalid username.");
-                        error!("Invalid username");
-                    }
-                }
-
-                let mut player = new_player_clone.write().await;
-
-                player.init(
-                    game_ref_cloned.create_player_spawn_point(),
-                    get_current_config().default_player_mass,
-                    data.name,
-                    data.screenWidth as f32,
-                    data.screenHeight as f32,
-                    data.imgUrl,
-                );
-                drop(player);
-
-                game_ref_cloned.add_player(new_player_clone.clone()).await;
-
-                let player = new_player_clone.read().await;
-
-                let _ = game_ref_cloned.io_socket.emit(
-                    SendEvent::PlayerJoin,
-                    PlayerJoinMessage {
-                        name: player.name.clone(),
-                    },
-                );
-
-                info!("Player[{:?} / {}] spawned", player.name, player.id);
-            },
-        );
-
-        let new_player_clone = player_ref.clone();
-        s.on(
-            RecvEvent::PlayerWindowResized,
-            |socket: SocketRef, Data::<WindowResizedMessage>(data)| async move {
-                let mut player = new_player_clone.write().await;
-                player.screen_height = data.screenHeight as f32;
-                player.screen_width = data.screenWidth as f32;
-            },
-        );
 
         s.on(
             RecvEvent::PlayerChat,
@@ -323,8 +297,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
     });
 
-    let compression_layer: CompressionLayer = CompressionLayer::new()
-        .deflate(true);
+    let compression_layer: CompressionLayer = CompressionLayer::new().deflate(true);
 
     let app = Router::new()
         .route("/", get(|| async { "wow much big ballz" }))

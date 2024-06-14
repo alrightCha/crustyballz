@@ -1,10 +1,11 @@
 use socketioxide::socket::Sid;
-use uuid::Uuid;
+
+use super::id::PlayerID;
 
 pub enum QueueMessage {
     KickPlayer{
         name: Option<String>,
-        id: Uuid,
+        id: PlayerID,
         socket_id: Sid
     }
 }

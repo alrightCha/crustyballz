@@ -2,11 +2,15 @@ use crate::map::cell::Cell;
 use crate::map::player::Player;
 use crate::map::point::Point;
 use chrono::Utc;
+use lazy_static::lazy_static;
+use rand::distributions::uniform::{SampleRange, SampleUniform};
 use rand::Rng;
 use regex::Regex;
 use std::f32::consts::PI;
 use uuid::Uuid;
-use lazy_static::lazy_static;
+
+use super::consts::{Mass, TotalMass};
+use super::id::PlayerID;
 
 lazy_static! {
     // Regex matches any string of 0 to 14 word characters.
@@ -22,8 +26,12 @@ pub fn get_current_timestamp() -> i64 {
     Utc::now().timestamp()
 }
 
-pub fn mass_to_radius(mass: f32) -> f32 {
-    4.0 + (mass.sqrt() * 6.0)
+pub fn total_mass_to_radius(mass: TotalMass) -> f32 {
+    4.0 + ((mass as f32).sqrt() * 6.0)
+}
+
+pub fn mass_to_radius(mass: Mass) -> f32 {
+    4.0 + ((mass as f32).sqrt() * 6.0)
 }
 
 //used to not see an immediate change, sort of a smoothing function
@@ -60,17 +68,25 @@ pub fn get_distance(p1: &Point, p2: &Point) -> f32 {
     ((p2.x - p1.x).powi(2) + (p2.y - p1.y).powi(2)).sqrt() - p1.radius - p2.radius
 }
 
-pub fn random_in_range(from: f32, to: f32) -> f32 {
+pub fn random_in_range<R, T>(range: R) -> T
+    where
+    T: SampleUniform,
+    R: SampleRange<T>
+    {
     let mut rng = rand::thread_rng();
-    rng.gen_range(from..to)
+    rng.gen_range(range)
 }
 
 pub fn create_random_position_in_range(max_x: f32, max_y: f32) -> Point {
     Point {
-        x: random_in_range(0.0, max_x),
-        y: random_in_range(0.0, max_y),
+        x: random_in_range(0.0..max_x),
+        y: random_in_range(0.0..max_y),
         radius: 0.0,
     }
+}
+
+pub fn create_random_number_u32(from: u16, to: u16) -> u16 {
+    rand::thread_rng().gen_range(from..to)
 }
 
 pub fn create_random_position(
@@ -94,9 +110,9 @@ pub fn create_random_position(
 //generates a random point to use its x and y values and know a position on the map
 fn random_position(radius: f32) -> Point {
     Point {
-        x: random_in_range(radius, 10000.0 - radius) as f32,
-        y: random_in_range(radius, 10000.0 - radius) as f32,
-        radius: radius as f32,
+        x: random_in_range(radius..10000.0 - radius),
+        y: random_in_range(radius..10000.0 - radius),
+        radius,
     }
 }
 
@@ -132,7 +148,7 @@ fn uniform_position(points: &[Point], radius: f32) -> Point {
     best_candidate
 }
 
-pub fn find_index(arr: &[Player], id: Uuid) -> Option<usize> {
+pub fn find_index(arr: &[Player], id: PlayerID) -> Option<usize> {
     arr.iter().enumerate().rev().find_map(
         |(i, player)| {
             if player.id == id {
