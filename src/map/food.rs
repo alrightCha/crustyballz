@@ -7,14 +7,16 @@ use rand::Rng;
 use serde::Serialize;
 use tokio::sync::RwLock;
 
-#[derive(Serialize)]
-pub struct FoodData {
-    pub id: FoodID,
-    pub x: f32,
-    pub y: f32,
-    pub mass: Mass,
-    pub hue: u16,
-}
+// #[derive(Serialize)]
+// pub struct FoodData {
+//     pub id: FoodID,
+//     // pub x: f32,
+//     // pub y: f32,
+//     // pub mass: Mass,
+//     pub hue: u16,
+// }
+
+pub type FoodData = (FoodID, u16);
 
 #[derive(Debug, Clone, Copy)]
 pub struct Food {
@@ -41,13 +43,14 @@ impl Food {
     }
 
     pub fn generate_data(&self) -> FoodData {
-        FoodData {
-            id: self.id,
-            x: self.x,
-            y: self.y,
-            mass: self.mass,
-            hue: self.hue,
-        }
+        (self.id, self.hue)
+        // FoodData {
+        //     id: self.id,
+        //     // x: self.x,
+        //     // y: self.y,
+        //     // mass: self.mass,
+        //     hue: self.hue,
+        // }
     }
 }
 

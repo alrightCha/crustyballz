@@ -86,7 +86,7 @@ pub struct AllInitData {
 }
 
 #[derive(Serialize)]
-pub struct UpdateData {
+pub struct GameUpdateData {
     pub players: Vec<PlayerUpdateData>,
     pub virus: Vec<VirusData>,
     pub mass_food: Vec<MassFoodUpdateData>,
@@ -133,6 +133,9 @@ pub struct KillMessage {
 pub struct WelcomeMessage {
     pub width: u32,
     pub height: u32,
+    pub default_player_mass: Mass,
+    pub default_mass_food: Mass,
+    pub default_mass_mass_food: Mass
 }
 
 #[derive(Serialize)]

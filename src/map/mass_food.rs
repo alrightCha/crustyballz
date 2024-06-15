@@ -17,7 +17,7 @@ pub struct MassFoodUpdateData {
 pub struct MassFoodInitData {
     pub id: MassFoodID,
     pub hue: u16,
-    pub mass: Mass,
+    // pub mass: Mass,
     pub x: f32,
     pub y: f32,
 }
@@ -30,22 +30,6 @@ pub struct MassFood {
     pub direction: Point,
     pub point: Point,
     pub speed: Option<f32>,
-}
-
-impl Serialize for MassFood {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        MassFoodInitData {
-            hue: self.hue,
-            id: self.id,
-            mass: self.mass,
-            x: self.point.x,
-            y: self.point.y,
-        }
-        .serialize(serializer)
-    }
 }
 
 impl MassFood {
@@ -82,7 +66,7 @@ impl MassFood {
         MassFoodInitData {
             hue: self.hue,
             id: self.id,
-            mass: self.mass,
+            // mass: self.mass,
             x: self.point.x,
             y: self.point.y,
         }

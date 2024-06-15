@@ -38,7 +38,7 @@ use crate::{
     recv_messages::UsernameMessage,
     send_messages::{
         AllInitData, KickMessage, KickedMessage, KillMessage, LeaderboardMessage,
-        PlayerRespawnedMessage, RespawnedMessage, SendEvent, UpdateData,
+        PlayerRespawnedMessage, RespawnedMessage, SendEvent, GameUpdateData,
     },
     utils::{
         consts::{Mass, TotalMass},
@@ -585,7 +585,7 @@ impl Game {
             self.remove_players(players_who_died.iter()).await;
 
             // send chunk data to all players
-            let game_data = UpdateData {
+            let game_data = GameUpdateData {
                 players: players_update_data,
                 virus: virus_update_data,
                 mass_food: mass_food_updates,

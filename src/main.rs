@@ -184,6 +184,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     WelcomeMessage {
                         height: config.game_height,
                         width: config.game_width,
+                        default_player_mass: config.default_player_mass,
+                        default_mass_food: config.food_mass,
+                        default_mass_mass_food: config.fire_food,
                     },
                 );
             },
