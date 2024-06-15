@@ -16,7 +16,7 @@ use crate::{
     },
     recv_messages::Target,
     utils::{
-        consts::Mass,
+        consts::{Mass, TotalMass},
         id::{FoodID, MassFoodID, PlayerID, VirusID},
     },
 };
@@ -38,6 +38,7 @@ pub enum SendEvent {
     GameUpdate,
     FoodsAdded,
     VirusAdded,
+    MassFoodAdded,
     Respawned,
 }
 
@@ -58,10 +59,11 @@ impl Display for SendEvent {
             SendEvent::Leaderboard => "leaderboard",
             SendEvent::PongCheck => "pong_check",
             SendEvent::ServerPlayerChat => "serverSendPlayerChat",
+            SendEvent::AllInitData => "all_init_data",
             SendEvent::GameUpdate => "game_update",
             SendEvent::FoodsAdded => "foods_added",
             SendEvent::VirusAdded => "virus_added",
-            SendEvent::AllInitData => "all_init_data",
+            SendEvent::MassFoodAdded => "mass_food_added",
         })
     }
 }
@@ -113,20 +115,19 @@ impl Into<Payload> for KickedMessage {
 }
 
 #[derive(Serialize)]
-pub struct LeaderboardMessage {
-    pub leaderboard: Vec<LeaderboardPlayer>,
-}
+pub struct LeaderboardMessage(pub Vec<LeaderboardPlayer>);
+
 
 #[derive(Serialize)]
 pub struct LeaderboardPlayer {
     pub id: PlayerID,
-    pub mass: usize,
+    pub mass: TotalMass,
 }
 
 #[derive(Serialize)]
 pub struct KillMessage {
-    pub name: Option<String>,
-    pub eater: Option<String>,
+    pub killed: PlayerID,
+    pub eater: PlayerID,
 }
 
 #[derive(Serialize)]
@@ -146,3 +147,12 @@ pub struct PlayerRespawnedMessage(pub PlayerID);
 
 #[derive(Serialize)]
 pub struct RespawnedMessage(pub Point);
+
+#[derive(Serialize)]
+pub struct MassFoodAddedMessage(pub MassFoodInitData);
+
+#[derive(Serialize)]
+pub struct VirusAddedMessage(pub Vec<VirusData>);
+
+#[derive(Serialize)]
+pub struct FoodAddedMessage(pub Vec<FoodData>);

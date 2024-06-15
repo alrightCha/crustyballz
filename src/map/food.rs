@@ -29,7 +29,7 @@ pub struct Food {
 }
 
 impl Food {
-    pub fn new(food_id: FoodID, point: Point) -> Self {
+    pub fn new(food_id: FoodID, point: &Point) -> Self {
         let mut rng = rand::thread_rng();
         let mass = rng.gen_range(2..3);
         Food {

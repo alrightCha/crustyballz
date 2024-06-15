@@ -1,3 +1,5 @@
+use log::debug;
+
 use crate::map::food::Food;
 
 use super::id::FoodID;
@@ -16,8 +18,8 @@ impl Rectangle {
     }
 
     fn contains(&self, point: &Food) -> bool {
-        let in_x_bounds = point.x >= self.x && point.x <= self.x + self.w;
-        let in_y_bounds = point.y >= self.y && point.y <= self.y + self.h;
+        let in_x_bounds = point.x >= self.x && point.x <= (self.x + self.w);
+        let in_y_bounds = point.y >= self.y && point.y <= (self.y + self.h);
         in_x_bounds && in_y_bounds
     }
 
@@ -259,7 +261,7 @@ mod tests {
         for i in 0..25 {
             quad_tree.insert(Food::new(
                 i as u32,
-                Point {
+                &Point {
                     x: 0.0,
                     y: 0.0,
                     radius: 1.0,
@@ -272,7 +274,7 @@ mod tests {
 
         quad_tree.insert(Food::new(
             9999 as u32,
-            Point {
+            &Point {
                 x: 0.0,
                 y: 0.0,
                 radius: 1.0,
@@ -293,7 +295,7 @@ mod tests {
         for i in 0..25 {
             quad_tree.insert(Food::new(
                 i as u32,
-                Point {
+                &Point {
                     x: 0.0,
                     y: 0.0,
                     radius: 1.0,
@@ -321,7 +323,7 @@ mod tests {
         for i in 0..26 {
             quad_tree.insert(Food::new(
                 i as u32,
-                Point {
+                &Point {
                     x: 0.0,
                     y: 0.0,
                     radius: 1.0,

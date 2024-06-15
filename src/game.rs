@@ -37,8 +37,8 @@ use crate::{
     },
     recv_messages::UsernameMessage,
     send_messages::{
-        AllInitData, KickMessage, KickedMessage, KillMessage, LeaderboardMessage,
-        PlayerRespawnedMessage, RespawnedMessage, SendEvent, GameUpdateData,
+        AllInitData, FoodAddedMessage, GameUpdateData, KickMessage, KickedMessage, KillMessage,
+        LeaderboardMessage, PlayerRespawnedMessage, RespawnedMessage, SendEvent, VirusAddedMessage,
     },
     utils::{
         consts::{Mass, TotalMass},
@@ -132,6 +132,9 @@ impl Game {
         let spawn_point = self.create_player_spawn_point();
         player.reset(&spawn_point, get_current_config().default_player_mass);
 
+        debug!("There is: {} foods", self.food_manager.get_food_count());
+        debug!("Going to send: {} foods", foods_init_data.len());
+
         // send init data
         if let Some(player_socket) = self.io_socket.get_socket(player.socket_id) {
             let _ = player_socket.emit(
@@ -159,6 +162,7 @@ impl Game {
         player_id: PlayerID,
         player_socket_id: Sid,
     ) {
+        info!("Kicking player {} - {:?}", player_id, player_name);
         let _ = self.io_socket.emit(
             SendEvent::KickPlayer,
             KickMessage {
@@ -383,7 +387,7 @@ impl Game {
             let leaderboard = players_manager.get_top_players().await;
             let _ = self
                 .io_socket
-                .emit(SendEvent::Leaderboard, LeaderboardMessage { leaderboard });
+                .emit(SendEvent::Leaderboard, LeaderboardMessage(leaderboard));
             players_manager
                 .shrink_cells(
                     config.mass_loss_rate,
@@ -495,8 +499,19 @@ impl Game {
                     }
                 }
 
+                let mut new_virus = vec![];
+
                 for (position, direction) in shoot_virus.into_iter() {
-                    virus_update_data.push(virus_manager.shoot_one(position, direction));
+                    let new_virus_data = virus_manager.shoot_one(position, direction);
+
+                    virus_update_data.push(new_virus_data.clone());
+                    new_virus.push(new_virus_data);
+                }
+
+                if !new_virus.is_empty() {
+                    let _ = self
+                        .io_socket
+                        .emit(SendEvent::VirusAdded, VirusAddedMessage(new_virus));
                 }
             }
 
@@ -551,8 +566,8 @@ impl Game {
                     let _ = self.io_socket.emit(
                         SendEvent::PlayerDied,
                         KillMessage {
-                            name: player_eated.name.clone(),
-                            eater: player_who_eat.name.clone(),
+                            killed: player_eated.id,
+                            eater: player_who_eat.id,
                         },
                     );
 
@@ -634,7 +649,9 @@ impl Game {
         if food_to_add > 0 {
             let new_foods_data = self.food_manager.create_many_foods(food_to_add).await;
 
-            let _ = self.io_socket.emit(SendEvent::FoodsAdded, new_foods_data);
+            let _ = self
+                .io_socket
+                .emit(SendEvent::FoodsAdded, FoodAddedMessage(new_foods_data));
         }
 
         let mut virus_manager = self.virus_manager.write().await;
@@ -645,7 +662,9 @@ impl Game {
         if viruses_to_add > 0 {
             let new_virus_data = virus_manager.create_many_virus(viruses_to_add);
 
-            let _ = self.io_socket.emit(SendEvent::VirusAdded, new_virus_data);
+            let _ = self
+                .io_socket
+                .emit(SendEvent::VirusAdded, VirusAddedMessage(new_virus_data));
         }
     }
 

@@ -2,7 +2,7 @@ use std::ops::Add;
 
 use crate::{
     map::{
-        mass_food::{MassFood, MassFoodInitData, MassFoodUpdateData},
+        mass_food::{self, MassFood, MassFoodInitData, MassFoodUpdateData},
         point::Point,
     },
     utils::{consts::Mass, id::MassFoodID},
@@ -23,7 +23,8 @@ impl MassFoodManager {
     }
 
     pub fn get_new_id(&mut self) -> MassFoodID {
-        self.id_counter.wrapping_add(1)
+        self.id_counter = self.id_counter.wrapping_add(1);
+        self.id_counter
     }
 
     pub fn add_new(
@@ -33,16 +34,20 @@ impl MassFoodManager {
         cell_transform: &Point,
         hue: u16,
         mass: Mass,
-    ) {
+    ) -> MassFoodInitData {
         let id = self.get_new_id();
-        self.data.push(MassFood::new(
+        let mass_food = MassFood::new(
             id,
             &player_position,
             &player_target,
             hue,
             cell_transform,
             mass,
-        ));
+        );
+        let mass_food_init_data = mass_food.generate_init_data();
+        self.data.push(mass_food);
+
+        mass_food_init_data
     }
 
     //moves the mass until the speed is 0

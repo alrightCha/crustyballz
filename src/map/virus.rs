@@ -8,7 +8,7 @@ use rand::Rng;
 use serde::Serialize;
 use tokio::sync::RwLock;
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct VirusData {
     pub id: VirusID,
     pub x: f32,

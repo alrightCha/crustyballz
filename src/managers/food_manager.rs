@@ -1,18 +1,18 @@
 use std::sync::atomic::AtomicUsize;
 
+use log::debug;
 use tokio::sync::RwLock;
 
 use crate::{
-    map::{
+    config::get_current_config, map::{
         food::{Food, FoodData},
         point::Point,
-    },
-    utils::{
+    }, utils::{
         consts::Mass,
-        id::from_position,
+        id::id_from_position,
         quad_tree::QuadTree,
         util::{create_random_number_u32, create_random_position, mass_to_radius},
-    },
+    }
 };
 
 pub struct FoodManager {
@@ -52,6 +52,14 @@ impl FoodManager {
     }
 
     pub async fn create_many_foods(&self, food_amount: usize) -> Vec<FoodData> {
+        let config = get_current_config();
+        
+        let min_x = (mass_to_radius(config.food_mass)) as u16;
+        let max_x = ((config.game_width as f32) - mass_to_radius(config.food_mass)) as u16;
+        let min_y = (mass_to_radius(config.food_mass)) as u16;
+        let max_y = ((config.game_height as f32) - mass_to_radius(config.food_mass)) as u16;
+
+
         let mut new_foods_data: Vec<FoodData> = vec![];
         let mut quad_tree = self.quad_tree.write().await;
 
@@ -61,10 +69,10 @@ impl FoodManager {
             let position;
 
             loop {
-                let x = create_random_number_u32(0, u16::MAX);
-                let y = create_random_number_u32(0, u16::MAX);
+                let x = create_random_number_u32(min_x, max_x);
+                let y = create_random_number_u32(min_y, max_y);
 
-                food_id = from_position(x, y);
+                food_id = id_from_position(x, y);
 
                 if quad_tree.contains_food(food_id) {
                     continue;
@@ -78,9 +86,13 @@ impl FoodManager {
                 break;
             }
 
-            let food = Food::new(food_id, position);
-            new_foods_data.push(food.generate_data());
-            quad_tree.insert(food); // Ensure QuadTree accepts Point
+            let food = Food::new(food_id, &position);
+            
+            if quad_tree.insert(food) {
+                new_foods_data.push(food.generate_data());
+            } else {
+                debug!("Failed to added food[{}] - {:?}", food_id, position);
+            }
         }
 
         self.add_food_count(food_amount);

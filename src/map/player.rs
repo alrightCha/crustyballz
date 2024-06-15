@@ -10,7 +10,7 @@ use crate::utils::quad_tree::Rectangle;
 use crate::utils::util::{
     check_overlap, check_who_ate_who, get_current_timestamp, lerp, total_mass_to_radius,
 };
-use log::info;
+use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use socketioxide::socket::Sid;
 
@@ -256,8 +256,7 @@ impl Player {
             }
         } else {
             let target_direction = self.calculate_target_direction(); // A method to calculate and normalize the target direction
-            info!("we are here");
-            info!("{:?}", target_direction);
+            debug!("we are here: {:?}", target_direction);
             directions.resize(pieces_to_create as usize, target_direction);
         }
 

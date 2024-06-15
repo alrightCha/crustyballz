@@ -16,14 +16,16 @@ use map::player::{self, Player, PlayerInitData};
 use map::point::Point;
 use recv_messages::{ChatMessage, LetMeInMessage, RecvEvent, TargetMessage, UsernameMessage};
 use rust_socketio::asynchronous::{Client, ClientBuilder};
-use send_messages::{PlayerJoinMessage, PlayerRespawnedMessage, SendEvent, WelcomeMessage};
+use send_messages::{
+    MassFoodAddedMessage, PlayerJoinMessage, PlayerRespawnedMessage, SendEvent, WelcomeMessage,
+};
 use time::OffsetDateTime;
 use tokio::net::TcpStream;
 use tokio::sync::{Mutex, RwLock};
 //Debugging
 use dotenv::dotenv;
 use log::{error, info, warn};
-use utils::id::PlayerID;
+use utils::id::{id_from_position, PlayerID};
 
 use std::env::args;
 use std::net::Ipv4Addr;
@@ -140,6 +142,49 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let game = Arc::new(Game::new(io_socket.clone(), match_marking_socket));
     let game_cloned = game.clone();
 
+    let mut food_debug = Food::new(
+        id_from_position(0, 0),
+        &Point {
+            x: 0.0,
+            y: 0.0,
+            radius: 2.0,
+        },
+    );
+    food_debug.hue = 0;
+
+    food_debug.x = 9900.0;
+    food_debug.y = 9900.0;
+    food_debug.id = id_from_position(food_debug.x as u16, food_debug.y as u16);
+    game.food_manager
+        .quad_tree
+        .write()
+        .await
+        .insert(food_debug.clone());
+    food_debug.x = 10.0;
+    food_debug.y = 10.0;
+    food_debug.id = id_from_position(food_debug.x as u16, food_debug.y as u16);
+    game.food_manager
+        .quad_tree
+        .write()
+        .await
+        .insert(food_debug.clone());
+    food_debug.x = 9900.0;
+    food_debug.y = 10.0;
+    food_debug.id = id_from_position(food_debug.x as u16, food_debug.y as u16);
+    game.food_manager
+        .quad_tree
+        .write()
+        .await
+        .insert(food_debug.clone());
+    food_debug.x = 10.0;
+    food_debug.y = 9900.0;
+    food_debug.id = id_from_position(food_debug.x as u16, food_debug.y as u16);
+    game.food_manager
+        .quad_tree
+        .write()
+        .await
+        .insert(food_debug.clone());
+
     // tokio spawn game loop
     tokio::spawn(async move {
         game_cloned.tick_game().await;
@@ -252,13 +297,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 for cell in player.cells.iter_mut() {
                     if cell.mass >= config.min_cell_mass() {
                         cell.remove_mass(config.fire_food);
-                        mass_food_manager.add_new(
+                        let mass_food_init_data = mass_food_manager.add_new(
                             &player_position,
                             &player_target,
                             &cell.position,
                             player_hue,
                             config.fire_food,
                         );
+
+                        let _ = game_ref_cloned.io_socket.emit(
+                            SendEvent::MassFoodAdded,
+                            MassFoodAddedMessage(mass_food_init_data),
+                        );
+
+                        break;
                     }
                 }
             },
