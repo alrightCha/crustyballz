@@ -266,8 +266,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             SendEvent::MassFoodAdded,
                             MassFoodAddedMessage(mass_food_init_data),
                         );
-
-                        break;
                     }
                 }
             },

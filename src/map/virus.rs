@@ -3,7 +3,7 @@ use crate::config::VirusConfig;
 use crate::utils::consts::Mass;
 use crate::utils::game_logic::adjust_for_boundaries;
 use crate::utils::id::VirusID;
-use crate::utils::util::{are_colliding, create_random_position, mass_to_radius, random_in_range};
+use crate::utils::util::{are_colliding, check_overlap, create_random_position, mass_to_radius, random_in_range};
 use rand::Rng;
 use serde::Serialize;
 use tokio::sync::RwLock;
@@ -58,7 +58,7 @@ impl Virus {
 
     pub fn can_be_eat_by(&self, cell_mass: Mass, cell_point: &Point) -> bool {
         (cell_mass as f32) > (1.1 * (self.mass as f32))
-            && are_colliding(&self.get_position(), &cell_point)
+            && check_overlap(&self.get_position(), &cell_point)
     }
 
     pub fn get_position(&self) -> Point {

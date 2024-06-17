@@ -458,6 +458,7 @@ impl Game {
         let config = get_current_config();
 
         loop {
+            let start = get_current_timestamp();
             self.handle_queue().await;
 
             let players_manager = self.player_manager.read().await;
