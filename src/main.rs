@@ -222,10 +222,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
 
         s.on(RecvEvent::PingCheck, |socket: SocketRef| {
-            let instant = Instant::now();
             let _ = socket.emit(SendEvent::PongCheck, get_current_timestamp_micros());
-            debug!("taked: {:.5} ms to emit pong", instant.elapsed().as_secs_f64()*1000.0);
-
         });
 
         let new_player_clone = player_ref.clone();
