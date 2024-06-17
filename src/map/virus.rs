@@ -1,19 +1,28 @@
 use super::point::Point;
 use crate::config::VirusConfig;
+use crate::utils::consts::Mass;
 use crate::utils::game_logic::adjust_for_boundaries;
-use crate::utils::util::{are_colliding, create_random_position, mass_to_radius, random_in_range};
+use crate::utils::id::VirusID;
+use crate::utils::util::{are_colliding, check_overlap, create_random_position, mass_to_radius, random_in_range};
 use rand::Rng;
 use serde::Serialize;
 use tokio::sync::RwLock;
-use uuid::Uuid;
 
-#[derive(Clone, Serialize)]
+#[derive(Serialize, Clone)]
+pub struct VirusData {
+    pub id: VirusID,
+    pub x: f32,
+    pub y: f32,
+    pub mass: Mass,
+}
+
+#[derive(Clone)]
 pub struct Virus {
-    pub id: Uuid,
+    pub id: VirusID,
     x: f32,
     y: f32,
     radius: f32,
-    pub mass: f32,
+    pub mass: Mass,
     stroke: String,
     stroke_width: f32,
     direction: Option<Point>,
@@ -22,10 +31,10 @@ pub struct Virus {
 }
 
 impl Virus {
-    pub fn new(point: Point, mass: f32, direction: Option<Point>) -> Self {
+    pub fn new(virus_id: VirusID, point: Point, mass: Mass, direction: Option<Point>) -> Self {
         let virus_config = VirusConfig::default();
         Virus {
-            id: Uuid::new_v4(),
+            id: virus_id,
             x: point.x,
             y: point.y,
             radius: mass_to_radius(mass),
@@ -38,8 +47,18 @@ impl Virus {
         }
     }
 
-    pub fn can_be_eat_by(&self, cell_mass: f32, cell_point: Point) -> bool {
-        cell_mass > 1.1 * self.mass && are_colliding(&self.get_position(), &cell_point)
+    pub fn generate_data(&self) -> VirusData {
+        VirusData {
+            id: self.id,
+            x: self.x,
+            y: self.y,
+            mass: self.mass,
+        }
+    }
+
+    pub fn can_be_eat_by(&self, cell_mass: Mass, cell_point: &Point) -> bool {
+        (cell_mass as f32) > (1.1 * (self.mass as f32))
+            && check_overlap(&self.get_position(), &cell_point)
     }
 
     pub fn get_position(&self) -> Point {
@@ -81,13 +100,13 @@ impl Virus {
         }
     }
 
-    pub fn set_mass(&mut self, new_mass: f32) {
+    pub fn set_mass(&mut self, new_mass: Mass) {
         self.mass = new_mass;
         self.recalculate_radius();
     }
 
-    pub fn add_mass(&mut self, to_add: f32) {
-        self.set_mass(self.mass + to_add)
+    pub fn add_mass(&mut self, to_add: Mass) {
+        self.set_mass(self.mass.saturating_add(to_add))
     }
 
     fn recalculate_radius(&mut self) {

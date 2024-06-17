@@ -4,41 +4,66 @@ use rust_socketio::{Event, Payload};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use socketioxide::socket::Sid;
-use uuid::Uuid;
 
 use crate::{
-    map::{cell::Cell, food::Food, mass_food::MassFood, virus::Virus},
+    map::{
+        cell::Cell,
+        food::{Food, FoodData},
+        mass_food::{MassFood, MassFoodInitData, MassFoodUpdateData},
+        player::{PlayerInitData, PlayerUpdateData},
+        point::Point,
+        virus::{Virus, VirusData},
+    },
     recv_messages::Target,
+    utils::{
+        consts::{Mass, TotalMass},
+        id::{FoodID, MassFoodID, PlayerID, VirusID},
+    },
 };
 
 pub enum SendEvent {
-    TellPlayerSplit,
+    Welcome,
+    PlayerInitData,
+    AllInitData,
+    NotifyPlayerJoined,
+    NotifyPlayerSplit,
     RIP,
     PlayerDied,
     KickPlayer,
     PlayerKicked,
     Leaderboard,
-    Respawned,
-    Welcome,
+    NotifyPlayerRespawn,
     PongCheck,
-    ServerPlayerChat,
-    PlayerJoin,
+    PlayerMessage,
+    GameUpdate,
+    FoodsAdded,
+    VirusAdded,
+    MassFoodAdded,
+    Respawned,
 }
 
+// Notify means that we are going to emit this message globaly
 impl Display for SendEvent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match &self {
             SendEvent::Welcome => "welcome",
-            SendEvent::TellPlayerSplit => "tellPlayerSplit",
+            SendEvent::PlayerInitData => "player_init_data",
+            SendEvent::NotifyPlayerJoined => "player_joined",
+            SendEvent::NotifyPlayerSplit => "player_splited",
+            SendEvent::NotifyPlayerRespawn => "player_respawned",
+            SendEvent::Respawned => "respawned",
             SendEvent::RIP => "RIP",
             SendEvent::PlayerDied => "playerDied",
             SendEvent::PlayerKicked => "kicked",
             SendEvent::KickPlayer => "kick",
             SendEvent::Leaderboard => "leaderboard",
-            SendEvent::PongCheck => "pongcheck",
-            SendEvent::ServerPlayerChat => "serverSendPlayerChat",
-            SendEvent::Respawned => "respawned",
-            SendEvent::PlayerJoin => "playerJoin",
+            SendEvent::PongCheck => "pong_check",
+            SendEvent::PlayerMessage => "player_message",
+            SendEvent::AllInitData => "all_init_data",
+            SendEvent::GameUpdate => "game_update",
+            SendEvent::FoodsAdded => "foods_added",
+            SendEvent::VirusAdded => "virus_added",
+            SendEvent::MassFoodAdded => "mass_food_added",
         })
     }
 }
@@ -54,53 +79,32 @@ impl Into<Event> for SendEvent {
         self.to_string().into()
     }
 }
-
 #[derive(Serialize)]
-pub struct ServerTellPlayerMove {
-    pub playerData: PlayerData,
-    pub updates: UpdateData,
-}
-
-#[derive(Serialize, Default, Clone)]
-pub struct UpdateData {
-    pub visiblePlayers: Vec<PlayerData>,
-    pub visibleFood: Vec<Food>,
-    pub visibleMass: Vec<MassFood>,
-    pub visibleViruses: Vec<Virus>,
-}
-
-#[derive(Serialize, Clone, Deserialize)]
-pub struct PlayerData {
-    pub admin: bool,
-    pub cells: Vec<Cell>,
-    pub hue: u16,
-    pub id: Uuid,
-    pub imgUrl: Option<String>,
-    pub lastHeartbeat: i64,
-    pub massTotal: f32,
-    pub name: String,
-    pub ratio: f32,
-    pub screenHeight: f32,
-    pub screenWidth: f32,
-    pub target: Target,
-    pub timeToMerge: Option<i64>,
-    pub x: f32,
-    pub y: f32,
+pub struct AllInitData {
+    pub players: Vec<PlayerInitData>,
+    pub virus: Vec<VirusData>,
+    pub mass_foods: Vec<MassFoodInitData>,
+    pub foods: Vec<FoodData>,
 }
 
 #[derive(Serialize)]
-pub struct PlayerJoinMessage {
-    pub name: Option<String>,
+pub struct GameUpdateData {
+    pub players: Vec<PlayerUpdateData>,
+    pub virus: Vec<VirusData>,
+    pub mass_food: Vec<MassFoodUpdateData>,
+    pub removed_foods: Vec<FoodID>,
+    pub removed_mass: Vec<MassFoodID>,
+    pub removed_virus: Vec<VirusID>
 }
 
 #[derive(Serialize)]
 pub struct KickMessage {
     pub name: Option<String>,
-    pub id: Uuid,
+    pub id: PlayerID,
 }
 #[derive(Serialize)]
 pub struct KickedMessage {
-    pub socketId: Sid,
+    pub socket_id: Sid,
     pub port: u16,
 }
 
@@ -112,24 +116,49 @@ impl Into<Payload> for KickedMessage {
 
 #[derive(Serialize)]
 pub struct LeaderboardMessage {
-    pub leaderboard: Vec<LeaderboardPlayer>,
+    pub leaderboard: Vec<LeaderboardPlayer>
 }
+
 
 #[derive(Serialize)]
 pub struct LeaderboardPlayer {
-    pub id: Uuid,
-    pub name: Option<String>,
-    pub mass: f32,
+    pub id: PlayerID,
+    pub mass: TotalMass,
 }
 
 #[derive(Serialize)]
 pub struct KillMessage {
-    pub name: Option<String>,
-    pub eater: Option<String>,
+    pub killed: PlayerID,
+    pub eater: PlayerID,
 }
 
 #[derive(Serialize)]
 pub struct WelcomeMessage {
     pub width: u32,
     pub height: u32,
+    pub default_player_mass: Mass,
+    pub default_mass_food: Mass,
+    pub default_mass_mass_food: Mass
+}
+
+#[derive(Serialize)]
+pub struct PlayerJoinMessage(pub PlayerInitData);
+
+#[derive(Serialize)]
+pub struct PlayerRespawnedMessage(pub PlayerID);
+
+#[derive(Serialize)]
+pub struct RespawnedMessage(pub Point);
+
+#[derive(Serialize)]
+pub struct MassFoodAddedMessage(pub MassFoodInitData);
+
+#[derive(Serialize)]
+pub struct VirusAddedMessage {
+    pub viruses: Vec<VirusData>
+}
+
+#[derive(Serialize)]
+pub struct FoodAddedMessage {
+    pub foods: Vec<FoodData>,
 }

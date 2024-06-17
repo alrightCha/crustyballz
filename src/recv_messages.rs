@@ -9,9 +9,9 @@ pub enum RecvEvent {
     PlayerMousePosition,
     PlayerSendingMass,
     PlayerSplit,
-    PlayerWindowResized,
     PlayerChat,
-    PlayerGoIt,
+    PlayerGotIt,
+    LetMeIn
 }
 
 impl Display for RecvEvent {
@@ -19,12 +19,12 @@ impl Display for RecvEvent {
         f.write_str(match &self {
             RecvEvent::Respawn => "respawn",
             RecvEvent::PingCheck => "pingcheck",
+            RecvEvent::LetMeIn => "let_me_in",
             RecvEvent::PlayerMousePosition => "0",
             RecvEvent::PlayerSendingMass => "1",
             RecvEvent::PlayerSplit => "2",
-            RecvEvent::PlayerWindowResized => "windowResized",
             RecvEvent::PlayerChat => "playerChat",
-            RecvEvent::PlayerGoIt => "gotit",
+            RecvEvent::PlayerGotIt => "gotit",
         })
     }
 }
@@ -52,18 +52,11 @@ pub struct Target {
     pub y: f32,
 }
 
-#[derive(Deserialize)]
-pub struct WindowResizedMessage {
-    pub screenHeight: i32,
-    pub screenWidth: i32,
-}
 
 #[derive(Deserialize)]
-pub struct GotItMessage {
+pub struct LetMeInMessage {
     pub name: Option<String>,
-    pub imgUrl: Option<String>,
-    pub screenHeight: i32,
-    pub screenWidth: i32,
+    pub img_url: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
