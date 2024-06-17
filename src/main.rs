@@ -24,12 +24,13 @@ use tokio::net::TcpStream;
 use tokio::sync::{Mutex, RwLock};
 //Debugging
 use dotenv::dotenv;
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use utils::id::{id_from_position, PlayerID};
 
 use std::env::args;
 use std::net::Ipv4Addr;
 use std::str::FromStr;
+use std::time::Instant;
 use std::{net::SocketAddr, path::PathBuf};
 use tower::ServiceBuilder;
 use tower_http::compression::CompressionLayer;
@@ -43,7 +44,7 @@ use axum::Router;
 use std::fs::OpenOptions;
 use std::{env, fs};
 use utils::queue_message::QueueMessage;
-use utils::util::valid_nick;
+use utils::util::{get_current_timestamp_micros, valid_nick};
 
 //For socket reference
 use std::sync::{Arc, OnceLock};
@@ -221,7 +222,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
 
         s.on(RecvEvent::PingCheck, |socket: SocketRef| {
-            let _ = socket.emit(SendEvent::PongCheck, ());
+            let instant = Instant::now();
+            let _ = socket.emit(SendEvent::PongCheck, get_current_timestamp_micros());
+            debug!("taked: {:.5} ms to emit pong", instant.elapsed().as_secs_f64()*1000.0);
+
         });
 
         let new_player_clone = player_ref.clone();

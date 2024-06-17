@@ -26,6 +26,10 @@ pub fn get_current_timestamp() -> i64 {
     Utc::now().timestamp()
 }
 
+pub fn get_current_timestamp_micros() -> i64 {
+    Utc::now().timestamp_micros()
+}
+
 pub fn total_mass_to_radius(mass: TotalMass) -> f32 {
     4.0 + ((mass as f32).sqrt() * 6.0)
 }

@@ -3,7 +3,7 @@ use std::{
     ops::{Sub, SubAssign},
     slice::Iter,
     sync::{atomic::AtomicUsize, Arc},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use chrono::Utc;
@@ -13,13 +13,11 @@ use rust_socketio::asynchronous::Client;
 use serde::Serialize;
 use serde_json::json;
 use socketioxide::{socket::Sid, SocketIo};
-use tokio::{
-    sync::{
-        mpsc::{self, UnboundedReceiver, UnboundedSender},
-        Mutex, RwLock,
-    },
-    time::sleep,
+use tokio::sync::{
+    mpsc::{self, UnboundedReceiver, UnboundedSender},
+    Mutex, RwLock,
 };
+use tokio_timerfd::sleep;
 
 use crate::{
     config::{get_current_config, Config},
@@ -61,7 +59,7 @@ pub struct VisibleEntities {
 }
 
 const GAME_LOOP_INTERVAL: i64 = 1;
-const TICKER_LOOP_FPS: f32 = 30.0;
+const TICKER_LOOP_FPS: f64 = 1.0 / (30.0 * 1.0);
 
 pub struct Game {
     pub food_manager: FoodManager,
@@ -102,7 +100,11 @@ impl Game {
     }
 
     pub async fn add_player(&self, player: Arc<RwLock<Player>>) {
-        self.player_manager.write().await.insert_with_new_id(player).await;
+        self.player_manager
+            .write()
+            .await
+            .insert_with_new_id(player)
+            .await;
     }
 
     pub async fn remove_players(&self, players: impl Iterator<Item = &PlayerID>) {
@@ -114,7 +116,11 @@ impl Game {
 
     pub async fn respawn_player(&self, player: Arc<RwLock<Player>>) {
         // check if player is at the game...
-        self.player_manager.write().await.insert_if_not_in(player.clone()).await;
+        self.player_manager
+            .write()
+            .await
+            .insert_if_not_in(player.clone())
+            .await;
 
         let players_init_data = self
             .player_manager
@@ -457,15 +463,19 @@ impl Game {
         let mut last_game_loop: i64 = 0;
         let config = get_current_config();
 
+        let instant = Instant::now();
+        let mut start : Duration;
         loop {
-            let start = get_current_timestamp();
+            start = instant.elapsed();
             self.handle_queue().await;
+            // let elapsed_handle_queue = instant.elapsed() - start;
 
             let players_manager = self.player_manager.read().await;
             if (get_current_timestamp() - last_game_loop) >= GAME_LOOP_INTERVAL {
                 last_game_loop = get_current_timestamp();
                 self.game_loop(&config, &players_manager).await;
             }
+            // let elapsed_game_loop = instant.elapsed() - start;
 
             let mut players_update_data: Vec<PlayerUpdateData> = vec![];
             let mut virus_update_data: Vec<VirusData> = vec![];
@@ -480,6 +490,7 @@ impl Game {
                 .await
                 .move_food(config.game_width as f32, config.game_height as f32);
 
+            // let elapsed_mass_move = instant.elapsed() - start;
             // execute tick_virus for each virus
             let mut shoot_virus: Vec<(Point, Point)> = vec![];
 
@@ -510,13 +521,16 @@ impl Game {
                 }
 
                 if !new_viruses.is_empty() {
-                    let _ = self
-                        .io_socket
-                        .emit(SendEvent::VirusAdded, VirusAddedMessage {
-                            viruses: new_viruses
-                        });
+                    let _ = self.io_socket.emit(
+                        SendEvent::VirusAdded,
+                        VirusAddedMessage {
+                            viruses: new_viruses,
+                        },
+                    );
                 }
             }
+
+            // let elapsed_virus_tick = instant.elapsed() - start;
 
             // handling collision btw players
             let who_ate_who_list = Self::get_players_collision(&players_manager).await;
@@ -581,6 +595,7 @@ impl Game {
                 }
             }
 
+            // let elapsed_killing_players_tick = instant.elapsed() - start;
             // execute tick_player for each player
             for (player_id, player) in players_manager.players.iter() {
                 if players_who_died.contains(player_id) {
@@ -598,6 +613,7 @@ impl Game {
                     None => {}
                 }
             }
+            // let elapsed_tick_player_tick = instant.elapsed() - start;
 
             drop(players_manager);
             self.remove_players(players_who_died.iter()).await;
@@ -614,7 +630,25 @@ impl Game {
 
             let _ = self.io_socket.emit(SendEvent::GameUpdate, game_data);
 
-            sleep(Duration::from_secs_f32(1.0 / TICKER_LOOP_FPS)).await;
+            // let elapsed_sent_game_update = instant.elapsed() - start;
+
+            // if elapsed_sent_game_update.as_nanos() / 100_000 >= 3 {
+            //     debug!("elaped_handle_queue: {}\nelaped_game_loop: {}\n elaped_mass_move: {}\nelaped_virus_tick: {}\nelaped_killing_players_tick: {}\nelaped_tick_player_tick: {}\nelapsed_sent_game_update: {}", 
+            //     elapsed_handle_queue.as_nanos(),
+            //     elapsed_game_loop.as_nanos(),
+            //     elapsed_mass_move.as_nanos(),
+            //     elapsed_virus_tick.as_nanos(),
+            //     elapsed_killing_players_tick.as_nanos(),
+            //     elapsed_tick_player_tick.as_nanos(),
+            //     elapsed_sent_game_update.as_nanos()
+            // );
+            // }
+
+            let sleep_for = Duration::from_secs_f64(
+                (TICKER_LOOP_FPS - ((instant.elapsed() - start).as_secs_f64())).max(0.0),
+            );
+
+            let _ = sleep(sleep_for).await;
         }
     }
 
@@ -652,11 +686,12 @@ impl Game {
         if food_to_add > 0 {
             let new_foods_data = self.food_manager.create_many_foods(food_to_add).await;
 
-            let _ = self
-                .io_socket
-                .emit(SendEvent::FoodsAdded, FoodAddedMessage {
-                    foods: new_foods_data
-                });
+            let _ = self.io_socket.emit(
+                SendEvent::FoodsAdded,
+                FoodAddedMessage {
+                    foods: new_foods_data,
+                },
+            );
         }
 
         let mut virus_manager = self.virus_manager.write().await;
@@ -667,11 +702,12 @@ impl Game {
         if viruses_to_add > 0 {
             let new_virus_data = virus_manager.create_many_virus(viruses_to_add);
 
-            let _ = self
-                .io_socket
-                .emit(SendEvent::VirusAdded, VirusAddedMessage {
-                    viruses: new_virus_data
-                });
+            let _ = self.io_socket.emit(
+                SendEvent::VirusAdded,
+                VirusAddedMessage {
+                    viruses: new_virus_data,
+                },
+            );
         }
     }
 
