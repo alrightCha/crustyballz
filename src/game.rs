@@ -102,7 +102,7 @@ impl Game {
     }
 
     pub async fn add_player(&self, player: Arc<RwLock<Player>>) {
-        self.player_manager.write().await.push_new(player).await;
+        self.player_manager.write().await.insert_with_new_id(player).await;
     }
 
     pub async fn remove_players(&self, players: impl Iterator<Item = &PlayerID>) {
@@ -113,6 +113,9 @@ impl Game {
     }
 
     pub async fn respawn_player(&self, player: Arc<RwLock<Player>>) {
+        // check if player is at the game...
+        self.player_manager.write().await.insert_if_not_in(player.clone()).await;
+
         let players_init_data = self
             .player_manager
             .read()
@@ -131,9 +134,6 @@ impl Game {
         let mut player = player.write().await;
         let spawn_point = self.create_player_spawn_point();
         player.reset(&spawn_point, get_current_config().default_player_mass);
-
-        debug!("There is: {} foods", self.food_manager.get_food_count());
-        debug!("Going to send: {} foods", foods_init_data.len());
 
         // send init data
         if let Some(player_socket) = self.io_socket.get_socket(player.socket_id) {
@@ -228,13 +228,13 @@ impl Game {
             let cell_eaten_mass: Vec<&MassFood> = player_view
                 .visible_mass_food
                 .iter()
-                .filter(|mass| mass.can_be_eat_by(p_cell.mass, p_cell.position))
+                .filter(|mass| mass.can_be_eat_by(p_cell.mass, &p_cell.position))
                 .collect();
 
             let cell_eaten_virus: Vec<&Virus> = player_view
                 .visible_viruses
                 .iter()
-                .filter(|virus| virus.can_be_eat_by(virus.mass, &virus.get_position()))
+                .filter(|virus| virus.can_be_eat_by(p_cell.mass, &p_cell.position))
                 .collect();
 
             let mut mass_gained: Mass = 0;
@@ -244,7 +244,7 @@ impl Game {
 
                 let mut virus_manager = self.virus_manager.write().await;
 
-                for virus in cell_eaten_virus {
+                for virus in cell_eaten_virus.iter() {
                     mass_gained = mass_gained.saturating_add(virus.mass);
                     virus_manager.delete(virus.id);
                     cells_to_split.push(i);
@@ -265,7 +265,7 @@ impl Game {
             if cell_eaten_food.len() > 0 {
                 eated_foods.extend(cell_eaten_food.iter().map(|f| f.id));
 
-                let mass_gained_with_food: usize = cell_eaten_food.len();
+                let mass_gained_with_food: usize = cell_eaten_food.len() * 10;
                 // Update the ammount of food in the map
                 mass_gained = mass_gained.saturating_add(mass_gained_with_food as Mass);
             }
@@ -387,7 +387,7 @@ impl Game {
             let leaderboard = players_manager.get_top_players().await;
             let _ = self
                 .io_socket
-                .emit(SendEvent::Leaderboard, LeaderboardMessage(leaderboard));
+                .emit(SendEvent::Leaderboard, LeaderboardMessage { leaderboard });
             players_manager
                 .shrink_cells(
                     config.mass_loss_rate,
@@ -499,19 +499,21 @@ impl Game {
                     }
                 }
 
-                let mut new_virus = vec![];
+                let mut new_viruses = vec![];
 
                 for (position, direction) in shoot_virus.into_iter() {
                     let new_virus_data = virus_manager.shoot_one(position, direction);
 
                     virus_update_data.push(new_virus_data.clone());
-                    new_virus.push(new_virus_data);
+                    new_viruses.push(new_virus_data);
                 }
 
-                if !new_virus.is_empty() {
+                if !new_viruses.is_empty() {
                     let _ = self
                         .io_socket
-                        .emit(SendEvent::VirusAdded, VirusAddedMessage(new_virus));
+                        .emit(SendEvent::VirusAdded, VirusAddedMessage {
+                            viruses: new_viruses
+                        });
                 }
             }
 
@@ -651,7 +653,9 @@ impl Game {
 
             let _ = self
                 .io_socket
-                .emit(SendEvent::FoodsAdded, FoodAddedMessage(new_foods_data));
+                .emit(SendEvent::FoodsAdded, FoodAddedMessage {
+                    foods: new_foods_data
+                });
         }
 
         let mut virus_manager = self.virus_manager.write().await;
@@ -664,7 +668,9 @@ impl Game {
 
             let _ = self
                 .io_socket
-                .emit(SendEvent::VirusAdded, VirusAddedMessage(new_virus_data));
+                .emit(SendEvent::VirusAdded, VirusAddedMessage {
+                    viruses: new_virus_data
+                });
         }
     }
 

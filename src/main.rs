@@ -142,49 +142,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let game = Arc::new(Game::new(io_socket.clone(), match_marking_socket));
     let game_cloned = game.clone();
 
-    let mut food_debug = Food::new(
-        id_from_position(0, 0),
-        &Point {
-            x: 0.0,
-            y: 0.0,
-            radius: 2.0,
-        },
-    );
-    food_debug.hue = 0;
-
-    food_debug.x = 9900.0;
-    food_debug.y = 9900.0;
-    food_debug.id = id_from_position(food_debug.x as u16, food_debug.y as u16);
-    game.food_manager
-        .quad_tree
-        .write()
-        .await
-        .insert(food_debug.clone());
-    food_debug.x = 10.0;
-    food_debug.y = 10.0;
-    food_debug.id = id_from_position(food_debug.x as u16, food_debug.y as u16);
-    game.food_manager
-        .quad_tree
-        .write()
-        .await
-        .insert(food_debug.clone());
-    food_debug.x = 9900.0;
-    food_debug.y = 10.0;
-    food_debug.id = id_from_position(food_debug.x as u16, food_debug.y as u16);
-    game.food_manager
-        .quad_tree
-        .write()
-        .await
-        .insert(food_debug.clone());
-    food_debug.x = 10.0;
-    food_debug.y = 9900.0;
-    food_debug.id = id_from_position(food_debug.x as u16, food_debug.y as u16);
-    game.food_manager
-        .quad_tree
-        .write()
-        .await
-        .insert(food_debug.clone());
-
     // tokio spawn game loop
     tokio::spawn(async move {
         game_cloned.tick_game().await;
@@ -325,13 +282,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let _ = socket.emit(SendEvent::NotifyPlayerSplit, ());
         });
 
+        let game_ref_cloned = game_ref.clone();
         s.on(
             RecvEvent::PlayerChat,
-            |socket: SocketRef, Data::<ChatMessage>(data)| {
-                info!("Received data: {:?}", data);
-                let _ = socket
-                    .within(&*main_room)
-                    .emit(SendEvent::ServerPlayerChat, data);
+            move |_: SocketRef, Data::<ChatMessage>(data)| {
+                let _ = game_ref_cloned.io_socket
+                .emit(SendEvent::PlayerMessage, data);
+                // .within(&*main_room)
             },
         );
 

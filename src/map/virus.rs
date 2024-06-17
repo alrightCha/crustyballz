@@ -57,7 +57,7 @@ impl Virus {
     }
 
     pub fn can_be_eat_by(&self, cell_mass: Mass, cell_point: &Point) -> bool {
-        (cell_mass as f32) > 1.1 * (self.mass as f32)
+        (cell_mass as f32) > (1.1 * (self.mass as f32))
             && are_colliding(&self.get_position(), &cell_point)
     }
 

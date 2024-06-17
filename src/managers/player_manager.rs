@@ -31,7 +31,18 @@ impl PlayerManager {
         }
     }
 
-    pub async fn push_new(&mut self, player: Arc<RwLock<Player>>) {
+    pub async fn insert_if_not_in(&mut self, player: Arc<RwLock<Player>>) -> bool{
+        let player_id = player.read().await.id;
+        
+        if (self.players.contains_key(&player_id)) {
+            return false;
+        }
+
+        self.players.insert(player_id, player);
+        true
+    }
+
+    pub async fn insert_with_new_id(&mut self, player: Arc<RwLock<Player>>) {
         let player_id = self.get_new_id();
         player.write().await.id = player_id;
         // TODO: check limit

@@ -34,7 +34,7 @@ pub enum SendEvent {
     Leaderboard,
     NotifyPlayerRespawn,
     PongCheck,
-    ServerPlayerChat,
+    PlayerMessage,
     GameUpdate,
     FoodsAdded,
     VirusAdded,
@@ -58,7 +58,7 @@ impl Display for SendEvent {
             SendEvent::KickPlayer => "kick",
             SendEvent::Leaderboard => "leaderboard",
             SendEvent::PongCheck => "pong_check",
-            SendEvent::ServerPlayerChat => "serverSendPlayerChat",
+            SendEvent::PlayerMessage => "player_message",
             SendEvent::AllInitData => "all_init_data",
             SendEvent::GameUpdate => "game_update",
             SendEvent::FoodsAdded => "foods_added",
@@ -115,7 +115,9 @@ impl Into<Payload> for KickedMessage {
 }
 
 #[derive(Serialize)]
-pub struct LeaderboardMessage(pub Vec<LeaderboardPlayer>);
+pub struct LeaderboardMessage {
+    pub leaderboard: Vec<LeaderboardPlayer>
+}
 
 
 #[derive(Serialize)]
@@ -152,7 +154,11 @@ pub struct RespawnedMessage(pub Point);
 pub struct MassFoodAddedMessage(pub MassFoodInitData);
 
 #[derive(Serialize)]
-pub struct VirusAddedMessage(pub Vec<VirusData>);
+pub struct VirusAddedMessage {
+    pub viruses: Vec<VirusData>
+}
 
 #[derive(Serialize)]
-pub struct FoodAddedMessage(pub Vec<FoodData>);
+pub struct FoodAddedMessage {
+    pub foods: Vec<FoodData>,
+}

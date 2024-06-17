@@ -18,6 +18,8 @@ use socketioxide::socket::Sid;
 pub struct PlayerUpdateData {
     pub id: PlayerID,
     pub cells: Vec<Cell>,
+    pub x: f32,
+    pub y: f32
 }
 
 #[derive(Serialize, Clone, Deserialize)]
@@ -150,6 +152,8 @@ impl Player {
         PlayerUpdateData {
             id: self.id,
             cells: self.cells.clone(),
+            x: self.x,
+            y: self.y
         }
     }
 
