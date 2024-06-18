@@ -231,11 +231,21 @@ impl Game {
                 .filter(|food| are_colliding(&p_cell.position, &food.as_point()))
                 .collect();
 
-            let cell_eaten_mass: Vec<&MassFood> = player_view
-                .visible_mass_food
+            let mut mass_food_manager = self.mass_food_manager.write().await;
+            let cell_eaten_mass: Vec<&MassFood> = mass_food_manager
+                .visible_mass_food() // This should be a method that accounts for locking internally
                 .iter()
                 .filter(|mass| mass.can_be_eat_by(p_cell.mass, &p_cell.position))
                 .collect();
+
+            if !cell_eaten_mass.is_empty() {
+                eated_mass.extend(cell_eaten_mass.iter().map(|m| m.id));
+                mass_gained += cell_eaten_mass.iter().map(|f| f.mass).sum::<Mass>();
+
+                for mass_food in cell_eaten_mass {
+                    mass_food_manager.remove_food(mass_food.id);
+                }
+            }
 
             let cell_eaten_virus: Vec<&Virus> = player_view
                 .visible_viruses
@@ -254,17 +264,6 @@ impl Game {
                     mass_gained = mass_gained.saturating_add(virus.mass);
                     virus_manager.delete(virus.id);
                     cells_to_split.push(i);
-                }
-            }
-
-            if cell_eaten_mass.len() > 0 {
-                eated_mass.extend(cell_eaten_mass.iter().map(|m| m.id));
-
-                mass_gained += cell_eaten_mass.iter().map(|f| f.mass).sum::<Mass>();
-                let mut mass_food_manager = self.mass_food_manager.write().await;
-
-                for mass_food in cell_eaten_mass {
-                    mass_food_manager.remove_food(mass_food.id);
                 }
             }
 
@@ -464,7 +463,7 @@ impl Game {
         let config = get_current_config();
 
         let instant = Instant::now();
-        let mut start : Duration;
+        let mut start: Duration;
         loop {
             start = instant.elapsed();
             self.handle_queue().await;
@@ -633,7 +632,7 @@ impl Game {
             // let elapsed_sent_game_update = instant.elapsed() - start;
 
             // if elapsed_sent_game_update.as_nanos() / 100_000 >= 3 {
-            //     debug!("elaped_handle_queue: {}\nelaped_game_loop: {}\n elaped_mass_move: {}\nelaped_virus_tick: {}\nelaped_killing_players_tick: {}\nelaped_tick_player_tick: {}\nelapsed_sent_game_update: {}", 
+            //     debug!("elaped_handle_queue: {}\nelaped_game_loop: {}\n elaped_mass_move: {}\nelaped_virus_tick: {}\nelaped_killing_players_tick: {}\nelaped_tick_player_tick: {}\nelapsed_sent_game_update: {}",
             //     elapsed_handle_queue.as_nanos(),
             //     elapsed_game_loop.as_nanos(),
             //     elapsed_mass_move.as_nanos(),
