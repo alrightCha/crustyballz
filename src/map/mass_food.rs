@@ -58,7 +58,7 @@ impl MassFood {
                 y: cell_transform.y + direction.y * cell_transform.radius,
                 radius: mass_to_radius(mass),
             },
-            speed: Some(20.0),
+            speed: Some(30.0),
         }
     }
 
@@ -100,7 +100,7 @@ impl MassFood {
             let delta_x = *speed * self.direction.x;
             let delta_y = *speed * self.direction.y;
 
-            *speed -= 1.25;
+            *speed -= 1;
             if *speed < 0.0 {
                 self.speed = None;
             }
