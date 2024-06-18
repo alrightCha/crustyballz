@@ -169,9 +169,13 @@ pub fn check_who_ate_who(cell_a: &Cell, cell_b: &Cell) -> u8 {
     if check_overlap(&cell_a.position, &cell_b.position) {
         let min_cell_rad = f32::min(cell_a.position.radius, cell_b.position.radius);
         if min_cell_rad == cell_a.position.radius {
-            return 2;
+            if(cell_a.mass > 1.2 * cell_b.mass){
+                return 2;
+            }
         } else {
-            return 1;
+            if(cell_b.mass > 1.2 * cell_a.mass){
+                return 1;
+            }
         }
     }
     return 0;
