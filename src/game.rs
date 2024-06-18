@@ -271,7 +271,7 @@ impl Game {
             if cell_eaten_food.len() > 0 {
                 eated_foods.extend(cell_eaten_food.iter().map(|f| f.id));
 
-                let mass_gained_with_food: usize = cell_eaten_food.len() * 10;
+                let mass_gained_with_food: usize = cell_eaten_food.len();
                 // Update the ammount of food in the map
                 mass_gained = mass_gained.saturating_add(mass_gained_with_food as Mass);
             }
