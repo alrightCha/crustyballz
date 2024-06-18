@@ -57,7 +57,7 @@ impl MassFood {
                 x: cell_transform.x + direction.x * cell_transform.radius,
                 y: cell_transform.y + direction.y * cell_transform.radius,
                 radius: mass_to_radius(mass),
-            },
+            }.scale(1.2),
             speed: Some(30.0),
         }
     }
