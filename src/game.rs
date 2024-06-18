@@ -234,7 +234,7 @@ impl Game {
             let cell_eaten_mass: Vec<&MassFood> = player_view
                 .visible_mass_food
                 .iter()
-                .filter(|mass| !eated_mass.contains(&mass.id) && are_colliding(&p_cell.position, &mass.point))
+                .filter(|mass| !eated_mass.contains(&mass.id) && mass.can_be_eat_by(p_cell.mass, &p_cell.position))
                 .collect();
 
             let cell_eaten_virus: Vec<&Virus> = player_view
@@ -271,7 +271,7 @@ impl Game {
             if cell_eaten_food.len() > 0 {
                 eated_foods.extend(cell_eaten_food.iter().map(|f| f.id));
 
-                let mass_gained_with_food: usize = cell_eaten_food.len();
+                let mass_gained_with_food: usize = cell_eaten_food.len() * 10;
                 // Update the ammount of food in the map
                 mass_gained = mass_gained.saturating_add(mass_gained_with_food as Mass);
             }

@@ -54,8 +54,8 @@ impl MassFood {
             hue,
             direction,
             point: Point {
-                x: cell_transform.x + direction.x * cell_transform.radius + mass_to_radius(20), //adding initial radius of mass_food
-                y: cell_transform.y + direction.y * cell_transform.radius + mass_to_radius(20),
+                x: cell_transform.x + direction.x * cell_transform.radius, //adding initial radius of mass_food
+                y: cell_transform.y + direction.y * cell_transform.radius,
                 radius: mass_to_radius(mass),
             },
             speed: Some(30.0),
