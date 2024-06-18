@@ -169,17 +169,20 @@ pub fn check_who_ate_who(cell_a: &Cell, cell_b: &Cell) -> u8 {
     if check_overlap(&cell_a.position, &cell_b.position) {
         let min_cell_rad = f32::min(cell_a.position.radius, cell_b.position.radius);
         if min_cell_rad == cell_a.position.radius {
-            if(cell_a.mass > 1.2 * cell_b.mass){
+            // Since we're working with integers, compare cell_a.mass to 5/6 of cell_b.mass instead of multiplying
+            if cell_a.mass > (cell_b.mass * 5) / 6 {
                 return 2;
             }
         } else {
-            if(cell_b.mass > 1.2 * cell_a.mass){
+            // Similar comparison but for cell_b against cell_a
+            if cell_b.mass > (cell_a.mass * 5) / 6 {
                 return 1;
             }
         }
     }
     return 0;
 }
+
 
 //Rework
 pub fn is_visible_entity(position_a: Point, player: &Player) -> bool {
