@@ -78,7 +78,7 @@ impl Virus {
             if let Some(dir) = &self.direction {
                 let delta_x = speed * dir.x;
                 let delta_y = speed * dir.y;
-                self.speed = Some(speed - 1.5);
+                self.speed = Some(speed - 1.25);
                 if self.speed.unwrap() < 0.0 {
                     self.speed = None;
                 }
