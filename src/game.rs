@@ -1,5 +1,5 @@
 use std::{
-    collections::VecDeque,
+    collections::{hash_set, HashSet, VecDeque},
     ops::{Sub, SubAssign},
     slice::Iter,
     sync::{atomic::AtomicUsize, Arc},
@@ -196,7 +196,7 @@ impl Game {
         &self,
         player: &mut Player,
         config: &Config,
-    ) -> Option<(Vec<FoodID>, Vec<MassFoodID>, Vec<VirusID>)> {
+    ) -> Option<(HashSet<FoodID>, HashSet<MassFoodID>, HashSet<VirusID>)> {
         if player.last_heartbeat < (get_current_timestamp() - config.max_heartbeat_interval) {
             self.update_queue
                 .lock()
@@ -220,27 +220,27 @@ impl Game {
 
         let mut cells_to_split: Vec<usize> = vec![];
 
-        let mut eated_foods: Vec<FoodID> = vec![];
-        let mut eated_mass: Vec<MassFoodID> = vec![];
-        let mut eated_virus: Vec<VirusID> = vec![];
+        let mut eated_foods: HashSet<FoodID> = HashSet::new();
+        let mut eated_mass: HashSet<MassFoodID> = HashSet::new();
+        let mut eated_virus: HashSet<VirusID> = HashSet::new();
 
         for (i, p_cell) in player.cells.iter_mut().enumerate() {
             let cell_eaten_food: Vec<&Food> = player_view
                 .visible_foods
                 .iter()
-                .filter(|food| are_colliding(&p_cell.position, &food.as_point()))
+                .filter(|food| !eated_foods.contains(&food.id) && are_colliding(&p_cell.position, &food.as_point()))
                 .collect();
 
             let cell_eaten_mass: Vec<&MassFood> = player_view
                 .visible_mass_food
                 .iter()
-                .filter(|mass| mass.can_be_eat_by(p_cell.mass, &p_cell.position))
+                .filter(|mass| !eated_mass.contains(&mass.id) && mass.can_be_eat_by(p_cell.mass, &p_cell.position))
                 .collect();
 
             let cell_eaten_virus: Vec<&Virus> = player_view
                 .visible_viruses
                 .iter()
-                .filter(|virus| virus.can_be_eat_by(p_cell.mass, &p_cell.position))
+                .filter(|virus| !eated_virus.contains(&virus.id) && virus.can_be_eat_by(p_cell.mass, &p_cell.position))
                 .collect();
 
             let mut mass_gained: Mass = 0;
