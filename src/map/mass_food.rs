@@ -100,7 +100,7 @@ impl MassFood {
             let delta_x = *speed * self.direction.x;
             let delta_y = *speed * self.direction.y;
 
-            *speed -= 1;
+            *speed -= 1.0;
             if *speed < 0.0 {
                 self.speed = None;
             }
