@@ -69,7 +69,7 @@ impl VirusManager {
 
         let mut new_virus = self.create_virus(position, mass, Some(direction));
 
-        new_virus.set_speed(30.0);
+        new_virus.set_speed(35.0);
 
         let virus_data = new_virus.generate_data();
 
