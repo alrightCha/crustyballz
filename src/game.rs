@@ -5,7 +5,7 @@ use std::{
     sync::{atomic::AtomicUsize, Arc},
     time::{Duration, Instant},
 };
-use std::collections::HashSet;
+
 use chrono::Utc;
 use futures_util::SinkExt;
 use log::{debug, info};
@@ -197,10 +197,6 @@ impl Game {
         player: &mut Player,
         config: &Config,
     ) -> Option<(Vec<FoodID>, Vec<MassFoodID>, Vec<VirusID>)> {
-    
-        // Track consumed mass foods to prevent multiple consumptions in one tick
-        let mut consumed_mass_foods = HashSet::new();
-    
         if player.last_heartbeat < (get_current_timestamp() - config.max_heartbeat_interval) {
             self.update_queue
                 .lock()
@@ -212,71 +208,99 @@ impl Game {
                 });
             return None;
         }
-    
+
         player.move_cells(
             config.slow_base as f32,
             config.game_width as i32,
             config.game_height as i32,
             config.get_init_mass_log(),
         );
-    
+
         let player_view = self.enumerate_what_player_sees(player).await;
-    
+
         let mut cells_to_split: Vec<usize> = vec![];
-    
+
         let mut eated_foods: Vec<FoodID> = vec![];
         let mut eated_mass: Vec<MassFoodID> = vec![];
         let mut eated_virus: Vec<VirusID> = vec![];
-    
+
         for (i, p_cell) in player.cells.iter_mut().enumerate() {
             let cell_eaten_food: Vec<&Food> = player_view
                 .visible_foods
                 .iter()
                 .filter(|food| are_colliding(&p_cell.position, &food.as_point()))
                 .collect();
-    
+
             let cell_eaten_mass: Vec<&MassFood> = player_view
                 .visible_mass_food
                 .iter()
-                .filter(|mass| !consumed_mass_foods.contains(&mass.id) && mass.can_be_eat_by(p_cell.mass, &p_cell.position))
+                .filter(|mass| mass.can_be_eat_by(p_cell.mass, &p_cell.position))
                 .collect();
-    
+
             let cell_eaten_virus: Vec<&Virus> = player_view
                 .visible_viruses
                 .iter()
                 .filter(|virus| virus.can_be_eat_by(p_cell.mass, &p_cell.position))
                 .collect();
-    
+
             let mut mass_gained: Mass = 0;
-    
-            if !cell_eaten_mass.is_empty() {
+
+            if cell_eaten_virus.len() > 0 {
+                eated_virus.extend(cell_eaten_virus.iter().map(|v| v.id));
+
+                let mut virus_manager = self.virus_manager.write().await;
+
+                for virus in cell_eaten_virus.iter() {
+                    mass_gained = mass_gained.saturating_add(virus.mass);
+                    virus_manager.delete(virus.id);
+                    cells_to_split.push(i);
+                }
+            }
+
+            if cell_eaten_mass.len() > 0 {
+                eated_mass.extend(cell_eaten_mass.iter().map(|m| m.id));
+
+                mass_gained += cell_eaten_mass.iter().map(|f| f.mass).sum::<Mass>();
+                let mut mass_food_manager = self.mass_food_manager.write().await;
+
                 for mass_food in cell_eaten_mass {
-                    consumed_mass_foods.insert(mass_food.id);
-                    eated_mass.push(mass_food.id);
-                    mass_gained += mass_food.mass;
-    
-                    let mut mass_food_manager = self.mass_food_manager.write().await;
                     mass_food_manager.remove_food(mass_food.id);
                 }
             }
-    
-            // Handle food and virus consumption as earlier (omitted for brevity)
-            
+
+            if cell_eaten_food.len() > 0 {
+                eated_foods.extend(cell_eaten_food.iter().map(|f| f.id));
+
+                let mass_gained_with_food: usize = cell_eaten_food.len() * 10;
+                // Update the ammount of food in the map
+                mass_gained = mass_gained.saturating_add(mass_gained_with_food as Mass);
+            }
+
             p_cell.add_mass(mass_gained);
+
+            self.food_manager.delete_many_foods(cell_eaten_food).await;
         }
-    
-        self.food_manager.delete_many_foods(&consumed_mass_foods.iter().cloned().collect()).await;
-    
-        if !cells_to_split.is_empty() {
-            // Handle cell splits (omitted for brevity)
+
+        if cells_to_split.len() > 0 {
+            match self.io_socket.get_socket(player.socket_id) {
+                Some(player_socket) => {
+                    let _ = player_socket.emit(SendEvent::NotifyPlayerSplit, ());
+                }
+                None => {}
+            };
+
+            player.virus_split(
+                &cells_to_split,
+                config.limit_split as usize,
+                config.default_player_mass,
+            );
         }
-    
+
         player.recalculate_total_mass();
         player.recalculate_ratio();
-    
+
         Some((eated_foods, eated_mass, eated_virus))
     }
-    
 
     pub fn create_player_spawn_point(&self) -> Point {
         let config = get_current_config();
