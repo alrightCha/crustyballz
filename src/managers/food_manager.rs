@@ -100,12 +100,15 @@ impl FoodManager {
         new_foods_data
     }
 
-    pub async fn delete_many_foods(&self, foods_to_delete: Vec<&Food>) {
+    pub async fn delete_many_foods(&self, foods_to_delete: impl Iterator<Item=&Food>) {
         let mut quad_tree = self.quad_tree.write().await;
-        for food in foods_to_delete.iter() {
-            quad_tree.remove(&food);
+        let mut length = 0;
+        for food in foods_to_delete {
+            if quad_tree.remove(&food) {
+                length += 1;
+            }
         }
-        self.sub_food_count(foods_to_delete.len())
+        self.sub_food_count(length);
     }
 
     pub async fn get_foods_init_data(&self) -> Vec<FoodData> {
