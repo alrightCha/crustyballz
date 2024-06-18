@@ -286,8 +286,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             RecvEvent::PlayerChat,
             move |_: SocketRef, Data::<ChatMessage>(data)| {
                 let _ = game_ref_cloned.io_socket
+                .within(&*main_room)
                 .emit(SendEvent::PlayerMessage, data);
-                // .within(&*main_room)
             },
         );
 
