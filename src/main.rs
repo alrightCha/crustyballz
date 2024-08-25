@@ -58,6 +58,7 @@ use socketioxide::{
     SocketIo,
 };
 
+
 #[derive(Parser)]
 #[command(about, long_about = None)]
 struct Cli {
@@ -135,7 +136,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mode = env::var("MODE").unwrap_or("DEBUG".to_string());
 
-    let match_marking_socket = match mode.as_str() {
+    let mut match_marking_socket = match mode.as_str() {
         "DEBUG" => None,
         _ => setup_matchmaking_service().await,
     };
@@ -178,7 +179,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
 
                 let mut player = player_ref_cloned.write().await;
-
+                
+                //MARK: Added newly 
+                if let Some(socket_mtchmkng) = game_ref_cloned.matchmaking_socket {
+                    let _ = socket_mtchmkng.emit("getAmount", data.user_id).await;
+                    let ab_id = data.user_id.clone();
+                    socket_mtchmkng.on("userAmount", |payload: Payload, _| {
+                        match payload {
+                            Payload::String(json_string) => {
+                                if let Ok(data) = serde_json::from_str::<Value>(&json_string) {
+                                    if let Some(amount) = data["amount"].as_f64() {
+                                        if let Some(address) = data["address"].as_str() {
+                                            info!("Received userAmount: {}, address: {}", amount, address);
+                                            game.amount_manager.set_amount(&ab_id, amount);
+                                            game.amount_manager.set_address(ab_id, &address);
+                                            game.amount_manager.set_user_id(&player.id, ab_id);
+                                        }
+                                    }
+                                } else {
+                                    info!("Failed to parse payload as JSON: {}", json_string);
+                                }
+                            },
+                            Payload::Binary(_) => {
+                                info!("Received binary data for userAmount, expected JSON string.");
+                            },
+                            _ => info!("Unexpected payload type."),
+                        }
+                    }).await.expect("Failed to setup listener for userAmount");
+                }
                 player.setup(data.name, data.img_url);
                 drop(player);
 

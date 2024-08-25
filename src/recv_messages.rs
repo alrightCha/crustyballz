@@ -57,6 +57,7 @@ pub struct Target {
 pub struct LetMeInMessage {
     pub name: Option<String>,
     pub img_url: Option<String>,
+    pub user_id: i32
 }
 
 #[derive(Debug, Deserialize, Serialize)]
