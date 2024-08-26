@@ -4,6 +4,7 @@ use rust_socketio::{Event, Payload};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use socketioxide::socket::Sid;
+use tokio_tungstenite::tungstenite::Message;
 
 use crate::{
     map::{
@@ -111,6 +112,17 @@ pub struct KickedMessage {
 impl Into<Payload> for KickedMessage {
     fn into(self) -> Payload {
         serde_json::to_value(self).unwrap().into()
+    }
+}
+
+impl Into<Message> for KickedMessage {
+    fn into(self) -> Message {
+        let json_payload = serde_json::json!({
+            "event": SendEvent::PlayerKicked.to_string(),
+            "data": self
+        });
+        
+        Message::Text(serde_json::to_string(&json_payload).unwrap())
     }
 }
 

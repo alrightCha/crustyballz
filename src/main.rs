@@ -2,6 +2,7 @@ mod config;
 mod game;
 mod managers;
 mod map;
+mod match_making_connection;
 mod recv_messages;
 mod send_messages;
 mod utils;
@@ -15,6 +16,7 @@ use managers::amount_manager::{self, AmountManager};
 use map::food::Food;
 use map::player::{self, Player, PlayerInitData};
 use map::point::Point;
+use match_making_connection::MatchMakingConnection;
 use recv_messages::{
     AmountMessage, ChatMessage, LetMeInMessage, RecvEvent, TargetMessage, UsernameMessage,
 };
@@ -26,6 +28,7 @@ use send_messages::{
 use time::OffsetDateTime;
 use tokio::net::TcpStream;
 use tokio::sync::{Mutex, RwLock};
+use tokio_tungstenite::tungstenite::Message;
 //Debugging
 use core::future::Future;
 use core::pin::Pin;
@@ -120,61 +123,65 @@ pub fn get_websockets_port() -> &'static u16 {
     })
 }
 
-async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) -> Option<Client> {
+async fn setup_matchmaking_service(
+    amount_manager: Arc<Mutex<AmountManager>>,
+) -> Option<MatchMakingConnection> {
     let url_domain = Cli::try_parse().expect("Error parsing CLI args").sub_domain;
 
-    let callback = move |payload: Payload, socket: Client| {
-        let amount_manager = amount_manager.clone();
+    // let callback = move |payload: Payload, socket: Client| {
+    //     let amount_manager = amount_manager.clone();
 
-        async move {
-            match payload {
-                Payload::String(json_string) => {
-                    if let Ok(data) = serde_json::from_str::<AmountMessage>(&json_string) {
-                        if let Ok(id) = i8::try_from(data.id) {
-                            let mut manager = amount_manager.lock().await;
-                            manager.set_amount(id, data.amount);
-                            manager.set_address(id, data.address);
-                        }
-                    } else {
-                        info!("Failed to parse payload as JSON: {}", json_string);
-                    }
-                }
-                Payload::Binary(_) => {
-                    info!("Received binary data for userAmount, expected JSON string.");
-                }
-                _ => info!("Unexpected payload type."),
-            }
-        }
-        .boxed()
-    };
+    //     async move {
+    //         match payload {
+    //             Payload::String(json_string) => {
+    //                 if let Ok(data) = serde_json::from_str::<AmountMessage>(&json_string) {
+    //                     if let Ok(id) = i8::try_from(data.id) {
+    //                         let mut manager = amount_manager.lock().await;
+    //                         manager.set_amount(id, data.amount);
+    //                         manager.set_address(id, data.address);
+    //                     }
+    //                 } else {
+    //                     info!("Failed to parse payload as JSON: {}", json_string);
+    //                 }
+    //             }
+    //             Payload::Binary(_) => {
+    //                 info!("Received binary data for userAmount, expected JSON string.");
+    //             }
+    //             _ => info!("Unexpected payload type."),
+    //         }
+    //     }
+    //     .boxed()
+    // };
 
     info!("URL DOMAIN FOR MATCHMAKING : {:?}", url_domain);
 
-    let client = ClientBuilder::new(url_domain)
-        .on_any(|event, payload, _client| {
-            async {
-                if let Payload::String(str) = payload {
-                    info!("ANY: {}: {}", String::from(event), str);
-                }
-            }
-            .boxed()
-        })
-        .on("open", |err, _| {
-            async move { info!("MATCHMAKING OPEN: {:#?}", err) }.boxed()
-        })
-        .on("error", |err, _| {
-            async move { error!("MATCHMAKING ERROR: {:#?}", err) }.boxed()
-        })
-        .on("close", |err, _| {
-            async move { info!("MATCHMAKING CLOSE: {:#?}", err) }.boxed()
-        })
-        .connect()
-        .await
-        .expect("Matchmaking websockets connection failed");
+    let connection = MatchMakingConnection::setup_connection(url_domain).await;
 
-    let _response = client.emit("hello", "world").await;
+    // let client = ClientBuilder::new(url_domain)
+    //     .on_any(|event, payload, _client| {
+    //         async {
+    //             if let Payload::String(str) = payload {
+    //                 info!("ANY: {}: {}", String::from(event), str);
+    //             }
+    //         }
+    //         .boxed()
+    //     })
+    //     .on("open", |err, _| {
+    //         async move { info!("MATCHMAKING OPEN: {:#?}", err) }.boxed()
+    //     })
+    //     .on("error", |err, _| {
+    //         async move { error!("MATCHMAKING ERROR: {:#?}", err) }.boxed()
+    //     })
+    //     .on("close", |err, _| {
+    //         async move { info!("MATCHMAKING CLOSE: {:#?}", err) }.boxed()
+    //     })
+    //     .connect()
+    //     .await
+    //     .expect("Matchmaking websockets connection failed");
 
-    Some(client)
+    // let _response = client.emit("hello", "world").await;
+
+    Some(connection)
 }
 
 #[tokio::main]
@@ -240,8 +247,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 //MARK: Added newly
                 if let Some(socket_mtchmkng) = &game_ref_cloned.matchmaking_socket {
-                    let json_payload = json!({"id": data.user_id});
-                    let _ = socket_mtchmkng.emit("getAmount", json_payload).await;
+                    let json_payload = serde_json::json!({
+                        "event": "getAmount",
+                        "data": {
+                            "id": data.user_id,
+                        }
+                    });
+
+                    let _ = socket_mtchmkng
+                        .send_message(Message::Text(serde_json::to_string(&json_payload).unwrap()))
+                        .await;
                 }
                 player.setup(data.name, data.img_url);
                 drop(player);
