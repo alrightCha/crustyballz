@@ -1,9 +1,6 @@
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
-    signature::{Keypair, read_keypair_file},
-    transaction::Transaction,
-    pubkey::Pubkey,
-    system_instruction,
+    pubkey::Pubkey, signature::{read_keypair_file, Keypair}, signer::Signer, system_instruction, transaction::Transaction
 };
 use serde_json;
 use std::str::FromStr;
@@ -27,12 +24,12 @@ pub async fn transfer_sol(to_pubkey_str: String, amount_sol: f64) {
     let lamports = solana_sdk::native_token::sol_to_lamports(amount_sol);
 
     // Convert string to Pubkey
-    let to_pubkey = Pubkey::from_str(to_pubkey_str)
+    let to_pubkey = Pubkey::from_str(&to_pubkey_str)
         .expect("Failed to create pubkey from string");
 
     // Create transfer instruction
     let transfer_instruction = system_instruction::transfer(
-        &from_keypair.pubkey(), 
+        &from_keypair.try_pubkey(),
         &to_pubkey, 
         lamports
     );
@@ -40,12 +37,11 @@ pub async fn transfer_sol(to_pubkey_str: String, amount_sol: f64) {
     // Create the transaction
     let mut transaction = Transaction::new_with_payer(
         &[transfer_instruction], 
-        Some(&from_keypair.pubkey())
+        Some(&from_keypair.try_pubkey())
     );
 
     // Fetch recent blockhash
     let recent_blockhash = client.get_recent_blockhash()
-        .await
         .expect("Failed to get recent blockhash")
         .0;
 
@@ -55,7 +51,6 @@ pub async fn transfer_sol(to_pubkey_str: String, amount_sol: f64) {
 
     // Send the transaction
     let signature = client.send_and_confirm_transaction(&transaction)
-        .await
         .expect("Failed to send transaction");
 
     println!("Transaction sent with signature: {}", signature);

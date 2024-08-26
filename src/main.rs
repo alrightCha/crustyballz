@@ -172,7 +172,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         _ => setup_matchmaking_service(amount_manager).await,
     };
 
-    let mut manager = amount_manager.lock().unwrap();
+    let mut manager = amount_manager.lock().await;
 
     let game = Arc::new(Game::new(
         manager,
