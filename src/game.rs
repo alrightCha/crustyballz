@@ -17,7 +17,7 @@ use tokio::sync::{
     mpsc::{self, UnboundedReceiver, UnboundedSender},
     Mutex, RwLock,
 };
-//use tokio_timerfd::sleep;
+use tokio_timerfd::sleep;
 
 use crate::{
     config::{get_current_config, Config},
@@ -678,7 +678,7 @@ impl Game {
                 (TICKER_LOOP_FPS - ((instant.elapsed() - start).as_secs_f64())).max(0.0),
             );
 
-            //let _ = sleep(sleep_for).await;
+            let _ = sleep(sleep_for).await;
         }
     }
 
