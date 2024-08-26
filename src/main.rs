@@ -153,6 +153,9 @@ async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) ->
     Some(
         ClientBuilder::new(url_domain)
             .on("userAmount", callback)
+            .on("open", |err, _| async move { info!("MATCHMAKING OPEN: {:#?}", err)}.boxed())
+            .on("error", |err, _| async move { error!("MATCHMAKING ERROR: {:#?}", err)}.boxed())
+            .on("close", |err, _| async move { info!("MATCHMAKING CLOSE: {:#?}", err)}.boxed())
             .connect()
             .await
             .expect("Matchmaking websockets connection failed"),
