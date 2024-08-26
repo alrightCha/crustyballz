@@ -1,7 +1,6 @@
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
-    signature::{Keypair, read_keypair_file},
-    transaction::Transaction,
+    signature::{read_keypair_file, Keypair}, signer::Signer, transaction::Transaction
 };
 use std::error::Error;
 
@@ -22,12 +21,12 @@ fn transfer_sol(recipient_address: &str, amount_sol: f64) -> Result<(), Box<dyn 
     // Create a transfer transaction
     let recipient_pubkey = recipient_address.parse()?;
     let transfer_instruction = solana_sdk::system_instruction::transfer(
-        &keypair.pubkey(), &recipient_pubkey, lamports
+        Ok(&keypair.try_pubkey()), &recipient_pubkey, lamports
     );
     let recent_blockhash = client.get_recent_blockhash()?.0;
     let transaction = Transaction::new_signed_with_payer(
         &[transfer_instruction],
-        Some(&keypair.pubkey()),
+        Ok(Some(&keypair.try_pubkey())),
         &[&keypair],
         recent_blockhash
     );
