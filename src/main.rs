@@ -172,7 +172,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut match_marking_socket = match mode.as_str() {
         "DEBUG" => None,
-        _ => setup_matchmaking_service(amount_manager).await,
+        _ => setup_matchmaking_service(amount_manager.clone()).await,
     };
 
     let mut manager = amount_manager.lock().await;
