@@ -7,7 +7,7 @@ pub struct AmountManager {
     user_collected: HashMap<i8, Vec<f64>>,
 }
 
-pub impl AmountManager {
+impl AmountManager {
     /// Constructs a new `UserData`.
     pub fn new() -> Self {
         AmountManager {

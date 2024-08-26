@@ -140,8 +140,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         if let Some(amount) = data["amount"].as_f64() {
                             if let Some(address) = data["address"].as_str() {
                                 if let Some(id) = data["id"].as_i64() {
-                                    if let Ok(id) = i8::try_from(id_val) {
-                                        let mut manager = amount_manager.lock().unwrap();
+                                    if let Ok(id) = i8::try_from(id) {
+                                        let mut manager = amount_manager.lock();
                                         manager.set_amount(id, amount);
                                         manager.set_address(id, (&address).to_string());
                                     }
@@ -176,7 +176,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut manager = amount_manager.lock().await;
 
     let game = Arc::new(Game::new(
-        manager,
+        &*manager,
         io_socket.clone(),
         match_marking_socket,
     ));

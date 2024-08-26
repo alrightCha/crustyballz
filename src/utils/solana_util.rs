@@ -1,14 +1,18 @@
+use serde_json;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
-    pubkey::Pubkey, signature::{read_keypair_file, Keypair}, signer::Signer, system_instruction, transaction::Transaction
+    pubkey::Pubkey,
+    signature::{read_keypair_file, Keypair},
+    signer::Signer,
+    system_instruction,
+    transaction::Transaction,
 };
-use serde_json;
 use std::str::FromStr;
 
 //MARK: ADDED NEWLY
 pub async fn transfer_sol(to_pubkey_str: String, amount_sol: f64) {
-    if(to_pubkey_str == 'f'.to_string()){
-        return
+    if (to_pubkey_str == 'f'.to_string()) {
+        return;
     }
     let from_keypair_path = "../../../wome.json";
 
@@ -17,43 +21,38 @@ pub async fn transfer_sol(to_pubkey_str: String, amount_sol: f64) {
     let client = RpcClient::new(rpc_url);
 
     // Read the keypair from a JSON file
-    let from_keypair = read_keypair_file(from_keypair_path)
-        .expect("Failed to read keypair from file");
+    let from_keypair =
+        read_keypair_file(from_keypair_path).expect("Failed to read keypair from file");
 
     // Convert SOL to lamports
     let lamports = solana_sdk::native_token::sol_to_lamports(amount_sol);
 
     // Convert string to Pubkey
-    let to_pubkey = Pubkey::from_str(&to_pubkey_str)
-        .expect("Failed to create pubkey from string");
+    let to_pubkey = Pubkey::from_str(&to_pubkey_str).expect("Failed to create pubkey from string");
 
-    // Create transfer instruction
-    let transfer_instruction = system_instruction::transfer(
-        &from_keypair.try_pubkey(),
-        &to_pubkey, 
-        lamports
-    );
-
-    if let Some(wallet_pubkey) = from_keypair.try_pubkey() {
+    if let Ok(wallet_pubkey) = from_keypair.try_pubkey() {
+        // Create transfer instruction
+        let transfer_instruction =
+            system_instruction::transfer(&wallet_pubkey, &to_pubkey, lamports);
         // Create the transaction
-        let mut transaction = Transaction::new_with_payer(
-            &[transfer_instruction], 
-            wallet_pubkey
-        );
-    
+        let mut transaction = Transaction::new_with_payer(&[transfer_instruction], wallet_pubkey);
+
         // Fetch recent blockhash
-        let recent_blockhash = client.get_recent_blockhash()
+        let recent_blockhash = client
+            .get_recent_blockhash()
             .expect("Failed to get recent blockhash")
             .0;
-    
+
         // Sign the transaction
-        transaction.try_sign(&[&from_keypair], recent_blockhash)
+        transaction
+            .try_sign(&[&from_keypair], recent_blockhash)
             .expect("Failed to sign transaction");
-    
+
         // Send the transaction
-        let signature = client.send_and_confirm_transaction(&transaction)
+        let signature = client
+            .send_and_confirm_transaction(&transaction)
             .expect("Failed to send transaction");
-    
+
         println!("Transaction sent with signature: {}", signature);
     }
 }
