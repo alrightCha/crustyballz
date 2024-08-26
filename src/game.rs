@@ -584,7 +584,7 @@ impl Game {
                                     //Transferring total eaten
                                     transfer_sol(address, total).await;
                                     //Clearing
-                                    self.amount_manager.set_address(eaten_id, 'f');
+                                    self.amount_manager.set_address(eaten_id, 'f'.to_string());
                                     self.amount_manager.set_amount(eaten_id, 0.0);
                                     self.amount_manager.clear_data(eaten_id);
                                 }

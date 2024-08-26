@@ -59,7 +59,6 @@ use socketioxide::{
     SocketIo,
 };
 
-
 #[derive(Parser)]
 #[command(about, long_about = None)]
 struct Cli {
@@ -128,7 +127,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //MARK: ADDED NEWLY
     let amount_manager = Arc::new(Mutex::new(AmountManager::new()));
 
-    async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) -> Option<Client> {
+    async fn setup_matchmaking_service(
+        amount_manager: Arc<Mutex<AmountManager>>,
+    ) -> Option<Client> {
         let url_domain = Cli::try_parse().expect("Error parsing CLI args").sub_domain;
         let callback = |payload: Payload, socket: RawClient| {
             let amount_manager = amount_manager.clone();
@@ -137,21 +138,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     if let Ok(data) = serde_json::from_str::<Value>(&json_string) {
                         if let Some(amount) = data["amount"].as_f64() {
                             if let Some(address) = data["address"].as_str() {
-                                if let Some(id) = data["id"]{
-                                    let mut manager = amount_manager.lock().unwrap();
-                                    manager.set_amount(id, amount);
-                                    manager.set_address(id, (&address).to_string());
-                                    manager.set_user_id(player.id, id);
+                                if let Some(id) = data["id"].as_i64() {
+                                    if let Ok(id) = i8::try_from(id_val) {
+                                        let mut manager = amount_manager.lock().unwrap();
+                                        manager.set_amount(id, amount);
+                                        manager.set_address(id, (&address).to_string());
+                                    }
                                 }
                             }
                         }
                     } else {
                         info!("Failed to parse payload as JSON: {}", json_string);
                     }
-                },
+                }
                 Payload::Binary(_) => {
                     info!("Received binary data for userAmount, expected JSON string.");
-                },
+                }
                 _ => info!("Unexpected payload type."),
             }
         };
@@ -164,13 +166,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .expect("Matchmaking websockets connection failed"),
         )
     }
-    
+
     let mut match_marking_socket = match mode.as_str() {
         "DEBUG" => None,
         _ => setup_matchmaking_service(amount_manager).await,
     };
 
-    let game = Arc::new(Game::new(amount_manager, io_socket.clone(), match_marking_socket));
+    let am_manager: Arc<Mutex<AmountManager>> = amount_manager.clone();
+    let mut manager = am_manager.lock().unwrap();
+
+    let game = Arc::new(Game::new(
+        manager,
+        io_socket.clone(),
+        match_marking_socket,
+    ));
     let game_cloned = game.clone();
 
     // tokio spawn game loop
@@ -208,8 +217,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
 
                 let mut player = player_ref_cloned.write().await;
-                
-                //MARK: Added newly 
+
+                //MARK: Added newly
                 if let Some(socket_mtchmkng) = game_ref_cloned.matchmaking_socket {
                     let _ = socket_mtchmkng.emit("getAmount", data.user_id).await;
                 }
@@ -319,9 +328,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         s.on(
             RecvEvent::PlayerChat,
             move |_: SocketRef, Data::<ChatMessage>(data)| {
-                let _ = game_ref_cloned.io_socket
-                .within(&*main_room)
-                .emit(SendEvent::PlayerMessage, data);
+                let _ = game_ref_cloned
+                    .io_socket
+                    .within(&*main_room)
+                    .emit(SendEvent::PlayerMessage, data);
             },
         );
 

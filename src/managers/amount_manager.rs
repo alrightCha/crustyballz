@@ -1,7 +1,7 @@
 use std::{collections::HashMap, hash::Hash};
 //MARK: ADDED NEWLY
 pub struct AmountManager {
-    id_to_user_id: HashMap<i8, i8>,
+    id_to_user_id: HashMap<u8, i8>,
     id_to_address: HashMap<i8, String>,
     user_balances: HashMap<i8, f64>,
     user_collected: HashMap<i8, Vec<f64>>,
