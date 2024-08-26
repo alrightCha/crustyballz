@@ -134,7 +134,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let url_domain = Cli::try_parse().expect("Error parsing CLI args").sub_domain;
         
         // Define the callback function
-        let callback = move |payload: Payload, socket: RawClient| {
+        let callback = move |payload: Payload, socket: rust_socketio::asynchronous::Client| {
             let amount_manager = amount_manager.clone();
             
             // Since the callback function needs to be asynchronous, use `tokio::spawn`
@@ -175,16 +175,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .expect("Matchmaking websockets connection failed"),
         )
     }
-    
+
     let mut match_marking_socket = match mode.as_str() {
         "DEBUG" => None,
         _ => setup_matchmaking_service(amount_manager.clone()).await,
     };
 
-    let manager = amount_manager.lock().await;
+    let cloned_manager = amount_manager.clone();
+    let manager = cloned_manager.lock().await;
 
     let game = Arc::new(Game::new(
-        *manager,
+        manager,
         io_socket.clone(),
         match_marking_socket,
     ));
