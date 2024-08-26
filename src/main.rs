@@ -132,35 +132,41 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         amount_manager: Arc<Mutex<AmountManager>>,
     ) -> Option<Client> {
         let url_domain = Cli::try_parse().expect("Error parsing CLI args").sub_domain;
-        let amount_manager = amount_manager.clone();
         
-        // Since the callback function needs to be asynchronous, use `tokio::spawn`
-        tokio::spawn(async move {
-            match payload {
-                Payload::String(json_string) => {
-                    if let Ok(data) = serde_json::from_str::<Value>(&json_string) {
-                        if let Some(amount) = data["amount"].as_f64() {
-                            if let Some(address) = data["address"].as_str() {
-                                if let Some(id) = data["id"].as_i64() {
-                                    if let Ok(id) = i8::try_from(id) {
-                                        let mut manager = amount_manager.lock().await; // Use asynchronous lock
-                                        manager.set_amount(id, amount);
-                                        manager.set_address(id, address.to_string());
+        // Define the callback function
+        let callback = move |payload: Payload, socket: RawClient| {
+            let amount_manager = amount_manager.clone();
+            
+            // Since the callback function needs to be asynchronous, use `tokio::spawn`
+            tokio::spawn(async move {
+                match payload {
+                    Payload::String(json_string) => {
+                        if let Ok(data) = serde_json::from_str::<Value>(&json_string) {
+                            if let Some(amount) = data["amount"].as_f64() {
+                                if let Some(address) = data["address"].as_str() {
+                                    if let Some(id) = data["id"].as_i64() {
+                                        if let Ok(id) = i8::try_from(id) {
+                                            let mut manager = amount_manager.lock().await; // Use asynchronous lock
+                                            manager.set_amount(id, amount);
+                                            manager.set_address(id, address.to_string());
+                                        }
                                     }
                                 }
                             }
+                        } else {
+                            info!("Failed to parse payload as JSON: {}", json_string);
                         }
-                    } else {
-                        info!("Failed to parse payload as JSON: {}", json_string);
                     }
+                    Payload::Binary(_) => {
+                        info!("Received binary data for userAmount, expected JSON string.");
+                    }
+                    _ => info!("Unexpected payload type."),
                 }
-                Payload::Binary(_) => {
-                    info!("Received binary data for userAmount, expected JSON string.");
-                }
-                _ => info!("Unexpected payload type."),
-            }
-        });
+            });
+        };
+        
         info!("URL DOMAIN FOR MATCHMAKING : {:?}", url_domain);
+        
         Some(
             ClientBuilder::new(url_domain)
                 .on("userAmount", callback)
@@ -169,7 +175,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .expect("Matchmaking websockets connection failed"),
         )
     }
-
+    
     let mut match_marking_socket = match mode.as_str() {
         "DEBUG" => None,
         _ => setup_matchmaking_service(amount_manager.clone()).await,
