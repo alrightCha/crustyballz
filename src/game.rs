@@ -472,6 +472,8 @@ impl Game {
 
         let instant = Instant::now();
         let mut start: Duration;
+
+        info!("Game tick started!");
         loop {
             start = instant.elapsed();
             self.handle_queue().await;

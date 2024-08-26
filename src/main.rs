@@ -152,10 +152,23 @@ async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) ->
 
     Some(
         ClientBuilder::new(url_domain)
-            .on("userAmount", callback)
-            .on("open", |err, _| async move { info!("MATCHMAKING OPEN: {:#?}", err)}.boxed())
-            .on("error", |err, _| async move { error!("MATCHMAKING ERROR: {:#?}", err)}.boxed())
-            .on("close", |err, _| async move { info!("MATCHMAKING CLOSE: {:#?}", err)}.boxed())
+            .on_any(|event, payload, _client| {
+                async {
+                    if let Payload::String(str) = payload {
+                        info!("ANY: {}: {}", String::from(event), str);
+                    }
+                }
+                .boxed()
+            })
+            .on("open", |err, _| {
+                async move { info!("MATCHMAKING OPEN: {:#?}", err) }.boxed()
+            })
+            .on("error", |err, _| {
+                async move { error!("MATCHMAKING ERROR: {:#?}", err) }.boxed()
+            })
+            .on("close", |err, _| {
+                async move { info!("MATCHMAKING CLOSE: {:#?}", err) }.boxed()
+            })
             .connect()
             .await
             .expect("Matchmaking websockets connection failed"),
@@ -191,9 +204,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     let game_cloned = game.clone();
+    info!("Game started! Waiting for players");
 
     io_socket.ns("/", |s: SocketRef| {
         info!("Socket connected: {}", s.id);
+
         let main_room: &'static str = "main"; //main room that holds all the users
         let _ = s.leave_all();
         let _ = s.join(main_room);
