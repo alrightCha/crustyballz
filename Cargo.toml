@@ -33,7 +33,7 @@ clap = { version = "4.5.7", features = ["derive"] }
 # socket.io client impl
 rust_socketio = { version = "*", features = ["async"] }
 native-tls = "0.2.12"
-tokio-tungstenite = {"0.23.1", features = ["native-tls"]}
+tokio-tungstenite = { version = "0.23.1", features = ["native-tls"]}
 
 # Enable a small amount of optimization in debug mode
 [profile.dev]
