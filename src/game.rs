@@ -64,7 +64,7 @@ const GAME_LOOP_INTERVAL: i64 = 1;
 const TICKER_LOOP_FPS: f64 = 1.0 / (30.0 * 1.0);
 
 pub struct Game {
-    pub amount_manager: &AmountManager, //MARK: ADDED NEWLY
+    pub amount_manager: &mut AmountManager, //MARK: ADDED NEWLY
     pub food_manager: FoodManager,
     pub virus_manager: RwLock<VirusManager>,
     pub mass_food_manager: RwLock<MassFoodManager>,
@@ -76,7 +76,7 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new(amount_manager: &AmountManager, io_socket: SocketIo, matchmaking_socket: Option<Client>) -> Self {
+    pub fn new(amount_manager: &mut AmountManager, io_socket: SocketIo, matchmaking_socket: Option<Client>) -> Self {
         let config = get_current_config();
 
         Game {

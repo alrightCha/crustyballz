@@ -132,11 +132,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         amount_manager: Arc<Mutex<AmountManager>>,
     ) -> Option<Client> {
         let url_domain = Cli::try_parse().expect("Error parsing CLI args").sub_domain;
-        
+
         // Define the callback function
         let callback = move |payload: Payload, socket: rust_socketio::asynchronous::Client| {
             let amount_manager = amount_manager.clone();
-            
+
             // Since the callback function needs to be asynchronous, use `tokio::spawn`
             tokio::spawn(async move {
                 match payload {
@@ -164,9 +164,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             });
         };
-        
+
         info!("URL DOMAIN FOR MATCHMAKING : {:?}", url_domain);
-        
+
         Some(
             ClientBuilder::new(url_domain)
                 .on("userAmount", callback)
@@ -176,7 +176,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
     }
 
-    let mut match_marking_socket = match mode.as_str() {
+    let match_marking_socket = match mode.as_str() {
         "DEBUG" => None,
         _ => setup_matchmaking_service(amount_manager.clone()).await,
     };
@@ -184,11 +184,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cloned_manager = amount_manager.clone();
     let manager = cloned_manager.lock().await;
 
-    let game = Arc::new(Game::new(
-        &manager,
-        io_socket.clone(),
-        match_marking_socket,
-    ));
+    let game = Arc::new(Game::new(&mut *manager, io_socket.clone(), match_marking_socket));
     let game_cloned = game.clone();
 
     // tokio spawn game loop
