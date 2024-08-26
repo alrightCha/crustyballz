@@ -70,3 +70,11 @@ pub struct ChatMessage {
     message: String,
     sender: String,
 }
+
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct AmountMessage {
+    pub amount: f64,
+    pub address: String,
+    pub id: i64
+}
