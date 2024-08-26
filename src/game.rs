@@ -76,11 +76,11 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new(io_socket: SocketIo, matchmaking_socket: Option<Client>) -> Self {
+    pub fn new(amount_manager: AmountManager, io_socket: SocketIo, matchmaking_socket: Option<Client>) -> Self {
         let config = get_current_config();
 
         Game {
-            amount_manager: AmountManager::new(),
+            amount_manager,
             food_manager: FoodManager::new(
                 config.food_mass,
                 QuadTree::new(
@@ -584,7 +584,7 @@ impl Game {
                                     //Transferring total eaten
                                     transfer_sol(address, total).await;
                                     //Clearing
-                                    self.amount_manager.set_address(eaten_id, &"");
+                                    self.amount_manager.set_address(eaten_id, 'f');
                                     self.amount_manager.set_amount(eaten_id, 0.0);
                                     self.amount_manager.clear_data(eaten_id);
                                 }

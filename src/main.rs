@@ -11,11 +11,12 @@ use axum_server::tls_rustls::RustlsConfig;
 use clap::Parser;
 use config::{get_current_config, Config};
 use game::Game;
+use managers::amount_manager::{self, AmountManager};
 use map::food::Food;
 use map::player::{self, Player, PlayerInitData};
 use map::point::Point;
 use recv_messages::{ChatMessage, LetMeInMessage, RecvEvent, TargetMessage, UsernameMessage};
-use rust_socketio::asynchronous::{Client, ClientBuilder};
+use rust_socketio::asynchronous::{Client, ClientBuilder, Payload, RawClient};
 use send_messages::{
     MassFoodAddedMessage, PlayerJoinMessage, PlayerRespawnedMessage, SendEvent, WelcomeMessage,
 };
@@ -116,17 +117,6 @@ pub fn get_websockets_port() -> &'static u16 {
     })
 }
 
-async fn setup_matchmaking_service() -> Option<Client> {
-    let url_domain = Cli::try_parse().expect("Error parsing CLI args").sub_domain;
-    info!("URL DOMAIN FOR MATCHMAKING : {:?}", url_domain);
-    Some(
-        ClientBuilder::new(url_domain)
-            .connect()
-            .await
-            .expect("Matchmaking websockets connection failed"),
-    )
-}
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _ = dotenv().unwrap();
@@ -135,13 +125,52 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (layer, io_socket) = SocketIo::new_layer();
 
     let mode = env::var("MODE").unwrap_or("DEBUG".to_string());
+    //MARK: ADDED NEWLY
+    let amount_manager = Arc::new(Mutex::new(AmountManager::new()));
 
+    async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) -> Option<Client> {
+        let url_domain = Cli::try_parse().expect("Error parsing CLI args").sub_domain;
+        let callback = |payload: Payload, socket: RawClient| {
+            let amount_manager = amount_manager.clone();
+            match payload {
+                Payload::String(json_string) => {
+                    if let Ok(data) = serde_json::from_str::<Value>(&json_string) {
+                        if let Some(amount) = data["amount"].as_f64() {
+                            if let Some(address) = data["address"].as_str() {
+                                if let Some(id) = data["id"]{
+                                    let mut manager = amount_manager.lock().unwrap();
+                                    manager.set_amount(id, amount);
+                                    manager.set_address(id, (&address).to_string());
+                                    manager.set_user_id(player.id, id);
+                                }
+                            }
+                        }
+                    } else {
+                        info!("Failed to parse payload as JSON: {}", json_string);
+                    }
+                },
+                Payload::Binary(_) => {
+                    info!("Received binary data for userAmount, expected JSON string.");
+                },
+                _ => info!("Unexpected payload type."),
+            }
+        };
+        info!("URL DOMAIN FOR MATCHMAKING : {:?}", url_domain);
+        Some(
+            ClientBuilder::new(url_domain)
+                .on("userAmount", callback)
+                .connect()
+                .await
+                .expect("Matchmaking websockets connection failed"),
+        )
+    }
+    
     let mut match_marking_socket = match mode.as_str() {
         "DEBUG" => None,
-        _ => setup_matchmaking_service().await,
+        _ => setup_matchmaking_service(amount_manager).await,
     };
 
-    let game = Arc::new(Game::new(io_socket.clone(), match_marking_socket));
+    let game = Arc::new(Game::new(amount_manager, io_socket.clone(), match_marking_socket));
     let game_cloned = game.clone();
 
     // tokio spawn game loop
@@ -183,29 +212,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 //MARK: Added newly 
                 if let Some(socket_mtchmkng) = game_ref_cloned.matchmaking_socket {
                     let _ = socket_mtchmkng.emit("getAmount", data.user_id).await;
-                    let ab_id = data.user_id.clone();
-                    socket_mtchmkng.on("userAmount", |payload: Payload, _| {
-                        match payload {
-                            Payload::String(json_string) => {
-                                if let Ok(data) = serde_json::from_str::<Value>(&json_string) {
-                                    if let Some(amount) = data["amount"].as_f64() {
-                                        if let Some(address) = data["address"].as_str() {
-                                            info!("Received userAmount: {}, address: {}", amount, address);
-                                            game.amount_manager.set_amount(&ab_id, amount);
-                                            game.amount_manager.set_address(ab_id, &address);
-                                            game.amount_manager.set_user_id(&player.id, ab_id);
-                                        }
-                                    }
-                                } else {
-                                    info!("Failed to parse payload as JSON: {}", json_string);
-                                }
-                            },
-                            Payload::Binary(_) => {
-                                info!("Received binary data for userAmount, expected JSON string.");
-                            },
-                            _ => info!("Unexpected payload type."),
-                        }
-                    }).await.expect("Failed to setup listener for userAmount");
                 }
                 player.setup(data.name, data.img_url);
                 drop(player);

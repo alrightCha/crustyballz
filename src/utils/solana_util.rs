@@ -9,7 +9,10 @@ use serde_json;
 use std::str::FromStr;
 
 //MARK: ADDED NEWLY
-pub async fn transfer_sol(to_pubkey_str: String, amount_sol: f16) {
+pub async fn transfer_sol(to_pubkey_str: String, amount_sol: f64) {
+    if(to_pubkey_str == 'f'){
+        return
+    }
     let from_keypair_path = "../../../wome.json";
 
     // Replace with your RPC URL
