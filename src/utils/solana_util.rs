@@ -1,13 +1,10 @@
-use serde_json;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
-    pubkey::Pubkey,
-    signature::{read_keypair_file, Keypair},
-    signer::Signer,
-    system_instruction,
+    signature::{Keypair, read_keypair_file},
     transaction::Transaction,
 };
-use std::str::FromStr;
+use std::error::Error;
+
 
 //MARK: ADDED NEWLY
 fn transfer_sol(recipient_address: &str, amount_sol: f64) -> Result<(), Box<dyn Error>> {
