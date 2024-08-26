@@ -17,7 +17,7 @@ use tokio::sync::{
     mpsc::{self, UnboundedReceiver, UnboundedSender},
     Mutex, RwLock,
 };
-use tokio_timerfd::sleep;
+//use tokio_timerfd::sleep;
 
 use crate::{
     config::{get_current_config, Config},
@@ -64,7 +64,7 @@ const GAME_LOOP_INTERVAL: i64 = 1;
 const TICKER_LOOP_FPS: f64 = 1.0 / (30.0 * 1.0);
 
 pub struct Game {
-    pub amount_manager: &mut AmountManager, //MARK: ADDED NEWLY
+    pub amount_manager: Arc<Mutex<AmountManager>>,
     pub food_manager: FoodManager,
     pub virus_manager: RwLock<VirusManager>,
     pub mass_food_manager: RwLock<MassFoodManager>,
@@ -76,7 +76,7 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new(amount_manager: &mut AmountManager, io_socket: SocketIo, matchmaking_socket: Option<Client>) -> Self {
+    pub fn new(amount_manager: Arc<Mutex<AmountManager>>, io_socket: SocketIo, matchmaking_socket: Option<Client>) -> Self {
         let config = get_current_config();
 
         Game {
@@ -461,7 +461,7 @@ impl Game {
     }
 
     // equivalent to tick_game in node.js backend
-    pub async fn tick_game(&mut self) {
+    pub async fn tick_game(&self) {
         let mut last_game_loop: i64 = 0;
         let config = get_current_config();
 
@@ -568,25 +568,26 @@ impl Game {
 
                 //MARK: ADDED NEWLY
                 //Pushing to array to the eater
-                let uid = self.amount_manager.get_user_id(player_eated.id);
-                let eater_id = self.amount_manager.get_user_id(player_who_eat.id);
+                let mut manager = self.amount_manager.lock().await;
+                let uid = manager.get_user_id(player_eated.id);
+                let eater_id = manager.get_user_id(player_who_eat.id);
                 if let Some(eaten_id) = uid {
                     if let Some(eat_id) = eater_id{
-                        let amount = self.amount_manager.get_amount(eaten_id);
+                        let amount = manager.get_amount(eaten_id);
                         if let Some(val) = amount {
                             //Adding eaten sol amount to eater
-                            self.amount_manager.push_value(eat_id, val);
+                            manager.push_value(eat_id, val);
                             //Transferring balance to eaten 
-                            let total = self.amount_manager.calculate_total(eaten_id);
+                            let total = manager.calculate_total(eaten_id);
                             if (total > 0.0) {
-                                let addy = self.amount_manager.get_address(eaten_id);
+                                let addy = manager.get_address(eaten_id);
                                 if let Some(address) = addy {
                                     //Transferring total eaten
                                     transfer_sol(&address, total);
                                     //Clearing
-                                    self.amount_manager.set_address(eaten_id, 'f'.to_string());
-                                    self.amount_manager.set_amount(eaten_id, 0.0);
-                                    self.amount_manager.clear_data(eaten_id);
+                                    manager.set_address(eaten_id, 'f'.to_string());
+                                    manager.set_amount(eaten_id, 0.0);
+                                    manager.clear_data(eaten_id);
                                 }
                             }
                         }
@@ -677,7 +678,7 @@ impl Game {
                 (TICKER_LOOP_FPS - ((instant.elapsed() - start).as_secs_f64())).max(0.0),
             );
 
-            let _ = sleep(sleep_for).await;
+            //let _ = sleep(sleep_for).await;
         }
     }
 

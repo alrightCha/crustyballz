@@ -28,7 +28,8 @@ use tokio::sync::{Mutex, RwLock};
 use dotenv::dotenv;
 use log::{debug, error, info, warn};
 use utils::id::{id_from_position, PlayerID};
-
+use core::pin::Pin;
+use core::future::Future;
 use std::env::args;
 use std::net::Ipv4Addr;
 use std::str::FromStr;
@@ -132,13 +133,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         amount_manager: Arc<Mutex<AmountManager>>,
     ) -> Option<Client> {
         let url_domain = Cli::try_parse().expect("Error parsing CLI args").sub_domain;
-
+    
         // Define the callback function
         let callback = move |payload: Payload, socket: rust_socketio::asynchronous::Client| {
             let amount_manager = amount_manager.clone();
-
-            // Since the callback function needs to be asynchronous, use `tokio::spawn`
-            tokio::spawn(async move {
+            Box::pin(async move {
                 match payload {
                     Payload::String(json_string) => {
                         if let Ok(data) = serde_json::from_str::<Value>(&json_string) {
@@ -146,7 +145,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 if let Some(address) = data["address"].as_str() {
                                     if let Some(id) = data["id"].as_i64() {
                                         if let Ok(id) = i8::try_from(id) {
-                                            let mut manager = amount_manager.lock().await; // Use asynchronous lock
+                                            let mut manager = amount_manager.lock().await;
                                             manager.set_amount(id, amount);
                                             manager.set_address(id, address.to_string());
                                         }
@@ -162,11 +161,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                     _ => info!("Unexpected payload type."),
                 }
-            });
+            }) as Pin<Box<dyn Future<Output = ()> + Send>>
         };
-
+    
         info!("URL DOMAIN FOR MATCHMAKING : {:?}", url_domain);
-
+    
         Some(
             ClientBuilder::new(url_domain)
                 .on("userAmount", callback)
@@ -175,16 +174,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .expect("Matchmaking websockets connection failed"),
         )
     }
-
+    
     let match_marking_socket = match mode.as_str() {
         "DEBUG" => None,
         _ => setup_matchmaking_service(amount_manager.clone()).await,
     };
 
-    let cloned_manager = amount_manager.clone();
-    let manager = cloned_manager.lock().await;
-
-    let game = Arc::new(Game::new(&mut *manager, io_socket.clone(), match_marking_socket));
+    let game = Arc::new(Game::new(amount_manager.clone(), io_socket.clone(), match_marking_socket));
     let game_cloned = game.clone();
 
     // tokio spawn game loop
