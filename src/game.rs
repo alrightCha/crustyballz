@@ -20,20 +20,26 @@ use tokio::sync::{
 use tokio_timerfd::sleep;
 
 use crate::{
-    config::{get_current_config, Config}, get_websockets_port, managers::{
+    config::{get_current_config, Config},
+    get_websockets_port,
+    managers::{
         amount_manager::AmountManager, food_manager::FoodManager,
         mass_food_manager::MassFoodManager, player_manager::PlayerManager,
         virus_manager::VirusManager,
-    }, map::{
+    },
+    map::{
         food::Food,
         mass_food::MassFood,
         player::{self, Player, PlayerInitData, PlayerUpdateData},
         point::{AsPoint, Point},
         virus::{Virus, VirusData},
-    }, match_making_connection::MatchMakingConnection, recv_messages::UsernameMessage, send_messages::{
+    },
+    recv_messages::UsernameMessage,
+    send_messages::{
         AllInitData, FoodAddedMessage, GameUpdateData, KickMessage, KickedMessage, KillMessage,
         LeaderboardMessage, PlayerRespawnedMessage, RespawnedMessage, SendEvent, VirusAddedMessage,
-    }, utils::{
+    },
+    utils::{
         consts::{Mass, TotalMass},
         id::{FoodID, MassFoodID, PlayerID, VirusID},
         quad_tree::{QuadTree, Rectangle},
@@ -43,7 +49,7 @@ use crate::{
             are_colliding, check_overlap, check_who_ate_who, create_random_position_in_range,
             get_current_timestamp, is_visible_entity, mass_to_radius, random_in_range,
         },
-    }
+    },
 };
 
 //Used to return to the player what is visible on his screen
@@ -65,7 +71,7 @@ pub struct Game {
     pub player_manager: RwLock<PlayerManager>,
     pub main_room: String,
     pub io_socket: SocketIo,
-    pub matchmaking_socket: Option<MatchMakingConnection>,
+    pub matchmaking_socket: Option<Client>,
     pub update_queue: Mutex<VecDeque<QueueMessage>>,
 }
 
@@ -73,7 +79,7 @@ impl Game {
     pub fn new(
         amount_manager: Arc<Mutex<AmountManager>>,
         io_socket: SocketIo,
-        matchmaking_socket: Option<MatchMakingConnection>,
+        matchmaking_socket: Option<Client>,
     ) -> Self {
         let config = get_current_config();
 
@@ -185,7 +191,7 @@ impl Game {
                 port: *get_websockets_port(),
             };
             let _ = match_making_socket
-                .send_message(kicked_message.into())
+                .emit(SendEvent::PlayerKicked, kicked_message)
                 .await;
         }
 

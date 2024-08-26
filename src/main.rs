@@ -125,7 +125,7 @@ pub fn get_websockets_port() -> &'static u16 {
 
 async fn setup_matchmaking_service(
     amount_manager: Arc<Mutex<AmountManager>>,
-) -> Option<MatchMakingConnection> {
+) -> Option<Client> {
     let url_domain = Cli::try_parse().expect("Error parsing CLI args").sub_domain;
 
     // let callback = move |payload: Payload, socket: Client| {
@@ -157,29 +157,36 @@ async fn setup_matchmaking_service(
 
     let connection = MatchMakingConnection::setup_connection(url_domain).await;
 
-    // let client = ClientBuilder::new(url_domain)
-    //     .on_any(|event, payload, _client| {
-    //         async {
-    //             if let Payload::String(str) = payload {
-    //                 info!("ANY: {}: {}", String::from(event), str);
-    //             }
-    //         }
-    //         .boxed()
-    //     })
-    //     .on("open", |err, _| {
-    //         async move { info!("MATCHMAKING OPEN: {:#?}", err) }.boxed()
-    //     })
-    //     .on("error", |err, _| {
-    //         async move { error!("MATCHMAKING ERROR: {:#?}", err) }.boxed()
-    //     })
-    //     .on("close", |err, _| {
-    //         async move { info!("MATCHMAKING CLOSE: {:#?}", err) }.boxed()
-    //     })
-    //     .connect()
-    //     .await
-    //     .expect("Matchmaking websockets connection failed");
+    let client = ClientBuilder::new(url_domain)
+        .on("userAmount", |payload, _| {
+            if let Payload::String(data) = payload {
+                async move {
+                    if let Ok(data) = serde_json::from_str::<AmountMessage>(&json_string) {
+                        if let Ok(id) = i8::try_from(data.id) {
+                            let mut manager = amount_manager.lock().await;
+                            manager.set_amount(id, data.amount);
+                            manager.set_address(id, data.address);
+                        }
+                    } else {
+                        info!("Failed to parse payload as JSON: {}", json_string);
+                    }
+                }
+            }
+        })
+        .on("open", |err, _| {
+            async move { info!("MATCHMAKING OPEN: {:#?}", err) }.boxed()
+        })
+        .on("error", |err, _| {
+            async move { error!("MATCHMAKING ERROR: {:#?}", err) }.boxed()
+        })
+        .on("close", |err, _| {
+            async move { info!("MATCHMAKING CLOSE: {:#?}", err) }.boxed()
+        })
+        .connect()
+        .await
+        .expect("Matchmaking websockets connection failed");
 
-    // let _response = client.emit("hello", "world").await;
+    let _response = client.emit("hello", "world").await;
 
     Some(connection)
 }
