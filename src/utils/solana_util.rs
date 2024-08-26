@@ -1,22 +1,22 @@
 //MARK: ADDED NEWLY
+use anyhow::{anyhow, Result};
+use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
     commitment_config::CommitmentConfig,
     pubkey::Pubkey,
-    signature::{read_keypair_file, Keypair},
+    signature::{read_keypair_file, Keypair, Signer},
     system_instruction,
     transaction::Transaction,
 };
-use solana_client::rpc_client::RpcClient;
-use anyhow::{Result, anyhow};
+use std::str::FromStr;
 
-pub fn transfer_sol(
-    recipient_pubkey_str: &str,
-    amount_sol: f64,
-) -> Result<String> {
+pub fn transfer_sol(recipient_pubkey_str: &str, amount_sol: f64) -> Result<String> {
     let rpc_url = "https://aged-wispy-fog.solana-mainnet.quiknode.pro/bf45d61303c3f02e67820331089a0b9382250983";
-    // Connect to the Solana network
-    let rpc_client = RpcClient::new_with_commitment(rpc_url.to_string(), CommitmentConfig::confirmed());
     let keypair_path = "../../../wome.json";
+    // Connect to the Solana network
+    let rpc_client =
+        RpcClient::new_with_commitment(rpc_url.to_string(), CommitmentConfig::confirmed());
+
     // Read the keypair from the JSON file
     let sender_keypair = read_keypair_file(keypair_path)
         .map_err(|e| anyhow!("Failed to read keypair file: {}", e))?;
@@ -29,11 +29,8 @@ pub fn transfer_sol(
     let amount_lamports = (amount_sol * 1_000_000_000.0) as u64;
 
     // Create the transfer instruction
-    let instruction = system_instruction::transfer(
-        &sender_keypair.pubkey(),
-        &recipient_pubkey,
-        amount_lamports,
-    );
+    let instruction =
+        system_instruction::transfer(&sender_keypair.pubkey(), &recipient_pubkey, amount_lamports);
 
     // Get a recent blockhash
     let recent_blockhash = rpc_client
