@@ -185,7 +185,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let manager = cloned_manager.lock().await;
 
     let game = Arc::new(Game::new(
-        manager,
+        &manager,
         io_socket.clone(),
         match_marking_socket,
     ));
