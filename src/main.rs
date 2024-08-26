@@ -16,7 +16,8 @@ use map::food::Food;
 use map::player::{self, Player, PlayerInitData};
 use map::point::Point;
 use recv_messages::{ChatMessage, LetMeInMessage, RecvEvent, TargetMessage, UsernameMessage};
-use rust_socketio::asynchronous::{Client, ClientBuilder, Payload, RawClient};
+use rust_socketio::asynchronous::{Client, ClientBuilder};
+use rust_socketio::{Payload, RawClient};
 use send_messages::{
     MassFoodAddedMessage, PlayerJoinMessage, PlayerRespawnedMessage, SendEvent, WelcomeMessage,
 };

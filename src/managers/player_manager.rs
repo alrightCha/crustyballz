@@ -24,7 +24,7 @@ impl PlayerManager {
     pub fn get_new_id(&mut self) -> PlayerID {
         loop {
             self.id_counter = self.id_counter.wrapping_add(1);
-            if self.players.contains_key(&self.id_counter) {
+            if (self.players.contains_key(&self.id_counter)) {
                 continue;
             }
             return self.id_counter;

@@ -34,24 +34,26 @@ pub async fn transfer_sol(to_pubkey_str: String, amount_sol: f64) {
         lamports
     );
 
-    // Create the transaction
-    let mut transaction = Transaction::new_with_payer(
-        &[transfer_instruction], 
-        Some(&from_keypair.try_pubkey())
-    );
-
-    // Fetch recent blockhash
-    let recent_blockhash = client.get_recent_blockhash()
-        .expect("Failed to get recent blockhash")
-        .0;
-
-    // Sign the transaction
-    transaction.try_sign(&[&from_keypair], recent_blockhash)
-        .expect("Failed to sign transaction");
-
-    // Send the transaction
-    let signature = client.send_and_confirm_transaction(&transaction)
-        .expect("Failed to send transaction");
-
-    println!("Transaction sent with signature: {}", signature);
+    if let Some(wallet_pubkey) = from_keypair.try_pubkey() {
+        // Create the transaction
+        let mut transaction = Transaction::new_with_payer(
+            &[transfer_instruction], 
+            wallet_pubkey
+        );
+    
+        // Fetch recent blockhash
+        let recent_blockhash = client.get_recent_blockhash()
+            .expect("Failed to get recent blockhash")
+            .0;
+    
+        // Sign the transaction
+        transaction.try_sign(&[&from_keypair], recent_blockhash)
+            .expect("Failed to sign transaction");
+    
+        // Send the transaction
+        let signature = client.send_and_confirm_transaction(&transaction)
+            .expect("Failed to send transaction");
+    
+        println!("Transaction sent with signature: {}", signature);
+    }
 }

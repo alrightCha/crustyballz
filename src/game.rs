@@ -578,7 +578,7 @@ impl Game {
                             self.amount_manager.push_value(eat_id, val);
                             //Transferring balance to eaten 
                             let total = self.amount_manager.calculate_total(eaten_id);
-                            if(total > 0.0){
+                            if (total > 0.0) {
                                 let addy = self.amount_manager.get_address(eaten_id);
                                 if let Some(address) = addy {
                                     //Transferring total eaten
