@@ -129,11 +129,46 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //MARK: ADDED NEWLY
     let amount_manager = Arc::new(Mutex::new(AmountManager::new()));
 
-    async fn setup_matchmaking_service() -> Option<Client> {
+    async fn setup_matchmaking_service(
+        amount_manager: Arc<Mutex<AmountManager>>,
+    ) -> Option<Client> {
         let url_domain = Cli::try_parse().expect("Error parsing CLI args").sub_domain;
+    
+        // Define the callback function
+        let callback = move |payload: Payload, socket: rust_socketio::asynchronous::Client| {
+            let amount_manager = amount_manager.clone();
+            Box::pin(async move {
+                match payload {
+                    Payload::String(json_string) => {
+                        if let Ok(data) = serde_json::from_str::<Value>(&json_string) {
+                            if let Some(amount) = data["amount"].as_f64() {
+                                if let Some(address) = data["address"].as_str() {
+                                    if let Some(id) = data["id"].as_i64() {
+                                        if let Ok(id) = i8::try_from(id) {
+                                            let mut manager = amount_manager.lock().await;
+                                            manager.set_amount(id, amount);
+                                            manager.set_address(id, address.to_string());
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            info!("Failed to parse payload as JSON: {}", json_string);
+                        }
+                    }
+                    Payload::Binary(_) => {
+                        info!("Received binary data for userAmount, expected JSON string.");
+                    }
+                    _ => info!("Unexpected payload type."),
+                }
+            })
+        };
+    
         info!("URL DOMAIN FOR MATCHMAKING : {:?}", url_domain);
+    
         Some(
             ClientBuilder::new(url_domain)
+                .on("userAmount", callback)
                 .connect()
                 .await
                 .expect("Matchmaking websockets connection failed"),
@@ -142,7 +177,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     let match_making_socket = match mode.as_str() {
         "DEBUG" => None,
-        _ => setup_matchmaking_service().await,
+        _ => setup_matchmaking_service(amount_manager.clone()).await,
     };
 
     let game = Arc::new(Game::new(amount_manager.clone(), io_socket.clone(), match_making_socket));
