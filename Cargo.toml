@@ -8,6 +8,8 @@ regex = "1"
 rand = "0.8"
 uuid = { version = "1.0", features = ["v4", "serde"] }
 
+solana-client = "1.10.32"
+solana-sdk = "1.10.32"
 tokio = { version = "1", features = ["full"] }
 socketioxide = "0.13.1"
 tracing = "0.1"

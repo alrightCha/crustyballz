@@ -172,8 +172,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         _ => setup_matchmaking_service(amount_manager).await,
     };
 
-    let am_manager: Arc<Mutex<AmountManager>> = amount_manager.clone();
-    let mut manager = am_manager.lock().unwrap();
+    let mut manager = amount_manager.lock().unwrap();
 
     let game = Arc::new(Game::new(
         manager,
@@ -220,7 +219,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 //MARK: Added newly
                 if let Some(socket_mtchmkng) = game_ref_cloned.matchmaking_socket {
-                    let _ = socket_mtchmkng.emit("getAmount", data.user_id).await;
+                    let json_payload = json!({"id": data.user_id});
+                    let _ = socket_mtchmkng.emit("getAmount", json_payload).await;
                 }
                 player.setup(data.name, data.img_url);
                 drop(player);

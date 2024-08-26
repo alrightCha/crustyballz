@@ -461,7 +461,7 @@ impl Game {
     }
 
     // equivalent to tick_game in node.js backend
-    pub async fn tick_game(&self) {
+    pub async fn tick_game(&mut self) {
         let mut last_game_loop: i64 = 0;
         let config = get_current_config();
 

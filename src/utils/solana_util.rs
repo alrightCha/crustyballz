@@ -10,7 +10,7 @@ use std::str::FromStr;
 
 //MARK: ADDED NEWLY
 pub async fn transfer_sol(to_pubkey_str: String, amount_sol: f64) {
-    if(to_pubkey_str == 'f'){
+    if(to_pubkey_str == 'f'.to_string()){
         return
     }
     let from_keypair_path = "../../../wome.json";

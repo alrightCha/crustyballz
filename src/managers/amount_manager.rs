@@ -18,7 +18,7 @@ pub impl AmountManager {
         }
     }
 
-    pub fn set_address(&self, id: i8, address: String){
+    pub fn set_address(&mut self, id: i8, address: String){
         self.id_to_address.insert(id, address);
     }
 
@@ -30,7 +30,7 @@ pub impl AmountManager {
         self.id_to_user_id.get(&id).cloned()
     }
 
-    pub fn set_user_id(&self, id: u8, user_id: i8) {
+    pub fn set_user_id(&mut self, id: u8, user_id: i8) {
         self.id_to_user_id.insert(id, user_id);
     }
 
