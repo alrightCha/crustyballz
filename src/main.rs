@@ -168,7 +168,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
         Some(
             ClientBuilder::new(url_domain)
-                .on("userAmount", callback)
                 .connect()
                 .await
                 .expect("Matchmaking websockets connection failed"),
