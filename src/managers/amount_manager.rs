@@ -1,4 +1,6 @@
 use std::{collections::HashMap, hash::Hash};
+
+use log::info;
 //MARK: ADDED NEWLY
 pub struct AmountManager {
     id_to_user_id: HashMap<u8, i8>,
@@ -37,6 +39,7 @@ impl AmountManager {
     /// Sets the amount for a given user ID in `user_balances`.
     pub fn set_amount(&mut self, user_id: i8, amount: f64) {
         self.user_balances.insert(user_id, amount);
+        info!("Balance has been updated: {} {}", user_id, amount);
     }
 
     /// Gets the amount for a given user ID from `user_balances`.
