@@ -48,7 +48,7 @@ impl AmountManager {
     }
 
     /// Pushes a new value to the array of a given user ID in `user_data`.
-    pub fn push_value(&mut self, user_id: i64, value: f64) {
+    pub fn push_value(&mut self, user_id: i64, value: u64) {
         self.user_collected.entry(user_id).or_insert_with(Vec::new).push(value);
     }
   
