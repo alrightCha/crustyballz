@@ -1,22 +1,13 @@
 use std::{
-    collections::{hash_set, HashMap, HashSet, VecDeque},
-    ops::{Sub, SubAssign},
-    slice::Iter,
-    sync::{atomic::AtomicUsize, Arc},
+    collections::{HashMap, HashSet, VecDeque},
+    sync::Arc,
     time::{Duration, Instant},
 };
 
-use chrono::Utc;
-use futures_util::SinkExt;
-use log::{debug, info};
+use log::info;
 use rust_socketio::asynchronous::Client;
-use serde::Serialize;
-use serde_json::json;
 use socketioxide::{socket::Sid, SocketIo};
-use tokio::sync::{
-    mpsc::{self, UnboundedReceiver, UnboundedSender},
-    Mutex, RwLock,
-};
+use tokio::sync::{Mutex, RwLock};
 use tokio_timerfd::sleep;
 
 use crate::{
@@ -30,11 +21,10 @@ use crate::{
     map::{
         food::Food,
         mass_food::MassFood,
-        player::{self, Player, PlayerInitData, PlayerUpdateData},
+        player::{Player, PlayerUpdateData},
         point::{AsPoint, Point},
         virus::{Virus, VirusData},
     },
-    recv_messages::UsernameMessage,
     send_messages::{
         AllInitData, FoodAddedMessage, GameUpdateData, KickMessage, KickedMessage, KillMessage,
         LeaderboardMessage, PlayerRespawnedMessage, RespawnedMessage, SendEvent, VirusAddedMessage,
@@ -46,7 +36,7 @@ use crate::{
         queue_message::QueueMessage,
         solana_util::transfer_sol,
         util::{
-            are_colliding, check_overlap, check_who_ate_who, create_random_position_in_range,
+            are_colliding, check_who_ate_who, create_random_position_in_range,
             get_current_timestamp, is_visible_entity, mass_to_radius, random_in_range,
         },
     },

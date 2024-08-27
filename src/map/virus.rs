@@ -3,10 +3,9 @@ use crate::config::VirusConfig;
 use crate::utils::consts::Mass;
 use crate::utils::game_logic::adjust_for_boundaries;
 use crate::utils::id::VirusID;
-use crate::utils::util::{are_colliding, check_overlap, create_random_position, mass_to_radius, random_in_range};
+use crate::utils::util::{check_overlap, mass_to_radius};
 use rand::Rng;
 use serde::Serialize;
-use tokio::sync::RwLock;
 
 #[derive(Serialize, Clone)]
 pub struct VirusData {

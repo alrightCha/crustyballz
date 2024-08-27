@@ -4,7 +4,7 @@ use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
     commitment_config::CommitmentConfig,
     pubkey::Pubkey,
-    signature::{read_keypair_file, Keypair, Signer},
+    signature::{read_keypair_file, Signer},
     system_instruction,
     transaction::Transaction,
 };

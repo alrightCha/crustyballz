@@ -6,43 +6,32 @@ mod recv_messages;
 mod send_messages;
 mod utils;
 
-use crate::utils::util::{create_random_position, mass_to_radius};
 use axum_server::tls_rustls::RustlsConfig;
 use clap::Parser;
-use config::{get_current_config, Config};
+use config::get_current_config;
 use game::Game;
-use managers::amount_manager::{self, AmountManager};
-use map::food::Food;
-use map::player::{self, Player, PlayerInitData};
+use managers::amount_manager::AmountManager;
+use map::player::Player;
 use map::point::Point;
-use recv_messages::{
-    AmountMessage, ChatMessage, LetMeInMessage, RecvEvent, TargetMessage, UsernameMessage,
-};
+use recv_messages::{AmountMessage, ChatMessage, LetMeInMessage, RecvEvent, TargetMessage};
 use rust_socketio::asynchronous::{Client, ClientBuilder};
-use rust_socketio::{Payload, RawClient};
-use send_messages::{
-    MassFoodAddedMessage, PlayerJoinMessage, PlayerRespawnedMessage, SendEvent, WelcomeMessage,
-};
+use rust_socketio::Payload;
+use send_messages::{MassFoodAddedMessage, PlayerJoinMessage, SendEvent, WelcomeMessage};
 use time::OffsetDateTime;
 use tokio::net::TcpStream;
 use tokio::sync::{Mutex, RwLock};
 //Debugging
-use core::future::Future;
-use core::pin::Pin;
 use dotenv::dotenv;
-use log::{debug, error, info, warn};
-use std::env::args;
+use log::{error, info, warn};
 use std::net::Ipv4Addr;
 use std::str::FromStr;
-use std::time::Instant;
 use std::{net::SocketAddr, path::PathBuf};
 use tower::ServiceBuilder;
 use tower_http::compression::CompressionLayer;
 use tower_http::cors::CorsLayer;
-use utils::id::{id_from_position, PlayerID};
+use utils::id::PlayerID;
 //JSON RESP
 use serde_json::json;
-use serde_json::Value;
 //Server routing
 use axum::routing::get;
 use axum::Router;
@@ -55,7 +44,7 @@ use utils::util::{get_current_timestamp_micros, valid_nick};
 use std::sync::{Arc, OnceLock};
 
 //Websockets Client
-use futures_util::{FutureExt, SinkExt, StreamExt};
+use futures_util::{FutureExt, StreamExt};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 //Websockets Server
 use socketioxide::{
@@ -132,11 +121,13 @@ async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) ->
                     info!("Received: {:?}", json_string);
                     match serde_json::from_str::<AmountMessage>(&json_string) {
                         Ok(data) => {
-                            let mut manager = amount_manager.lock().await;
-                            manager.set_user_id(data.uid, &data.id);
-                            manager.set_amount(&data.id, data.amount);
-                            manager.set_address(&data.id, &data.address);
-                        },
+                            if let Ok(id) = i8::try_from(data.uid) {
+                                let mut manager = amount_manager.lock().await;
+                                manager.set_user_id(id, &data.id);
+                                manager.set_amount(&data.id, data.amount);
+                                manager.set_address(&data.id, &data.address);
+                            }
+                        }
                         Err(e) => {
                             info!("Failed to parse payload as JSON");
                         }
@@ -155,14 +146,6 @@ async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) ->
 
     let client = ClientBuilder::new(url_domain)
         .on("userAmount", callback)
-        .on_any(|event, payload, _client| {
-            async {
-                if let Payload::String(str) = payload {
-                    info!("ANY: {}: {}", String::from(event), str);
-                }
-            }
-            .boxed()
-        })
         .on("open", |err, _| {
             async move { info!("MATCHMAKING OPEN: {:#?}", err) }.boxed()
         })

@@ -1,5 +1,3 @@
-use log::debug;
-
 use crate::map::food::Food;
 
 use super::id::FoodID;

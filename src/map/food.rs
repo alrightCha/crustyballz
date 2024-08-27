@@ -2,10 +2,8 @@ use super::point::{AsPoint, Point};
 use crate::utils::consts::Mass;
 use crate::utils::id::FoodID;
 use crate::utils::quad_tree::QuadTree;
-use crate::utils::util::{create_random_position, mass_to_radius};
+use crate::utils::util::mass_to_radius;
 use rand::Rng;
-use serde::Serialize;
-use tokio::sync::RwLock;
 
 // #[derive(Serialize)]
 // pub struct FoodData {

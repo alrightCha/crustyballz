@@ -1,21 +1,18 @@
 use std::{borrow::Cow, fmt::Display};
 
 use rust_socketio::{Event, Payload};
-use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde::Serialize;
 use socketioxide::socket::Sid;
 use tokio_tungstenite::tungstenite::Message;
 
 use crate::{
     map::{
-        cell::Cell,
-        food::{Food, FoodData},
-        mass_food::{MassFood, MassFoodInitData, MassFoodUpdateData},
+        food::FoodData,
+        mass_food::{MassFoodInitData, MassFoodUpdateData},
         player::{PlayerInitData, PlayerUpdateData},
         point::Point,
-        virus::{Virus, VirusData},
+        virus::VirusData,
     },
-    recv_messages::Target,
     utils::{
         consts::{Mass, TotalMass},
         id::{FoodID, MassFoodID, PlayerID, VirusID},

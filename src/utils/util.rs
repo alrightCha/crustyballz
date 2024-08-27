@@ -7,7 +7,6 @@ use rand::distributions::uniform::{SampleRange, SampleUniform};
 use rand::Rng;
 use regex::Regex;
 use std::f32::consts::PI;
-use uuid::Uuid;
 
 use super::consts::{Mass, TotalMass};
 use super::id::PlayerID;

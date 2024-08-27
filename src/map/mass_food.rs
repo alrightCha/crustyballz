@@ -1,8 +1,7 @@
-use super::player::Player;
 use super::point::Point;
 use crate::utils::consts::Mass;
 use crate::utils::game_logic::adjust_for_boundaries;
-use crate::utils::id::{MassFoodID, PlayerID};
+use crate::utils::id::MassFoodID;
 use crate::utils::util::{are_colliding, mass_to_radius};
 use serde::Serialize;
 

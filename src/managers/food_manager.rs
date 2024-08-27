@@ -11,7 +11,7 @@ use crate::{
         consts::Mass,
         id::id_from_position,
         quad_tree::QuadTree,
-        util::{create_random_number_u32, create_random_position, mass_to_radius},
+        util::{create_random_number_u32, mass_to_radius},
     }
 };
 

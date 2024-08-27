@@ -1,8 +1,6 @@
-use std::ops::Add;
-
 use crate::{
     map::{
-        mass_food::{self, MassFood, MassFoodInitData, MassFoodUpdateData},
+        mass_food::{MassFood, MassFoodInitData, MassFoodUpdateData},
         point::Point,
     },
     utils::{consts::Mass, id::MassFoodID},
