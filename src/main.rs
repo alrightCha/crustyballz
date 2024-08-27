@@ -235,8 +235,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let mut player = player_ref_cloned.write().await;
 
                 //MARK: Added newly
-                if let Some(ref user_id) = data.user_id {
-                    info!("Received user id: {}", user_id);
+                if let Some(socket_mtchmkng) = &game_ref_cloned.matchmaking_socket {
+                    if let Some(ref user_id) = data.user_id {
+                        info!("User Id game received {}", user_id);
+                    }
                 }
                 player.setup(data.name, data.img_url);
                 drop(player);
