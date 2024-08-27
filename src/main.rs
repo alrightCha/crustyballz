@@ -128,7 +128,7 @@ async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) ->
         let amount_manager = amount_manager.clone();
         async move {
             match payload {
-                Payload::Text(json_string) => {
+                Payload::Text(values) => {
                     println!("Received: {:#?}", values)
                 }
                 Payload::Binary(_) => {
