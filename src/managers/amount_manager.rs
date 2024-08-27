@@ -43,7 +43,7 @@ impl AmountManager {
     }
 
     /// Gets the amount for a given user ID from `user_balances`.
-    pub fn get_amount(&self, user_id: i64) -> Option<f64> {
+    pub fn get_amount(&self, user_id: i64) -> Option<u64> {
         self.user_balances.get(&user_id).cloned()
     }
 
@@ -53,7 +53,7 @@ impl AmountManager {
     }
   
     /// Calculates the total amount of all floats in the array for a given user ID in `user_data`.
-    pub fn calculate_total(&self, user_id: i64) -> f64 {
+    pub fn calculate_total(&self, user_id: i64) -> u64 {
         self.user_collected.get(&user_id).unwrap_or(&vec![]).iter().sum()
     }
 

@@ -589,14 +589,14 @@ impl Game {
                         let eaten_total = manager.calculate_total(eaten_id);
 
                         //Transferring balance to eaten
-                        if eaten_total > 0.0 {
+                        if eaten_total > 0 {
                             let addy = manager.get_address(eaten_id);
                             if let Some(address) = addy {
                                 //Transferring total eaten
                                 let _ = transfer_sol(&address, eaten_total);
                                 //Clearing
                                 manager.set_address(eaten_id, 'f'.to_string());
-                                manager.set_amount(eaten_id, 0.0);
+                                manager.set_amount(eaten_id, 0);
                                 manager.clear_data(eaten_id);
                             }
                         }
