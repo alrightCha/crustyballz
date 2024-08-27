@@ -128,7 +128,7 @@ async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) ->
         let amount_manager = amount_manager.clone();
         async move {
             match payload {
-                Payload::String(json_string) => {
+                Payload::Text(json_string) => {
                     info!("Received String payload: {}", json_string);
                     if let Ok(data) = serde_json::from_str::<AmountMessage>(&json_string) {
                         if let Ok(id) = i8::try_from(data.id) {
