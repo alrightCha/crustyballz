@@ -237,7 +237,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 //MARK: Added newly
                 if let Some(socket_mtchmkng) = &game_ref_cloned.matchmaking_socket {
                     if let Some(ref user_id) = data.user_id {
-                        info!("User Id game received {}", user_id);
+                        info!("User id game received {}", user_id);
+                        let json_payload = json!({"id": user_id});
+                        let _ = socket_mtchmkng.emit("getAmount", json_payload).await;
                     }
                 }
                 player.setup(data.name, data.img_url);
