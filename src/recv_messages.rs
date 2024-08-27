@@ -76,5 +76,6 @@ pub struct ChatMessage {
 pub struct AmountMessage {
     pub amount: f64,
     pub address: String,
-    pub id: i64
+    pub id: i64,
+    pub uid: i64
 }

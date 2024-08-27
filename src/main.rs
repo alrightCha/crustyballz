@@ -128,8 +128,19 @@ async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) ->
         let amount_manager = amount_manager.clone();
         async move {
             match payload {
-                Payload::Text(values) => {
-                    println!("Received: {:#?}", values)
+                Payload::Text(json_string) => {
+                    info!("Received: {}", json_string);
+                    match serde_json::from_str::<AmountMessage>(&json_string) {
+                        Ok(data) => {
+                            let mut manager = amount_manager.lock().await;
+                            manager.set_user_id(data.uid, &data.id);
+                            manager.set_amount(&data.id, data.amount);
+                            manager.set_address(&data.id, &data.address);
+                        },
+                        Err(e) => {
+                            info!("Failed to parse payload as JSON: {}. Error: {}", json_string, e);
+                        }
+                    }
                 }
                 Payload::Binary(_) => {
                     info!("Received binary data for userAmount, expected JSON string.");
@@ -231,7 +242,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 if let Some(socket_mtchmkng) = &game_ref_cloned.matchmaking_socket {
                     if let Some(ref user_id) = data.user_id {
                         info!("User id game received {}", user_id);
-                        let json_payload = json!({"id": user_id});
+                        let json_payload = json!({"id": user_id, "uid": &player.id});
                         let _ = socket_mtchmkng.emit("getAmount", json_payload).await;
                     }
                 }
