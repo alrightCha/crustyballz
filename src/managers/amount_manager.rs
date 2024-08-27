@@ -37,7 +37,7 @@ impl AmountManager {
     }
 
     /// Sets the amount for a given user ID in `user_balances`.
-    pub fn set_amount(&mut self, user_id: i8, amount: f64) {
+    pub fn set_amount(&mut self, user_id: i64, amount: f64) {
         self.user_balances.insert(user_id, amount);
         info!("Balance has been updated: {} {}", user_id, amount);
     }
@@ -51,7 +51,7 @@ impl AmountManager {
     pub fn push_value(&mut self, user_id: i64, value: f64) {
         self.user_collected.entry(user_id).or_insert_with(Vec::new).push(value);
     }
-
+  
     /// Calculates the total amount of all floats in the array for a given user ID in `user_data`.
     pub fn calculate_total(&self, user_id: i64) -> f64 {
         self.user_collected.get(&user_id).unwrap_or(&vec![]).iter().sum()

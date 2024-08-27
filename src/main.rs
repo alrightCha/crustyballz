@@ -12,13 +12,11 @@ use config::get_current_config;
 use game::Game;
 use managers::amount_manager::AmountManager;
 use map::player::Player;
-use map::point::Point;
 use recv_messages::{AmountMessage, ChatMessage, LetMeInMessage, RecvEvent, TargetMessage};
 use rust_socketio::asynchronous::{Client, ClientBuilder};
 use rust_socketio::Payload;
 use send_messages::{MassFoodAddedMessage, PlayerJoinMessage, SendEvent, WelcomeMessage};
 use time::OffsetDateTime;
-use tokio::net::TcpStream;
 use tokio::sync::{Mutex, RwLock};
 //Debugging
 use dotenv::dotenv;
@@ -44,8 +42,7 @@ use utils::util::{get_current_timestamp_micros, valid_nick};
 use std::sync::{Arc, OnceLock};
 
 //Websockets Client
-use futures_util::{FutureExt, StreamExt};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use futures_util::FutureExt;
 //Websockets Server
 use socketioxide::{
     extract::{Data, SocketRef},
@@ -121,11 +118,11 @@ async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) ->
                     info!("Received: {:?}", json_string);
                     match serde_json::from_str::<AmountMessage>(&json_string) {
                         Ok(data) => {
-                            if let Ok(id) = i8::try_from(data.uid) {
+                            if let Ok(id) = u8::try_from(data.uid) {
                                 let mut manager = amount_manager.lock().await;
-                                manager.set_user_id(id, &data.id);
-                                manager.set_amount(&data.id, data.amount);
-                                manager.set_address(&data.id, &data.address);
+                                manager.set_user_id(id, data.id);
+                                manager.set_amount(data.id, data.amount);
+                                manager.set_address(data.id, &data.address);
                             }
                         }
                         Err(e) => {
@@ -208,7 +205,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let game_ref_cloned = game_ref.clone();
         s.on(
             RecvEvent::LetMeIn,
-            |socket: SocketRef, Data::<LetMeInMessage>(data)| async move {
+            |_socket: SocketRef, Data::<LetMeInMessage>(data)| async move {
                 let config = get_current_config();
 
                 if let Some(ref name) = data.name {
@@ -278,7 +275,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let new_player_clone = player_ref.clone();
         s.on(
             RecvEvent::PlayerMousePosition,
-            |socket: SocketRef, Data::<TargetMessage>(data)| async move {
+            |_socket: SocketRef, Data::<TargetMessage>(data)| async move {
                 let mut player = new_player_clone.write().await;
                 player.target_x = data.target.x;
                 player.target_y = data.target.y;
@@ -289,7 +286,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let new_player_clone = player_ref.clone();
         s.on(
             RecvEvent::PlayerSendingMass,
-            |socket: SocketRef| async move {
+            |_socket: SocketRef| async move {
                 let config = get_current_config();
                 let mut player = new_player_clone.write().await;
 

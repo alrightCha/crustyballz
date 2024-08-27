@@ -4,7 +4,6 @@ use crate::utils::consts::Mass;
 use crate::utils::game_logic::adjust_for_boundaries;
 use crate::utils::id::VirusID;
 use crate::utils::util::{check_overlap, mass_to_radius};
-use rand::Rng;
 use serde::Serialize;
 
 #[derive(Serialize, Clone)]
