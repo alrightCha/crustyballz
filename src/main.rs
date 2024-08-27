@@ -129,34 +129,10 @@ async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) ->
         async move {
             match payload {
                 Payload::Text(json_string) => {
-                    info!("Received String payload: {}", json_string);
-                    if let Ok(data) = serde_json::from_str::<AmountMessage>(&json_string) {
-                        if let Ok(id) = i8::try_from(data.id) {
-                            let mut manager = amount_manager.lock().await;
-                            manager.set_amount(id, data.amount);
-                            manager.set_address(id, data.address);
-                        }
-                    } else {
-                        info!("Failed to parse payload as JSON: {}", json_string);
-                    }
+                    println!("Received: {:#?}", values)
                 }
-                Payload::Binary(bin) => {
-                    info!("Received binary data for userAmount: {:?}", bin);
-                    // Try to parse the binary data as a UTF-8 string
-                    if let Ok(str_data) = String::from_utf8(bin.to_vec()) {
-                        info!("Binary data as string: {}", str_data);
-                        if let Ok(data) = serde_json::from_str::<AmountMessage>(&str_data) {
-                            if let Ok(id) = i8::try_from(data.id) {
-                                let mut manager = amount_manager.lock().await;
-                                manager.set_amount(id, data.amount);
-                                manager.set_address(id, data.address);
-                            }
-                        } else {
-                            info!("Failed to parse binary data as JSON");
-                        }
-                    } else {
-                        info!("Failed to convert binary data to string");
-                    }
+                Payload::Binary(_) => {
+                    info!("Received binary data for userAmount, expected JSON string.");
                 }
                 _ => info!("Unexpected payload type."),
             }
