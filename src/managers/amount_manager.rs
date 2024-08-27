@@ -6,7 +6,7 @@ pub struct AmountManager {
     id_to_user_id: HashMap<u8, i64>,
     id_to_address: HashMap<i64, String>,
     user_balances: HashMap<i64, u64>,
-    user_collected: HashMap<i64, Vec<f64>>,
+    user_collected: HashMap<i64, Vec<u64>>,
 }
 
 impl AmountManager {
