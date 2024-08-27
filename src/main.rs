@@ -123,9 +123,8 @@ pub fn get_websockets_port() -> &'static u16 {
 async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) -> Option<Client> {
     let url_domain = Cli::try_parse().expect("Error parsing CLI args").sub_domain;
 
-    let callback = move |payload: Payload, socket: Client| {
+    let callback = move |payload: Payload, _: Client| {
         let amount_manager = amount_manager.clone();
-
         async move {
             match payload {
                 Payload::String(json_string) => {
@@ -151,6 +150,7 @@ async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) ->
     info!("URL DOMAIN FOR MATCHMAKING : {:?}", url_domain);
 
     let client = ClientBuilder::new(url_domain)
+        .on("userAmount", callback)
         .on_any(|event, payload, _client| {
             async {
                 if let Payload::String(str) = payload {
@@ -171,8 +171,6 @@ async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) ->
         .connect()
         .await
         .expect("Matchmaking websockets connection failed");
-
-    let _response = client.emit("hello", "world").await;
 
     Some(client)
 }
