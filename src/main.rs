@@ -124,10 +124,12 @@ async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) ->
     let url_domain = Cli::try_parse().expect("Error parsing CLI args").sub_domain;
 
     let callback = move |payload: Payload, _: Client| {
+        info!("RECEIVED USERAMOUNT RESPONSE");
         let amount_manager = amount_manager.clone();
         async move {
             match payload {
                 Payload::String(json_string) => {
+                    info!("Received String payload: {}", json_string);
                     if let Ok(data) = serde_json::from_str::<AmountMessage>(&json_string) {
                         if let Ok(id) = i8::try_from(data.id) {
                             let mut manager = amount_manager.lock().await;
@@ -138,8 +140,23 @@ async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) ->
                         info!("Failed to parse payload as JSON: {}", json_string);
                     }
                 }
-                Payload::Binary(_) => {
-                    info!("Received binary data for userAmount, expected JSON string.");
+                Payload::Binary(bin) => {
+                    info!("Received binary data for userAmount: {:?}", bin);
+                    // Try to parse the binary data as a UTF-8 string
+                    if let Ok(str_data) = String::from_utf8(bin) {
+                        info!("Binary data as string: {}", str_data);
+                        if let Ok(data) = serde_json::from_str::<AmountMessage>(&str_data) {
+                            if let Ok(id) = i8::try_from(data.id) {
+                                let mut manager = amount_manager.lock().await;
+                                manager.set_amount(id, data.amount);
+                                manager.set_address(id, data.address);
+                            }
+                        } else {
+                            info!("Failed to parse binary data as JSON");
+                        }
+                    } else {
+                        info!("Failed to convert binary data to string");
+                    }
                 }
                 _ => info!("Unexpected payload type."),
             }
