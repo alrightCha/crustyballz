@@ -114,19 +114,27 @@ async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) ->
         let amount_manager = amount_manager.clone();
         async move {
             match payload {
-                Payload::Text(json_string) => {
-                    info!("Received: {:?}", json_string);
-                    match serde_json::from_str::<AmountMessage>(&json_string) {
-                        Ok(data) => {
-                            if let Ok(id) = u8::try_from(data.uid) {
-                                let mut manager = amount_manager.lock().await;
-                                manager.set_user_id(id, data.id);
-                                manager.set_amount(data.id, data.amount);
-                                manager.set_address(data.id, &data.address);
+                Payload::Text(json_vec) => {
+                    info!("Received: {:?}", json_vec);
+                    match serde_json::to_string(&json_vec) {
+                        Ok(json_string) => {
+                            // Deserialize the JSON string into your struct
+                            match serde_json::from_str::<AmountMessage>(&json_string) {
+                                Ok(data) => {
+                                    if let Ok(id) = u8::try_from(data.uid) {
+                                        let mut manager = amount_manager.lock().await;
+                                        manager.set_user_id(id, data.id);
+                                        manager.set_amount(data.id, data.amount);
+                                        manager.set_address(data.id, data.address);
+                                    }
+                                }
+                                Err(e) => {
+                                    info!("Failed to parse JSON string: {:?}", e);
+                                }
                             }
                         }
                         Err(e) => {
-                            info!("Failed to parse payload as JSON");
+                            info!("Failed to convert Vec<Value> to JSON string: {:?}", e);
                         }
                     }
                 }
@@ -205,7 +213,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let game_ref_cloned = game_ref.clone();
         s.on(
             RecvEvent::LetMeIn,
-            |_socket: SocketRef, Data::<LetMeInMessage>(data)| async move {
+            |socket: SocketRef, Data::<LetMeInMessage>(data)| async move {
                 let config = get_current_config();
 
                 if let Some(ref name) = data.name {
