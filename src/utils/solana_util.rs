@@ -10,7 +10,7 @@ use solana_sdk::{
 };
 use std::str::FromStr;
 
-pub fn transfer_sol(recipient_pubkey_str: &str, amount_sol: f64) -> Result<String> {
+pub fn transfer_sol(recipient_pubkey_str: &str, amount_sol: u64) -> Result<String> {
     let rpc_url = "https://aged-wispy-fog.solana-mainnet.quiknode.pro/bf45d61303c3f02e67820331089a0b9382250983";
     let keypair_path = "../../../wome.json";
     // Connect to the Solana network
@@ -25,8 +25,7 @@ pub fn transfer_sol(recipient_pubkey_str: &str, amount_sol: f64) -> Result<Strin
     let recipient_pubkey = Pubkey::from_str(recipient_pubkey_str)
         .map_err(|e| anyhow!("Invalid recipient public key: {}", e))?;
 
-    // Convert SOL to lamports (1 SOL = 1_000_000_000 lamports)
-    let amount_lamports = (amount_sol * 1_000_000_000.0) as u64;
+    let amount_lamports = (amount_sol) as u64;
 
     // Create the transfer instruction
     let instruction =

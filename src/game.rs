@@ -593,7 +593,7 @@ impl Game {
                             let addy = manager.get_address(eaten_id);
                             if let Some(address) = addy {
                                 //Transferring total eaten
-                                transfer_sol(&address, eaten_total);
+                                let _ = transfer_sol(&address, eaten_total);
                                 //Clearing
                                 manager.set_address(eaten_id, 'f'.to_string());
                                 manager.set_amount(eaten_id, 0.0);

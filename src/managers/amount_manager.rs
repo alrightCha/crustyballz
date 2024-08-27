@@ -5,7 +5,7 @@ use log::info;
 pub struct AmountManager {
     id_to_user_id: HashMap<u8, i64>,
     id_to_address: HashMap<i64, String>,
-    user_balances: HashMap<i64, f64>,
+    user_balances: HashMap<i64, u64>,
     user_collected: HashMap<i64, Vec<f64>>,
 }
 
@@ -37,7 +37,7 @@ impl AmountManager {
     }
 
     /// Sets the amount for a given user ID in `user_balances`.
-    pub fn set_amount(&mut self, user_id: i64, amount: f64) {
+    pub fn set_amount(&mut self, user_id: i64, amount: u64) {
         self.user_balances.insert(user_id, amount);
         info!("Balance has been updated: {} {}", user_id, amount);
     }

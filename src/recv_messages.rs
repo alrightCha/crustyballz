@@ -74,7 +74,7 @@ pub struct ChatMessage {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct AmountMessage {
-    pub amount: f64,
+    pub amount: u64,
     pub address: String,
     pub id: i64,
     pub uid: i64
