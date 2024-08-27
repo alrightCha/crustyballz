@@ -150,6 +150,24 @@ async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) ->
     info!("URL DOMAIN FOR MATCHMAKING : {:?}", url_domain);
 
     let client = ClientBuilder::new(url_domain)
+        .on("userAmount", callback)
+        .on_any(|event, payload, _client| {
+            async {
+                if let Payload::String(str) = payload {
+                    info!("ANY: {}: {}", String::from(event), str);
+                }
+            }
+            .boxed()
+        })
+        .on("open", |err, _| {
+            async move { info!("MATCHMAKING OPEN: {:#?}", err) }.boxed()
+        })
+        .on("error", |err, _| {
+            async move { error!("MATCHMAKING ERROR: {:#?}", err) }.boxed()
+        })
+        .on("close", |err, _| {
+            async move { info!("MATCHMAKING CLOSE: {:#?}", err) }.boxed()
+        })
         .connect()
         .await
         .expect("Matchmaking websockets connection failed");
@@ -167,17 +185,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mode = env::var("MODE").unwrap_or("DEBUG".to_string());
     //MARK: ADDED NEWLY
     let amount_manager = Arc::new(Mutex::new(AmountManager::new()));
-
     let match_making_socket = match mode.as_str() {
         "DEBUG" => None,
         _ => setup_matchmaking_service(amount_manager.clone()).await,
     };
-
-    let game = Arc::new(Game::new(
-        amount_manager.clone(),
-        io_socket.clone(),
-        match_making_socket,
-    ));
+    let game = Arc::new(Game::new(io_socket.clone(), match_marking_socket));
     let game_cloned = game.clone();
 
     // tokio spawn game loop
