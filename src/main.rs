@@ -129,7 +129,7 @@ async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) ->
         async move {
             match payload {
                 Payload::Text(json_string) => {
-                    info!("Received: {}", json_string);
+                    info!("Received: {:?}", json_string);
                     match serde_json::from_str::<AmountMessage>(&json_string) {
                         Ok(data) => {
                             let mut manager = amount_manager.lock().await;
