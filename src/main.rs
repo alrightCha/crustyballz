@@ -138,7 +138,7 @@ async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) ->
                             manager.set_address(&data.id, &data.address);
                         },
                         Err(e) => {
-                            info!("Failed to parse payload as JSON: {}. Error: {}", json_string, e);
+                            info!("Failed to parse payload as JSON");
                         }
                     }
                 }
