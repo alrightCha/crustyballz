@@ -149,7 +149,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let game = Arc::new(Game::new(
         amount_manager, // No need to clone here
-        io_socket,      // No need to clone, assuming io_socket is already of type SocketIo
+        io_socket.clone(),      // No need to clone, assuming io_socket is already of type SocketIo
         match_making_socket,
     ));
     let game_cloned = game.clone();
