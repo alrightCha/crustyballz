@@ -240,7 +240,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 //MARK: Added newly
                 if let Some(socket_mtchmkng) = &game_ref_cloned.matchmaking_socket {
-                    info!("We are here")
+                    info!("We are here");
                     let json_payload = json!({"id": data.user_id});
                     let _ = socket_mtchmkng.emit("getAmount", json_payload).await;
                 }
