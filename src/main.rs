@@ -189,7 +189,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "DEBUG" => None,
         _ => setup_matchmaking_service(amount_manager.clone()).await,
     };
-    let game = Arc::new(Game::new(io_socket.clone(), match_marking_socket));
+    let game = Arc::new(Game::new(io_socket.clone(), match_making_socket));
     let game_cloned = game.clone();
 
     // tokio spawn game loop
