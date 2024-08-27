@@ -123,51 +123,9 @@ pub fn get_websockets_port() -> &'static u16 {
 async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) -> Option<Client> {
     let url_domain = Cli::try_parse().expect("Error parsing CLI args").sub_domain;
 
-    let callback = move |payload: Payload, _: Client| {
-        let amount_manager = amount_manager.clone();
-        async move {
-            match payload {
-                Payload::String(json_string) => {
-                    if let Ok(data) = serde_json::from_str::<AmountMessage>(&json_string) {
-                        if let Ok(id) = i8::try_from(data.id) {
-                            let mut manager = amount_manager.lock().await;
-                            manager.set_amount(id, data.amount);
-                            manager.set_address(id, data.address);
-                        }
-                    } else {
-                        info!("Failed to parse payload as JSON: {}", json_string);
-                    }
-                }
-                Payload::Binary(_) => {
-                    info!("Received binary data for userAmount, expected JSON string.");
-                }
-                _ => info!("Unexpected payload type."),
-            }
-        }
-        .boxed()
-    };
-
     info!("URL DOMAIN FOR MATCHMAKING : {:?}", url_domain);
 
     let client = ClientBuilder::new(url_domain)
-        .on("userAmount", callback)
-        .on_any(|event, payload, _client| {
-            async {
-                if let Payload::String(str) = payload {
-                    info!("ANY: {}: {}", String::from(event), str);
-                }
-            }
-            .boxed()
-        })
-        .on("open", |err, _| {
-            async move { info!("MATCHMAKING OPEN: {:#?}", err) }.boxed()
-        })
-        .on("error", |err, _| {
-            async move { error!("MATCHMAKING ERROR: {:#?}", err) }.boxed()
-        })
-        .on("close", |err, _| {
-            async move { info!("MATCHMAKING CLOSE: {:#?}", err) }.boxed()
-        })
         .connect()
         .await
         .expect("Matchmaking websockets connection failed");
@@ -189,7 +147,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "DEBUG" => None,
         _ => setup_matchmaking_service(amount_manager.clone()).await,
     };
-    let game = Arc::new(Game::new(io_socket.clone(), match_making_socket));
+    let game = Arc::new(Game::new(
+        amount_manager, // No need to clone here
+        io_socket,      // No need to clone, assuming io_socket is already of type SocketIo
+        match_making_socket,
+    ));
     let game_cloned = game.clone();
 
     // tokio spawn game loop
@@ -229,13 +191,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
 
                 let mut player = player_ref_cloned.write().await;
-
-                //MARK: Added newly
-                if let Some(socket_mtchmkng) = &game_ref_cloned.matchmaking_socket {
-                    info!("We are here");
-                    let json_payload = json!({"id": data.user_id});
-                    let _ = socket_mtchmkng.emit("getAmount", json_payload).await;
-                }
                 player.setup(data.name, data.img_url);
                 drop(player);
 

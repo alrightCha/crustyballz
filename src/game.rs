@@ -23,8 +23,9 @@ use crate::{
     config::{get_current_config, Config},
     get_websockets_port,
     managers::{
-        food_manager::FoodManager, mass_food_manager::MassFoodManager,
-        player_manager::PlayerManager, virus_manager::VirusManager,
+        amount_manager::AmountManager, food_manager::FoodManager,
+        mass_food_manager::MassFoodManager, player_manager::PlayerManager,
+        virus_manager::VirusManager,
     },
     map::{
         food::Food,
@@ -43,6 +44,7 @@ use crate::{
         id::{FoodID, MassFoodID, PlayerID, VirusID},
         quad_tree::{QuadTree, Rectangle},
         queue_message::QueueMessage,
+        solana_util::transfer_sol,
         util::{
             are_colliding, check_overlap, check_who_ate_who, create_random_position_in_range,
             get_current_timestamp, is_visible_entity, mass_to_radius, random_in_range,
@@ -62,6 +64,7 @@ const GAME_LOOP_INTERVAL: i64 = 1;
 const TICKER_LOOP_FPS: f64 = 1.0 / (30.0 * 1.0);
 
 pub struct Game {
+    pub amount_manager: Arc<Mutex<AmountManager>>,
     pub food_manager: FoodManager,
     pub virus_manager: RwLock<VirusManager>,
     pub mass_food_manager: RwLock<MassFoodManager>,
@@ -73,10 +76,15 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new(io_socket: SocketIo, matchmaking_socket: Option<Client>) -> Self {
+    pub fn new(
+        amount_manager: Arc<Mutex<AmountManager>>,
+        io_socket: SocketIo,
+        matchmaking_socket: Option<Client>,
+    ) -> Self {
         let config = get_current_config();
 
         Game {
+            amount_manager,
             food_manager: FoodManager::new(
                 config.food_mass,
                 QuadTree::new(
@@ -182,7 +190,6 @@ impl Game {
                 socket_id: player_socket_id,
                 port: *get_websockets_port(),
             };
-
             let _ = match_making_socket
                 .emit(SendEvent::PlayerKicked, kicked_message)
                 .await;
@@ -277,9 +284,10 @@ impl Game {
 
         let eated_foods_id = eated_foods.keys().map(|i| *i).collect();
 
-        self.food_manager.delete_many_foods(eated_foods.into_values()).await;
+        self.food_manager
+            .delete_many_foods(eated_foods.into_values())
+            .await;
 
-        
         if cells_to_split.len() > 0 {
             match self.io_socket.get_socket(player.socket_id) {
                 Some(player_socket) => {
@@ -464,6 +472,8 @@ impl Game {
 
         let instant = Instant::now();
         let mut start: Duration;
+
+        info!("Game tick started!");
         loop {
             start = instant.elapsed();
             self.handle_queue().await;
@@ -562,6 +572,46 @@ impl Game {
                     Some(cell_who_eat) => cell_who_eat.add_mass(cell_eated_mass),
                     None => continue,
                 };
+
+                //MARK: ADDED NEWLY
+                //Pushing to array to the eater
+                let mut manager = self.amount_manager.lock().await;
+
+                let eaten_id = manager.get_user_id(player_eated.id);
+                let eater_id = manager.get_user_id(player_who_eat.id);
+
+                if let Some(eaten_id) = eaten_id {
+                    if let Some(eater_id) = eater_id {
+                        let eaten_amount = manager.get_amount(eaten_id).unwrap_or_default();
+                        let eater_amount = manager.get_amount(eater_id).unwrap_or_default();
+
+                        let transfer_amount = eaten_amount.min(eater_amount);
+
+                        //Adding eaten sol amount to eater
+                        manager.push_value(eater_id, transfer_amount); // Player eater gains SOL
+
+                        if eater_amount < eaten_amount {
+                            // Reduce eaten sol amount
+                            manager.push_value(eaten_id, eaten_amount - transfer_amount);
+                            // Player eaten gains SOL
+                        }
+
+                        let eaten_total = manager.calculate_total(eaten_id);
+
+                        //Transferring balance to eaten
+                        if eaten_total > 0.0 {
+                            let addy = manager.get_address(eaten_id);
+                            if let Some(address) = addy {
+                                //Transferring total eaten
+                                transfer_sol(&address, eaten_total);
+                                //Clearing
+                                manager.set_address(eaten_id, 'f'.to_string());
+                                manager.set_amount(eaten_id, 0.0);
+                                manager.clear_data(eaten_id);
+                            }
+                        }
+                    }
+                }
 
                 // remove cell from the player who got eaten
                 player_eated.cells.remove(cell_eated);
