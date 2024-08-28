@@ -159,34 +159,6 @@ impl Game {
         );
     }
 
-    async fn kick_player(
-        &self,
-        player_name: Option<String>,
-        player_id: PlayerID,
-    ) {
-        info!("Kicking player {} - {:?}", player_id, player_name);
-        let _ = self.io_socket.emit(
-            SendEvent::KickPlayer,
-            KickMessage {
-                id: player_id,
-                name: player_name.clone(),
-            },
-        );
-
-        if let Some(ref match_making_socket) = self.matchmaking_socket {
-            let kicked_message = KickedMessage {
-                socket_id: player_socket_id,
-                port: self.port,
-            };
-            let _ = match_making_socket
-                .emit(SendEvent::PlayerKicked, kicked_message)
-                .await;
-        }
-
-        let mut player_manager = self.player_manager.write().await;
-        player_manager.remove_player_by_id(&player_id);
-    }
-
     pub async fn tick_player(
         &self,
         player: &mut Player,
