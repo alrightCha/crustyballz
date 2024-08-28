@@ -340,19 +340,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let new_player_clone = player_ref.clone();
         let game_ref_cloned = game_ref.clone();
-        s.on_disconnect(|| async move {
-            let player = new_player_clone.read().await;
-
-            game_ref_cloned
-                .update_queue
-                .lock()
-                .await
-                .push_back(QueueMessage::KickPlayer {
-                    name: player.name.clone(),
-                    id: player.id,
-                    socket_id: player.socket_id,
-                })
-        });
     });
 
     let compression_layer: CompressionLayer = CompressionLayer::new().deflate(true);
