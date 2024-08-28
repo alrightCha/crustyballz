@@ -599,7 +599,7 @@ impl Game {
                                         amount: eaten_total,
                                     };
                                     let _ = match_making_socket
-                                        .emit(SendEvent::Transfer, transfer_info)
+                                        .emit(SendEvent::TransferSol, transfer_info)
                                         .await;
 
                                     //Clearing
