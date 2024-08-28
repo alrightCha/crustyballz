@@ -158,6 +158,24 @@ pub struct TransferInfo{
     pub amount: u64
 }
 
+
+impl Into<Payload> for TransferInfo {
+    fn into(self) -> Payload {
+        serde_json::to_value(self).unwrap().into()
+    }
+}
+
+impl Into<Message> for TransferInfo {
+    fn into(self) -> Message {
+        let json_payload = serde_json::json!({
+            "event": SendEvent::TransferSol.to_string(),
+            "data": self
+        });
+        
+        Message::Text(serde_json::to_string(&json_payload).unwrap())
+    }
+}
+
 #[derive(Serialize)]
 pub struct PlayerJoinMessage(pub PlayerInitData);
 
