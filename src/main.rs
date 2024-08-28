@@ -115,26 +115,15 @@ async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) ->
         async move {
             match payload {
                 Payload::Text(json_vec) => {
-                    info!("Received: {:?}", json_vec);
-                    match serde_json::to_string(&json_vec) {
-                        Ok(json_string) => {
-                            // Deserialize the JSON string into your struct
-                            match serde_json::from_str::<AmountMessage>(&json_string) {
-                                Ok(data) => {
-                                    if let Ok(id) = u8::try_from(data.uid) {
-                                        let mut manager = amount_manager.lock().await;
-                                        manager.set_user_id(id, data.id);
-                                        manager.set_amount(data.id, data.amount);
-                                        manager.set_address(data.id, data.address);
-                                    }
-                                }
-                                Err(e) => {
-                                    info!("Failed to parse JSON string: {:?}", e);
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            info!("Failed to convert Vec<Value> to JSON string: {:?}", e);
+                    if let Some(json_str) = json_vec.get(0) {
+                        info!("Received: {:?}", json_str);
+                        let data: AmountMessage = serde_json::from_str(json_str)?;
+                        println!("Received and deserialized: {:?}", data);
+                        if let Ok(id) = u8::try_from(data.uid) {
+                            let mut manager = amount_manager.lock().await;
+                            manager.set_user_id(id, data.id);
+                            manager.set_amount(data.id, data.amount);
+                            manager.set_address(data.id, data.address);
                         }
                     }
                 }
