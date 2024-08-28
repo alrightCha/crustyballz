@@ -593,8 +593,8 @@ impl Game {
                             id: eaten_id,
                             amount: eaten_total,
                         };
-
-                        println!("Transfer information: {} {}", transfer_info.id, transfer_info.amount);
+                        info!("We are here !");
+                        println!("Transfer information: {} {}", eaten_amount, eater_amount);
 
                         if let Some(ref match_making_socket) = self.matchmaking_socket {
                                     
