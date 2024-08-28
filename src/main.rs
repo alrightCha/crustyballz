@@ -115,14 +115,8 @@ async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) ->
         async move {
             match payload {
                 Payload::Text(json_vec) => {
-                    info!("Received: {:?}", json_vec);
-                    let deserialized_data: Vec<AmountMessage> = serde_json::from_str(json_vec)?;
-                    let data = deserialized_data[0];
-                    if let Ok(id) = u8::try_from(data.uid) {
-                        let mut manager = amount_manager.lock().await;
-                        manager.set_user_id(id, data.id);
-                        manager.set_amount(data.id, data.amount);
-                        manager.set_address(data.id, data.address);
+                    if let Some(json_str) = json_vec.get(0) {
+                        info!("Received: {:?}", json_str);
                     }
                 }
                 Payload::Binary(_) => {
