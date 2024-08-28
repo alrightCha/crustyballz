@@ -38,6 +38,7 @@ pub enum SendEvent {
     VirusAdded,
     MassFoodAdded,
     Respawned,
+    TransferSol
 }
 
 // Notify means that we are going to emit this message globaly
@@ -62,6 +63,7 @@ impl Display for SendEvent {
             SendEvent::FoodsAdded => "foods_added",
             SendEvent::VirusAdded => "virus_added",
             SendEvent::MassFoodAdded => "mass_food_added",
+            SendEvent::TransferSol => "transfer",
         })
     }
 }
@@ -148,6 +150,12 @@ pub struct WelcomeMessage {
     pub default_player_mass: Mass,
     pub default_mass_food: Mass,
     pub default_mass_mass_food: Mass
+}
+
+#[derive(Serialize)]
+pub struct TransferInfo{
+    pub id: u64,
+    pub amount: u64
 }
 
 #[derive(Serialize)]

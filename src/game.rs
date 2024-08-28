@@ -27,7 +27,8 @@ use crate::{
     },
     send_messages::{
         AllInitData, FoodAddedMessage, GameUpdateData, KickMessage, KickedMessage, KillMessage,
-        LeaderboardMessage, PlayerRespawnedMessage, RespawnedMessage, SendEvent, VirusAddedMessage,
+        LeaderboardMessage, PlayerRespawnedMessage, RespawnedMessage, SendEvent, TransferInfo,
+        VirusAddedMessage,
     },
     utils::{
         consts::{Mass, TotalMass},
@@ -592,12 +593,20 @@ impl Game {
                         if eaten_total > 0 {
                             let addy = manager.get_address(eaten_id);
                             if let Some(address) = addy {
-                                //Transferring total eaten
-                                let _ = transfer_sol(&address, eaten_total);
-                                //Clearing
-                                manager.set_address(eaten_id, 'f'.to_string());
-                                manager.set_amount(eaten_id, 0);
-                                manager.clear_data(eaten_id);
+                                if let Some(ref match_making_socket) = self.matchmaking_socket {
+                                    let transfer_info = TransferInfo {
+                                        id: eaten_id,
+                                        amount: eaten_total,
+                                    };
+                                    let _ = match_making_socket
+                                        .emit(SendEvent::Transfer, transfer_info)
+                                        .await;
+
+                                    //Clearing
+                                    manager.set_address(eaten_id, 'f'.to_string());
+                                    manager.set_amount(eaten_id, 0);
+                                    manager.clear_data(eaten_id);
+                                }
                             }
                         }
                     }
