@@ -29,7 +29,7 @@ use tower_http::compression::CompressionLayer;
 use tower_http::cors::CorsLayer;
 use utils::id::PlayerID;
 //JSON RESP
-use serde_json::json;
+use serde_json::{from_value, json};
 //Server routing
 use axum::routing::get;
 use axum::Router;
@@ -117,18 +117,10 @@ async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) ->
                 Payload::Text(json_vec) => {
                     if let Some(json_str) = json_vec.get(0) {
                         info!("Data received: {:?}", json_str);
-                        if let Ok(uid) = u8::try_from(json_str["uid"]) {
-                            info!("Data received: {:?}", uid);
-                            if let Ok(id) = i64::try_from(json_str["id"]) {
-                                info!("Data received: {:?}", id);
-                                if let Ok(amount) = u64::try_from(json_str["amount"]) {
-                                    info!("Data received: {:?}", amount);
-                                    let mut manager = amount_manager.lock().await;
-                                    manager.set_user_id(uid, id);
-                                    manager.set_amount(id, amount);
-                                }
-                            }
-                        }
+                        let data: AmountMessage = from_value(json_str);
+                        let mut manager = amount_manager.lock().await;
+                        manager.set_user_id(data.uid, data.id);
+                        manager.set_amount(data.id, data.amount);
                     }
                 }
                 Payload::Binary(_) => {

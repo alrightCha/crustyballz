@@ -77,5 +77,5 @@ pub struct AmountMessage {
     pub address: String,
     pub amount: u64,
     pub id: i64,
-    pub uid: i64
+    pub uid: u8
 }
