@@ -119,7 +119,7 @@ async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) ->
                     match serde_json::to_string(&json_vec) {
                         Ok(json_string) => {
                             // Deserialize the JSON string into your struct
-                            match serde_json::from_str::<AmountMessage>(&json_string) {
+                            match serde_json::from_value::<AmountMessage>(json_vec) {
                                 Ok(data) => {
                                     if let Ok(id) = u8::try_from(data.uid) {
                                         let mut manager = amount_manager.lock().await;
