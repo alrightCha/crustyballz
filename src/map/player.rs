@@ -77,6 +77,10 @@ impl Player {
         }
     }
 
+    pub fn get_id(&self) -> u8 {
+        self.id
+    }
+
     pub fn reset(&mut self, new_position: &Point, new_mass: Mass) {
         self.x = new_position.x;
         self.y = new_position.y;

@@ -603,6 +603,8 @@ impl Game {
                     //Clearing
                     manager.set_amount(eaten_id, 0);
                     manager.clear_data(eaten_id);
+
+                    drop(manager);
                 }
 
                 // remove cell from the player who got eaten
