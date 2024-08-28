@@ -116,10 +116,12 @@ async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) ->
             match payload {
                 Payload::Text(json_vec) => {
                     if let Some(json_str) = json_vec.get(0).and_then(|v| v.as_str()) {
+                        info!("Data: {}", json_str);
                         // Make sure you extract the string correctly
                         match serde_json::from_str::<AmountMessage>(json_str) {
                             // Use the correct variable and handle errors at deserialization
                             Ok(data) => {
+                                info!("Confirmed data: {}", data.amount);
                                 match u8::try_from(data.uid) {
                                     // Directly handle the conversion error
                                     Ok(id) => {
