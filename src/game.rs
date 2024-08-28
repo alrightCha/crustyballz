@@ -567,7 +567,7 @@ impl Game {
                 let mut manager = self.amount_manager.lock().await;
                 info!("Fetchinf for user id : {}", player_eated.id);
                 let pawn = manager.get_user_id(0).unwrap_or_default();
-                info!("Pawn that is received: {}", pawn)
+                info!("Pawn that is received: {}", pawn);
                 let eaten_id = manager.get_user_id(player_eated.id).unwrap_or_default();
                 let eater_id = manager.get_user_id(player_who_eat.id).unwrap_or_default();
 
@@ -601,7 +601,6 @@ impl Game {
                             .await;
                     }
                     //Clearing
-                    manager.set_address(eaten_id, 'f'.to_string());
                     manager.set_amount(eaten_id, 0);
                     manager.clear_data(eaten_id);
                 }
