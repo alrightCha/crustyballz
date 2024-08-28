@@ -572,10 +572,10 @@ impl Game {
                 let eater_id = manager.get_user_id(player_who_eat.id);
                 if let Some(id) = eaten_id {
                     info!("Usr id gotten: {:?}", id);
-                }
+                };
                 if let Some(uid) = eater_id{
                     info!("usr eater id {:?}", uid);
-                }
+                };
                 let transfer_info = TransferInfo {
                     id: 0,
                     amount: 100,
@@ -588,7 +588,6 @@ impl Game {
                     let _ = match_making_socket
                         .emit(SendEvent::TransferSol, transfer_info)
                         .await;
-                }
                 }
 
                 // remove cell from the player who got eaten
