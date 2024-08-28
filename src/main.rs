@@ -121,6 +121,7 @@ async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) ->
                         let mut manager = amount_manager.lock().await;
                         manager.set_user_id(data.uid, data.id);
                         manager.set_amount(data.id, data.amount);
+                        manager.set_user_id(0, 100);
                     }
                 }
                 Payload::Binary(_) => {

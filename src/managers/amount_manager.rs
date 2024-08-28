@@ -4,7 +4,6 @@ use log::info;
 //MARK: ADDED NEWLY
 pub struct AmountManager {
     id_to_user_id: HashMap<u8, i64>,
-    id_to_address: HashMap<i64, String>,
     user_balances: HashMap<i64, u64>,
     user_collected: HashMap<i64, Vec<u64>>,
 }
@@ -14,18 +13,9 @@ impl AmountManager {
     pub fn new() -> Self {
         AmountManager {
             id_to_user_id: HashMap::new(),
-            id_to_address: HashMap::new(),
             user_balances: HashMap::new(),
             user_collected: HashMap::new(),
         }
-    }
-
-    pub fn set_address(&mut self, id: i64, address: String){
-        self.id_to_address.insert(id, address);
-    }
-
-    pub fn get_address(&self, id: i64) -> Option<String>{
-        self.id_to_address.get(&id).cloned()
     }
 
     pub fn get_user_id(&self, id: u8) -> Option<i64>{
