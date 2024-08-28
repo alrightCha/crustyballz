@@ -573,18 +573,12 @@ impl Game {
                 if let Some(id) = eaten_id {
                     info!("Usr id gotten: {:?}", id);
                 };
-                if let Some(uid) = eater_id{
+                if let Some(uid) = eater_id {
                     info!("usr eater id {:?}", uid);
                 };
-                let transfer_info = TransferInfo {
-                    id: 0,
-                    amount: 100,
-                };
-                info!("We are here !");
-                println!("Transfer information: {} {}", eaten_amount, eater_amount);
+                let transfer_info = TransferInfo { id: 0, amount: 100 };
 
                 if let Some(ref match_making_socket) = self.matchmaking_socket {
-                            
                     let _ = match_making_socket
                         .emit(SendEvent::TransferSol, transfer_info)
                         .await;
