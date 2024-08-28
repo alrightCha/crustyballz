@@ -34,7 +34,6 @@ use crate::{
         consts::{Mass, TotalMass},
         id::{FoodID, MassFoodID, PlayerID, VirusID},
         quad_tree::{QuadTree, Rectangle},
-        queue_message::QueueMessage,
         solana_util::transfer_sol,
         util::{
             are_colliding, check_who_ate_who, create_random_position_in_range,
@@ -55,6 +54,7 @@ const GAME_LOOP_INTERVAL: i64 = 1;
 const TICKER_LOOP_FPS: f64 = 1.0 / (30.0 * 1.0);
 
 pub struct Game {
+    pub port: u16,
     pub amount_manager: Arc<Mutex<AmountManager>>,
     pub food_manager: FoodManager,
     pub virus_manager: RwLock<VirusManager>,
@@ -63,7 +63,6 @@ pub struct Game {
     pub main_room: String,
     pub io_socket: SocketIo,
     pub matchmaking_socket: Option<Client>,
-    pub update_queue: Mutex<VecDeque<QueueMessage>>,
 }
 
 impl Game {
@@ -73,9 +72,9 @@ impl Game {
         matchmaking_socket: Option<Client>,
     ) -> Self {
         let config = get_current_config();
-
         Game {
             amount_manager,
+            port: *get_websockets_port(),
             food_manager: FoodManager::new(
                 config.food_mass,
                 QuadTree::new(
@@ -89,7 +88,6 @@ impl Game {
                 ),
             ),
             virus_manager: RwLock::new(VirusManager::new()),
-            update_queue: Mutex::new(VecDeque::new()),
             mass_food_manager: RwLock::new(MassFoodManager::new()),
             player_manager: RwLock::new(PlayerManager::new()),
             main_room: "main".to_string(),
@@ -165,7 +163,6 @@ impl Game {
         &self,
         player_name: Option<String>,
         player_id: PlayerID,
-        player_socket_id: Sid,
     ) {
         info!("Kicking player {} - {:?}", player_id, player_name);
         let _ = self.io_socket.emit(
@@ -179,7 +176,7 @@ impl Game {
         if let Some(ref match_making_socket) = self.matchmaking_socket {
             let kicked_message = KickedMessage {
                 socket_id: player_socket_id,
-                port: *get_websockets_port(),
+                port: self.port,
             };
             let _ = match_making_socket
                 .emit(SendEvent::PlayerKicked, kicked_message)
@@ -195,18 +192,6 @@ impl Game {
         player: &mut Player,
         config: &Config,
     ) -> Option<(HashSet<FoodID>, HashSet<MassFoodID>, HashSet<VirusID>)> {
-        if player.last_heartbeat < (get_current_timestamp() - config.max_heartbeat_interval) {
-            self.update_queue
-                .lock()
-                .await
-                .push_back(QueueMessage::KickPlayer {
-                    name: player.name.clone(),
-                    id: player.id,
-                    socket_id: player.socket_id,
-                });
-            return None;
-        }
-
         player.move_cells(
             config.slow_base as f32,
             config.game_width as i32,
@@ -435,27 +420,6 @@ impl Game {
         who_ate_who_list
     }
 
-    pub async fn handle_queue(&self) {
-        let mut queue = self.update_queue.lock().await;
-
-        loop {
-            match queue.pop_front() {
-                Some(message) => match message {
-                    QueueMessage::KickPlayer {
-                        name,
-                        id,
-                        socket_id,
-                    } => {
-                        self.kick_player(name, id, socket_id).await;
-                    }
-                },
-                None => {
-                    break;
-                }
-            }
-        }
-    }
-
     // equivalent to tick_game in node.js backend
     pub async fn tick_game(&self) {
         let mut last_game_loop: i64 = 0;
@@ -467,7 +431,6 @@ impl Game {
         info!("Game tick started!");
         loop {
             start = instant.elapsed();
-            self.handle_queue().await;
             // let elapsed_handle_queue = instant.elapsed() - start;
 
             let players_manager = self.player_manager.read().await;
@@ -614,7 +577,8 @@ impl Game {
                     if eaten_total > 0 {
                         let transfer_info =TransferInfo {
                             id: eaten_id,
-                            amount: eaten_total
+                            amount: eaten_total,
+                            port: self.port
                         };
                          //Transferring total eaten
                          if let Some(ref match_making_socket) = self.matchmaking_socket {
