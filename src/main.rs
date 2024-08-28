@@ -117,7 +117,7 @@ async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) ->
                 Payload::Text(json_vec) => {
                     if let Some(json_str) = json_vec.get(0) {
                         info!("Data received: {:?}", json_str);
-                        let data: AmountMessage = from_value(json_str);
+                        let data: AmountMessage = from_value(json_str.clone()).expect("Could not derive to data from json");
                         let mut manager = amount_manager.lock().await;
                         manager.set_user_id(data.uid, data.id);
                         manager.set_amount(data.id, data.amount);
