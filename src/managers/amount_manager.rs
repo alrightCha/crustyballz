@@ -33,6 +33,7 @@ impl AmountManager {
     }
 
     pub fn set_user_id(&mut self, id: u8, user_id: i64) {
+        info!("setting player id {id} to matchmaking id {user_id}");
         self.id_to_user_id.insert(id, user_id);
     }
 
