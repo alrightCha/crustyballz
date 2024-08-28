@@ -12,7 +12,7 @@ use config::get_current_config;
 use game::Game;
 use managers::amount_manager::AmountManager;
 use map::player::Player;
-use recv_messages::{AmountMessage, ChatMessage, LetMeInMessage, RecvEvent, TargetMessage};
+use recv_messages::{AmountMessage, ChatMessage, LetMeInMessage, RecvEvent, TargetMessage, UserIdMessage};
 use rust_socketio::asynchronous::{Client, ClientBuilder};
 use rust_socketio::Payload;
 use send_messages::{MassFoodAddedMessage, PlayerJoinMessage, SendEvent, WelcomeMessage};
@@ -117,7 +117,8 @@ async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) ->
                 Payload::Text(json_vec) => {
                     if let Some(json_str) = json_vec.get(0) {
                         info!("Data received: {:?}", json_str);
-                        let data: AmountMessage = from_value(json_str.clone()).expect("Could not derive to data from json");
+                        let data: AmountMessage = from_value(json_str.clone())
+                            .expect("Could not derive to data from json");
                         let mut manager = amount_manager.lock().await;
                         manager.set_user_id(data.uid, data.id);
                         manager.set_amount(data.id, data.amount);
@@ -212,16 +213,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 let mut player = player_ref_cloned.write().await;
 
-                let id = player.get_id();
-                //MARK: Added newly
-                if let Some(socket_mtchmkng) = &game_ref_cloned.matchmaking_socket {
-                    if let Some(ref user_id) = data.user_id {
-                        info!("User id game received {}", user_id);
-                        let json_payload = json!({"id": user_id, "uid": &id});
-                        let _ = socket_mtchmkng.emit("getAmount", json_payload).await;
-                    }
-                }
-                
                 player.setup(data.name, data.img_url);
                 drop(player);
 
@@ -240,22 +231,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let player_ref_cloned = player_ref.clone();
         let game_ref_cloned = game_ref.clone();
-        s.on(RecvEvent::PlayerGotIt, |socket: SocketRef| async move {
-            //
-            game_ref_cloned.add_player(player_ref_cloned.clone()).await;
 
-            let player = player_ref_cloned.read().await;
-            let player_init_data = player.generate_init_player_data();
+        s.on(
+            RecvEvent::PlayerGotIt,
+            |socket: SocketRef, Data::<UserIdMessage>(data)| async move {
+                //
+                game_ref_cloned.add_player(player_ref_cloned.clone()).await;
 
-            let _ = socket.emit(SendEvent::PlayerInitData, player_init_data.clone());
+                let player = player_ref_cloned.read().await;
+                let player_init_data = player.generate_init_player_data();
 
-            let _ = game_ref_cloned.io_socket.emit(
-                SendEvent::NotifyPlayerJoined,
-                PlayerJoinMessage(player_init_data),
-            );
+                let _ = socket.emit(SendEvent::PlayerInitData, player_init_data.clone());
 
-            info!("Player[{:?} / {}] joined", player.name, player.id);
-        });
+                let _ = game_ref_cloned.io_socket.emit(
+                    SendEvent::NotifyPlayerJoined,
+                    PlayerJoinMessage(player_init_data),
+                );
+
+                info!("Player[{:?} / {}] joined", player.name, player.id);
+                //MARK: Added newly
+                if let Some(socket_mtchmkng) = &game_ref_cloned.matchmaking_socket {
+                    if let Some(ref user_id) = data.user_id {
+                        info!("User id game received {}", user_id);
+                        let json_payload = json!({"id": user_id, "uid": player.id});
+                        let _ = socket_mtchmkng.emit("getAmount", json_payload).await;
+                    }
+                }
+            },
+        );
 
         let player_ref_cloned = player_ref.clone();
         let game_ref_cloned = game_ref.clone();

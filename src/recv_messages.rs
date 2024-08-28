@@ -52,6 +52,10 @@ pub struct Target {
     pub y: f32,
 }
 
+#[derive(Deserialize)]
+pub struct UserIdMessage {
+    pub user_id: Option<String>
+}
 
 #[derive(Deserialize)]
 pub struct LetMeInMessage {
