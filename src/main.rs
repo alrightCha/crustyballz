@@ -117,11 +117,11 @@ async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) ->
                 Payload::Text(json_vec) => {
                     if let Some(json_str) = json_vec.get(0) {
                         info!("Data received: {:?}", json_str);
-                        if let Ok(uid) = u8::try_from(data["uid"]) {
+                        if let Ok(uid) = u8::try_from(json_str["uid"]) {
                             info!("Data received: {:?}", uid);
-                            if let Ok(id) = i64::try_from(data["id"]) {
+                            if let Ok(id) = i64::try_from(json_str["id"]) {
                                 info!("Data received: {:?}", id);
-                                if let Ok(amount) = u64::try_from(data["amount"]) {
+                                if let Ok(amount) = u64::try_from(json_str["amount"]) {
                                     info!("Data received: {:?}", amount);
                                     let mut manager = amount_manager.lock().await;
                                     manager.set_user_id(uid, id);
