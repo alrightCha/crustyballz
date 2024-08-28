@@ -115,10 +115,8 @@ async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) ->
         async move {
             match payload {
                 Payload::Text(json_vec) => {
-                    info!("Before converting here received {}", json_vec);
                     if let Some(json_str) = json_vec.get(0).and_then(|v| v.as_str()) {
                         // Make sure you extract the string correctly
-                        info!("User id game received {}", json_str);
                         match serde_json::from_str::<AmountMessage>(json_str) {
                             // Use the correct variable and handle errors at deserialization
                             Ok(data) => {
@@ -129,6 +127,13 @@ async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) ->
                                         manager.set_user_id(id, data.id);
                                         manager.set_amount(data.id, data.amount);
                                         manager.set_address(data.id, data.address);
+                                        let id = manager.get_user_id(id);
+                                        if let Some(id) = id {
+                                            info!("User mapped id: {}", id);
+                                            if let Some(amount) = manager.get_amount(id){
+                                                info!("Amount for user : {}", amount);
+                                            }
+                                        }
                                     }
                                     Err(_) => eprintln!("UID out of range for u8: {}", data.uid),
                                 }
