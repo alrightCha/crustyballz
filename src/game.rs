@@ -589,25 +589,18 @@ impl Game {
 
                         let eaten_total = manager.calculate_total(eaten_id);
 
-                        //Transferring balance to eaten
-                        if eaten_total > 0 {
-                            let addy = manager.get_address(eaten_id);
-                            if let Some(address) = addy {
-                                if let Some(ref match_making_socket) = self.matchmaking_socket {
-                                    let transfer_info = TransferInfo {
-                                        id: eaten_id,
-                                        amount: eaten_total,
-                                    };
-                                    let _ = match_making_socket
-                                        .emit(SendEvent::TransferSol, transfer_info)
-                                        .await;
+                        let transfer_info = TransferInfo {
+                            id: eaten_id,
+                            amount: eaten_total,
+                        };
 
-                                    //Clearing
-                                    manager.set_address(eaten_id, 'f'.to_string());
-                                    manager.set_amount(eaten_id, 0);
-                                    manager.clear_data(eaten_id);
-                                }
-                            }
+                        info!("Transfer information: {:?}", transfer_info);
+
+                        if let Some(ref match_making_socket) = self.matchmaking_socket {
+                                    
+                            let _ = match_making_socket
+                                .emit(SendEvent::TransferSol, transfer_info)
+                                .await;
                         }
                     }
                 }
