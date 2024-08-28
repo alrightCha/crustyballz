@@ -549,8 +549,8 @@ impl Game {
                 };
 
                 info!(
-                    "Player [{:?}] eat Player [{:?}]",
-                    player_who_eat.name, player_eated.name
+                    "Player [{:?} {:?}] eat Player [{:?} {:?}]",
+                    player_who_eat.id, player_who_eat.name, player_eated.id, player_eated.name
                 );
 
                 let cell_eated_mass = match player_eated.cells.get(cell_eated) {

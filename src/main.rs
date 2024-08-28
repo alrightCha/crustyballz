@@ -117,7 +117,8 @@ async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) ->
                 Payload::Text(json_vec) => {
                     if let Some(json_str) = json_vec.get(0) {
                         info!("Data received: {:?}", json_str);
-                        let data: AmountMessage = from_value(json_str.clone()).expect("Could not derive to data from json");
+                        let data: AmountMessage = from_value(json_str.clone())
+                            .expect("Could not derive to data from json");
                         let mut manager = amount_manager.lock().await;
                         manager.set_user_id(data.uid, data.id);
                         manager.set_amount(data.id, data.amount);
@@ -212,6 +213,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 let mut player = player_ref_cloned.write().await;
 
+                player.setup(data.name, data.img_url);
+                drop(player);
+
                 //MARK: Added newly
                 if let Some(socket_mtchmkng) = &game_ref_cloned.matchmaking_socket {
                     if let Some(ref user_id) = data.user_id {
@@ -220,9 +224,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         let _ = socket_mtchmkng.emit("getAmount", json_payload).await;
                     }
                 }
-                player.setup(data.name, data.img_url);
-                drop(player);
-
                 let _ = socket.emit(
                     SendEvent::Welcome,
                     WelcomeMessage {
