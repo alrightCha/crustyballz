@@ -154,7 +154,7 @@ pub struct WelcomeMessage {
 
 #[derive(Serialize)]
 pub struct TransferInfo{
-    pub id: u64,
+    pub id: i64,
     pub amount: u64
 }
 
