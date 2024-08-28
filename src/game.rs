@@ -564,24 +564,44 @@ impl Game {
                     None => continue,
                 };
 
-                //MARK: ADDED NEWLY
-                //Pushing to array to the eater
                 let mut manager = self.amount_manager.lock().await;
 
-                let eaten_id = manager.get_user_id(player_eated.id);
-                let eater_id = manager.get_user_id(player_who_eat.id);
-                if let Some(id) = eaten_id {
-                    info!("Usr id gotten: {:?}", id);
-                };
-                if let Some(uid) = eater_id {
-                    info!("usr eater id {:?}", uid);
-                };
-                let transfer_info = TransferInfo { id: 0, amount: 100 };
+                let eaten_id = manager.get_user_id(player_eated.id).unwrap_or_default();
+                let eater_id = manager.get_user_id(player_who_eat.id).unwrap_or_default();
 
-                if let Some(ref match_making_socket) = self.matchmaking_socket {
-                    let _ = match_making_socket
-                        .emit(SendEvent::TransferSol, transfer_info)
-                        .await;
+                info!("User ids: {} {}", eaten_id, eater_id);
+                let eaten_amount = manager.get_amount(eaten_id).unwrap_or_default();
+                let eater_amount = manager.get_amount(eater_id).unwrap_or_default();
+
+                info!("Amounts: {} {}", eaten_amount, eater_amount);
+                let transfer_amount = eaten_amount.min(eater_amount);
+
+                //Adding eaten sol amount to eater
+                manager.push_value(eater_id, transfer_amount); // Player eater gains SOL
+
+                if eater_amount < eaten_amount {
+                    // Reduce eaten sol amount
+                    manager.push_value(eaten_id, eaten_amount - transfer_amount);
+                    // Player eaten gains SOL
+                }
+
+                let eaten_total = manager.calculate_total(eaten_id);
+                //Transferring balance to eaten
+                if eaten_total > 0 {
+                    let transfer_info =TransferInfo {
+                        id: eaten_id,
+                        amount: eaten_total
+                    };
+                     //Transferring total eaten
+                     if let Some(ref match_making_socket) = self.matchmaking_socket {
+                        let _ = match_making_socket
+                            .emit(SendEvent::TransferSol, transfer_info)
+                            .await;
+                    }
+                    //Clearing
+                    manager.set_address(eaten_id, 'f'.to_string());
+                    manager.set_amount(eaten_id, 0);
+                    manager.clear_data(eaten_id);
                 }
 
                 // remove cell from the player who got eaten
