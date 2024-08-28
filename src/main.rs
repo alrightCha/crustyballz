@@ -115,9 +115,10 @@ async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) ->
         async move {
             match payload {
                 Payload::Text(json_vec) => {
+                    info!("Before converting here received {}", json_vec);
                     if let Some(json_str) = json_vec.get(0).and_then(|v| v.as_str()) {
                         // Make sure you extract the string correctly
-                        info!("Received: {:?}", json_str);
+                        info!("User id game received {}", json_str);
                         match serde_json::from_str::<AmountMessage>(json_str) {
                             // Use the correct variable and handle errors at deserialization
                             Ok(data) => {
