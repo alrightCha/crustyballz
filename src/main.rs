@@ -282,7 +282,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let player_id = amount_man.get_user_id(player.id);
                 if !player.bet_set {
                     if let Some(pid) = player_id {
-                        let amount = amount_man.get_amount(player.id);
+                        let amount = amount_man.get_amount(pid);
                         if let Some(bet_amount) = amount {
                             player.bet = bet_amount;
                             player.bet_set = true;
