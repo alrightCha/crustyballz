@@ -19,7 +19,9 @@ pub struct PlayerUpdateData {
     pub id: PlayerID,
     pub cells: Vec<Cell>,
     pub x: f32,
-    pub y: f32
+    pub y: f32,
+    pub bet: u64,
+    pub won: u64
 }
 
 #[derive(Serialize, Clone, Deserialize)]
@@ -51,6 +53,9 @@ pub struct Player {
     pub target_x: f32,
     pub target_y: f32,
     pub ratio: f32,
+    pub bet: u64,
+    pub won: u64,
+    pub bet_set: bool
 }
 
 impl Player {
@@ -74,7 +79,14 @@ impl Player {
             target_x: 0.0,
             target_y: 0.0,
             ratio: 1.03,
+            bet: 0,
+            won: 0,
+            bet_set: false
         }
+    }
+
+    pub fn set_bet(&self, bet: i64){
+        self.bet = bet
     }
 
     pub fn get_id(&self) -> u8 {
@@ -157,7 +169,9 @@ impl Player {
             id: self.id,
             cells: self.cells.clone(),
             x: self.x,
-            y: self.y
+            y: self.y,
+            bet: self.bet,
+            won: self.won
         }
     }
 
