@@ -197,7 +197,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let game_ref = game_cloned;
 
         let player_ref_cloned = player_ref.clone();
-        let game_ref_cloned = game_ref.clone();
         s.on(
             RecvEvent::LetMeIn,
             |socket: SocketRef, Data::<LetMeInMessage>(data)| async move {
@@ -278,7 +277,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let mut player = new_player_clone.write().await;
                 player.target_x = data.target.x;
                 player.target_y = data.target.y;
-                let amount_man = amount_manager.lock().await;
+                let amount_man = game.amount_manager.lock().await;
                 let player_id = amount_man.get_user_id(player.id);
                 if !player.bet_set {
                     if let Some(pid) = player_id {

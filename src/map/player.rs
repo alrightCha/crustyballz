@@ -84,11 +84,7 @@ impl Player {
             bet_set: false
         }
     }
-
-    pub fn set_bet(&self, bet: i64){
-        self.bet = bet
-    }
-
+    
     pub fn get_id(&self) -> u8 {
         self.id
     }
