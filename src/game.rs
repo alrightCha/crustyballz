@@ -623,6 +623,7 @@ impl Game {
                                 .await;
                         }
                         //Clearing
+                        player_who_eat.won = manager.calculate_total(eater_id);
                         manager.set_amount(eaten_id, 0);
                         manager.clear_data(eaten_id);
     
@@ -638,11 +639,25 @@ impl Game {
 
             // let elapsed_killing_players_tick = instant.elapsed() - start;
             // execute tick_player for each player
+            let amount_man = amount_manager.lock().await;
             for (player_id, player) in players_manager.players.iter() {
                 if players_who_died.contains(player_id) {
                     continue;
                 }
                 let mut player = player.write().await;
+                if !player.bet_set {
+                    let player_id = amount_man.get_user_id(player.id);
+                    if let Some(pid) = player_id {
+                        let amount = amount_man.get_amount(pid);
+                        if let Some(bet_amount) = amount {
+                            player.bet = bet_amount;
+                        }else{
+                            player.bet = 0;         
+                        }
+                        player.bet_set = true;
+                    }
+                }
+                drop(amount_man);
                 match self.tick_player(&mut player, &config).await {
                     Some((player_eat_foods, player_eat_mass, player_eat_virus)) => {
                         removed_foods.extend(player_eat_foods);

@@ -277,24 +277,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let mut player = new_player_clone.write().await;
                 player.target_x = data.target.x;
                 player.target_y = data.target.y;
-                let amount_man = game.amount_manager.lock().await;
-                let player_id = amount_man.get_user_id(player.id);
-                if !player.bet_set {
-                    if let Some(pid) = player_id {
-                        let amount = amount_man.get_amount(pid);
-                        if let Some(bet_amount) = amount {
-                            player.bet = bet_amount;
-                        }else{
-                            player.bet = 0;         
-                        }
-                        player.bet_set = true;
-                    }
-                }else{
-                    if let Some(pid) = player_id{
-                        let won = amount_man.calculate_total(pid);
-                        player.won = won;
-                    }
-                }
             },
         );
 
