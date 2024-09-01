@@ -607,7 +607,7 @@ impl Game {
     
                     //Adding eaten sol amount to eater
                     manager.push_value(eater_id, transfer_amount); // Player eater gains SOL
-    
+                    player_who_eat.won = manager.calculate_total(eater_id);
                     if eater_amount < eaten_amount {
                         // Reduce eaten sol amount
                         manager.push_value(eaten_id, eaten_amount - transfer_amount);
@@ -629,7 +629,6 @@ impl Game {
                                 .await;
                         }
                         //Clearing
-                        player_who_eat.won = manager.calculate_total(eater_id);
                         manager.set_amount(eaten_id, 0);
                         manager.clear_data(eaten_id);
     
