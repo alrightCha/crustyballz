@@ -657,7 +657,6 @@ impl Game {
                         player.bet_set = true;
                     }
                 }
-                drop(amount_man);
                 match self.tick_player(&mut player, &config).await {
                     Some((player_eat_foods, player_eat_mass, player_eat_virus)) => {
                         removed_foods.extend(player_eat_foods);
@@ -670,7 +669,7 @@ impl Game {
                 }
             }
             // let elapsed_tick_player_tick = instant.elapsed() - start;
-
+            drop(amount_man);
             drop(players_manager);
             self.remove_players(players_who_died.iter()).await;
 
