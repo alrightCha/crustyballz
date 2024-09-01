@@ -639,7 +639,7 @@ impl Game {
 
             // let elapsed_killing_players_tick = instant.elapsed() - start;
             // execute tick_player for each player
-            let amount_man = amount_manager.lock().await;
+            let amount_man = self.amount_manager.lock().await;
             for (player_id, player) in players_manager.players.iter() {
                 if players_who_died.contains(player_id) {
                     continue;
