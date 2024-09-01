@@ -446,7 +446,7 @@ impl Game {
                         id,
                         socket_id,
                     } => {
-                        let manager = self.amount_manager.lock().await;
+                        let mut manager = self.amount_manager.lock().await;
                         let uid = manager.get_user_id(id);
                         if let Some(pid) = uid{
                             manager.set_amount(pid, 0);
