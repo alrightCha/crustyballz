@@ -668,8 +668,6 @@ impl Game {
                     None => {}
                 }
             }
-            // let elapsed_tick_player_tick = instant.elapsed() - start;
-            drop(amount_man);
             drop(players_manager);
             self.remove_players(players_who_died.iter()).await;
 
