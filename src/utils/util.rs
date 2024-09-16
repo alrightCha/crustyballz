@@ -169,12 +169,12 @@ pub fn check_who_ate_who(cell_a: &Cell, cell_b: &Cell) -> u8 {
         let min_cell_rad = f32::min(cell_a.position.radius, cell_b.position.radius);
         if min_cell_rad == cell_a.position.radius {
             // Since we're working with integers, compare cell_a.mass to 5/6 of cell_b.mass instead of multiplying
-            if cell_b.mass > (cell_a.mass * 9) / 6 {
+            if cell_b.mass > (cell_a.mass * 6) / 5 {
                 return 2;
             }
         } else {
             // Similar comparison but for cell_b against cell_a
-            if cell_a.mass > (cell_b.mass * 9) / 6 {
+            if cell_a.mass > (cell_b.mass * 6) / 6 {
                 return 1;
             }
         }
