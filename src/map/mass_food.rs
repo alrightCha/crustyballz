@@ -89,7 +89,7 @@ impl MassFood {
                 return false;
             }
             return (cell_mass as f32) > ((self.mass as f32) * 1.1f32)
-                && self.speed.unwrap_or_default() < 18.0;
+                && self.speed.unwrap_or_default() < 25.0;
         }
         false
     }
