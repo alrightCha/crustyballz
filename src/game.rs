@@ -448,7 +448,7 @@ impl Game {
                     } => {
                         let mut manager = self.amount_manager.lock().await;
                         let uid = manager.get_user_id(id);
-                        if let Some(pid) = uid{
+                        if let Some(pid) = uid {
                             manager.set_amount(pid, 0);
                             manager.clear_data(pid);
                         }
@@ -597,14 +597,14 @@ impl Game {
 
                     let eaten_id = manager.get_user_id(player_eated.id).unwrap_or_default();
                     let eater_id = manager.get_user_id(player_who_eat.id).unwrap_or_default();
-    
+
                     info!("User ids: {} {}", eaten_id, eater_id);
                     let eaten_amount = manager.get_amount(eaten_id).unwrap_or_default();
                     let eater_amount = manager.get_amount(eater_id).unwrap_or_default();
-    
+
                     info!("Amounts: {} {}", eaten_amount, eater_amount);
                     let transfer_amount = eaten_amount.min(eater_amount);
-    
+
                     //Adding eaten sol amount to eater
                     manager.push_value(eater_id, transfer_amount); // Player eater gains SOL
                     player_who_eat.won = manager.calculate_total(eater_id);
@@ -613,25 +613,36 @@ impl Game {
                         manager.push_value(eaten_id, eaten_amount - transfer_amount);
                         // Player eaten gains SOL
                     }
-    
+
                     let eaten_total = manager.calculate_total(eaten_id);
                     //Transferring balance to eaten
                     if eaten_total > 0 {
-                        let transfer_info =TransferInfo {
+                        let transfer_info = TransferInfo {
                             id: eaten_id,
                             amount: eaten_total,
-                            port: self.port
+                            port: self.port,
                         };
-                         //Transferring total eaten
-                         if let Some(ref match_making_socket) = self.matchmaking_socket {
-                            let _ = match_making_socket
+                        if let Some(ref match_making_socket) = self.matchmaking_socket {
+                            // Emit and await the result
+                            match match_making_socket
                                 .emit(SendEvent::TransferSol, transfer_info)
-                                .await;
+                                .await
+                            {
+                                Ok(_) => {
+                                    // If emit is successful, proceed to clear the data
+                                    manager.set_amount(eaten_id, 0);
+                                    manager.clear_data(eaten_id);
+                                }
+                                Err(e) => {
+                                    // Log the error or handle it appropriately
+                                    eprintln!("Failed to send TransferSol event: {:?}", e);
+                                }
+                            }
+                        } else {
+                            // Optionally handle the case where there is no matchmaking socket
+                            eprintln!("No matchmaking socket available");
                         }
-                        //Clearing
-                        manager.set_amount(eaten_id, 0);
-                        manager.clear_data(eaten_id);
-    
+
                         drop(manager);
                     }
 
@@ -656,8 +667,8 @@ impl Game {
                         let amount = amount_man.get_amount(pid);
                         if let Some(bet_amount) = amount {
                             player.bet = bet_amount;
-                        }else{
-                            player.bet = 0;         
+                        } else {
+                            player.bet = 0;
                         }
                         player.bet_set = true;
                     }
