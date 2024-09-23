@@ -686,6 +686,7 @@ impl Game {
                 removed_virus,
             };
 
+            info!("SENDING USER INFO {:?}", game_data);
             let _ = self.io_socket.emit(SendEvent::GameUpdate, game_data);
 
             // let elapsed_sent_game_update = instant.elapsed() - start;
