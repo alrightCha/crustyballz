@@ -135,11 +135,11 @@ impl Player {
     pub fn recalculate_ratio(&mut self) {
         let new_val = lerp(
             self.ratio,
-            0.8 - 0.2 * ((self.total_mass as f32) / 500.0).ln()
+            0.7 - 0.2 * ((self.total_mass as f32) / 500.0).ln()
                 - 0.3 * (self.cells.len() as f32) / 18.0,
             0.1,
         );
-        if new_val > 0.3 {
+        if new_val > 0.15 {
             self.ratio = new_val;
         } else {
             self.ratio = 0.3;
