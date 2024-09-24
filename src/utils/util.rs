@@ -113,8 +113,8 @@ pub fn create_random_position(
 //generates a random point to use its x and y values and know a position on the map
 fn random_position(radius: f32) -> Point {
     Point {
-        x: random_in_range(radius..10000.0 - radius),
-        y: random_in_range(radius..10000.0 - radius),
+        x: random_in_range(radius..15000.0 - radius),
+        y: random_in_range(radius..15000.0 - radius),
         radius,
     }
 }
