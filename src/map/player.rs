@@ -545,6 +545,7 @@ impl Player {
                 self.target_y,
                 slow_base,
                 init_mass_log,
+                self.ratio
             );
             adjust_for_boundaries(
                 &mut cell.position.x,
