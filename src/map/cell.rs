@@ -91,6 +91,12 @@ impl Cell {
         slow_base: f32,
         init_mass_log: f32,
     ) {
+        let point = Point {
+            x: mouse_x,
+            y: mouse_y,
+            radius: 0
+        }.normalize().scale(1000.0);
+
         let target_x = player_position.x - self.position.x + mouse_x;
         let target_y = player_position.y - self.position.y + mouse_y;
         let dist = (target_y.powi(2) + target_x.powi(2)).sqrt();
