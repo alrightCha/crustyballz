@@ -90,10 +90,11 @@ impl Cell {
         mouse_y: f32,
         slow_base: f32,
         init_mass_log: f32,
-        ratio: f32
+        ratio: f32,
     ) {
-        let target_x = player_position.x - self.position.x + mouse_x * ratio * 100.0;
-        let target_y = player_position.y - self.position.y + mouse_y * ratio * 100.0;
+        let ratio = if ratio > 0.0 { ratio } else { 1.0 };
+        let target_x = player_position.x - self.position.x + mouse_x * ratio;
+        let target_y = player_position.y - self.position.y + mouse_y * ratio;
         let dist = (target_y.powi(2) + target_x.powi(2)).sqrt();
         let deg = target_y.atan2(target_x);
 
