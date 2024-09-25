@@ -91,15 +91,8 @@ impl Cell {
         slow_base: f32,
         init_mass_log: f32,
     ) {
-
-        let point = Point {
-            x: mouse_x,
-            y: mouse_y,
-            radius: 0.0
-        }.normalize().scale(10.0);
-
-        let target_x = player_position.x - self.position.x + point.x;
-        let target_y = player_position.y - self.position.y + point.y;
+        let target_x = player_position.x - self.position.x + mouse_x;
+        let target_y = player_position.y - self.position.y + mouse_y;
         let dist = (target_y.powi(2) + target_x.powi(2)).sqrt();
         let deg = target_y.atan2(target_x);
 
@@ -108,7 +101,7 @@ impl Cell {
 
         if self.can_move {
             if self.speed <= MIN_SPEED {
-                slow_down = (self.mass as f32).log(slow_base * 3.0) - init_mass_log + 1.0;
+                slow_down = (self.mass * 2 as f32).log(slow_base * 3.0) - init_mass_log + 1.0;
             }
             delta_y = self.speed * deg.sin() / slow_down;
             delta_x = self.speed * deg.cos() / slow_down;
