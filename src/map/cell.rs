@@ -101,8 +101,7 @@ impl Cell {
 
         if self.can_move {
             if self.speed <= MIN_SPEED {
-                //Adding slowdown based on how large target x and target y get
-                slow_down = (self.mass as f32 + (target_x / 1000.0 * target_y / 1000.0) * 100.0).log(slow_base * 3.0) - init_mass_log + 1.0;
+                slow_down = (self.mass as f32).log(slow_base * 3.0) - init_mass_log + 1.0;
             }
             delta_y = self.speed * deg.sin() / slow_down;
             delta_x = self.speed * deg.cos() / slow_down;
