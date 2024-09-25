@@ -96,7 +96,7 @@ impl Cell {
             x: mouse_x,
             y: mouse_y,
             radius: 0.0
-        }.normalize().scale(self.speed);
+        }.normalize().scale(10);
 
         let target_x = player_position.x - self.position.x + point.x;
         let target_y = player_position.y - self.position.y + point.y;
