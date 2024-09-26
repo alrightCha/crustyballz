@@ -21,7 +21,7 @@ pub struct PlayerUpdateData {
     pub x: f32,
     pub y: f32,
     pub bet: u64,
-    pub won: u64,
+    pub won: u64
 }
 
 #[derive(Serialize, Clone, Deserialize)]
@@ -55,7 +55,7 @@ pub struct Player {
     pub ratio: f32,
     pub bet: u64,
     pub won: u64,
-    pub bet_set: bool,
+    pub bet_set: bool
 }
 
 impl Player {
@@ -81,10 +81,10 @@ impl Player {
             ratio: 1.03,
             bet: 0,
             won: 0,
-            bet_set: false,
+            bet_set: false
         }
     }
-
+    
     pub fn get_id(&self) -> u8 {
         self.id
     }
@@ -95,20 +95,19 @@ impl Player {
         self.target_x = 0.0;
         self.target_y = 0.0;
 
-        self.cells = vec![Cell::new(
-            new_position.x,
-            new_position.y,
-            new_mass,
-            MIN_SPEED,
-            true,
-            None,
-        )];
+        self.cells = vec![
+            Cell::new(new_position.x, new_position.y, new_mass, MIN_SPEED, true, None)
+        ];
 
         self.recalculate_total_mass();
         self.recalculate_ratio();
     }
 
-    pub fn setup(&mut self, name: Option<String>, img_url: Option<String>) {
+    pub fn setup(
+        &mut self,
+        name: Option<String>,
+        img_url: Option<String>,
+    ) {
         self.name = name;
         self.img_url = img_url.clone();
     }
@@ -140,8 +139,10 @@ impl Player {
                 - 0.3 * (self.cells.len() as f32) / 18.0,
             0.1,
         );
-        if (new_val > 0.0) {
+        if new_val > 0.15 {
             self.ratio = new_val;
+        } else {
+            self.ratio = 0.3;
         }
     }
 
@@ -166,7 +167,7 @@ impl Player {
             x: self.x,
             y: self.y,
             bet: self.bet,
-            won: self.won,
+            won: self.won
         }
     }
 
