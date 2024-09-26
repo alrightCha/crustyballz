@@ -4,7 +4,7 @@ use crate::utils::{
     consts::{Mass, MIN_DISTANCE, MIN_SPEED, SPLIT_CELL_SPEED},
     util::{lerp_deg, lerp_move, mass_to_radius, math_log},
 };
-use log::info;
+
 use super::point::Point;
 
 #[derive(Serialize)]
@@ -134,7 +134,6 @@ impl Cell {
                 delta_x = 0.0;
             }
         }
-        info!("adding values: {} {}", delta_x, delta_y);
         self.position.y += delta_y;
         self.position.x += delta_x;
         // info!("speed: {}", self.speed);
