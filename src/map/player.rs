@@ -139,11 +139,7 @@ impl Player {
                 - 0.3 * (self.cells.len() as f32) / 18.0,
             0.1,
         );
-        if new_val > 0.15 {
-            self.ratio = new_val;
-        } else {
-            self.ratio = 0.3;
-        }
+        self.ratio = new_val;
     }
 
     pub fn recalculate_total_mass(&mut self) {
