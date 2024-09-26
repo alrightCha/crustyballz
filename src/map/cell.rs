@@ -134,6 +134,7 @@ impl Cell {
                 delta_x = 0.0;
             }
         }
+        info!("adding values: {} {}", delta_x, delta_y);
         self.position.y += delta_y;
         self.position.x += delta_x;
         // info!("speed: {}", self.speed);
