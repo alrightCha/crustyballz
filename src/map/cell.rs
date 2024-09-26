@@ -4,7 +4,7 @@ use crate::utils::{
     consts::{Mass, MIN_DISTANCE, MIN_SPEED, SPLIT_CELL_SPEED},
     util::{lerp_deg, lerp_move, mass_to_radius, math_log},
 };
-
+use log::info;
 use super::point::Point;
 
 #[derive(Serialize)]
