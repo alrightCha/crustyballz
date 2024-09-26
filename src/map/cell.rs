@@ -91,30 +91,25 @@ impl Cell {
         slow_base: f32,
         init_mass_log: f32,
     ) {
-        let target_x = mouse_x - player_position.x;
-        let target_y = mouse_y - player_position.y;
-        let dist = (target_x.powi(2) + target_y.powi(2)).sqrt();
+        let target_x = player_position.x - self.position.x + mouse_x;
+        let target_y = player_position.y - self.position.y + mouse_y;
+        let dist = (target_y.powi(2) + target_x.powi(2)).sqrt();
         let deg = target_y.atan2(target_x);
-    
+
         let mut slow_down = 0.03;
         let (mut delta_y, mut delta_x);
-    
-        // Normalize the target vector to have a length of 1
-        let norm_target_x = if dist != 0.0 { target_x / dist } else { 0.0 };
-        let norm_target_y = if dist != 0.0 { target_y / dist } else { 0.0 };
-    
+
         if self.can_move {
             if self.speed <= MIN_SPEED {
                 slow_down = (self.mass as f32).log(slow_base * 3.0) - init_mass_log + 1.0;
             }
-    
-            delta_x = self.speed * norm_target_x.cos() / slow_down;
-            delta_y = self.speed * norm_target_y.sin() / slow_down;
-    
+            delta_y = self.speed * deg.sin() / slow_down;
+            delta_x = self.speed * deg.cos() / slow_down;
+
             if dist < (MIN_DISTANCE + self.position.radius) {
                 let ratio = dist / (MIN_DISTANCE + self.position.radius);
-                delta_x *= ratio;
                 delta_y *= ratio;
+                delta_x *= ratio;
             }
         } else {
             self.speed = lerp_move(self.speed, math_log(self.speed, Some(7.5), 5.0), 0.06);
@@ -123,25 +118,24 @@ impl Cell {
                 self.speed = MIN_SPEED;
             }
             if let Some(direction_shot) = self.direction_shot {
-                let not_dist = f32::hypot(direction_shot.y, direction_shot.x);
+                let not_dis = f32::hypot(direction_shot.y, direction_shot.x);
                 let not_deg = direction_shot.y.atan2(direction_shot.x);
-                let real_deg = lerp_deg(not_deg, deg, 0.1 * SPLIT_CELL_SPEED / self.speed);
-    
-                delta_x = self.speed * real_deg.cos();
+                let real_deg = lerp_deg(not_deg, deg, 0.1 * SPLIT_CELL_SPEED / self.speed); // Assuming lerp_deg function exists
                 delta_y = self.speed * real_deg.sin();
-    
-                if not_dist < MIN_DISTANCE + self.position.radius {
-                    let ratio = not_dist / (MIN_DISTANCE + (self.position.radius * 0.001)) / slow_down;
-                    delta_x *= ratio;
+                delta_x = self.speed * real_deg.cos();
+                if not_dis < MIN_DISTANCE + self.position.radius {
+                    let ratio =
+                        not_dis / (MIN_DISTANCE + (self.position.radius * 0.001)) / slow_down;
                     delta_y *= ratio;
+                    delta_x *= ratio;
                 }
             } else {
-                delta_x = 0.0;
                 delta_y = 0.0;
+                delta_x = 0.0;
             }
         }
-        self.position.x += delta_x;
         self.position.y += delta_y;
+        self.position.x += delta_x;
         // info!("speed: {}", self.speed);
-    }    
+    }
 }
