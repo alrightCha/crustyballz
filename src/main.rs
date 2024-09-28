@@ -124,11 +124,7 @@ async fn setup_matchmaking_service(
                         info!("Data received: {:?}", json_str);
                         let data: AmountMessage = from_value(json_str.clone())
                             .expect("Could not derive to data from json");
-                        queue.lock().await.push_back(AmountQueue::AddAmount {
-                            id: data.id,
-                            amount: data.amount,
-                            uid: data.uid,
-                        });
+                     
                     }
                 }
                 Payload::Binary(_) => {
