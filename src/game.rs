@@ -566,7 +566,7 @@ impl Game {
             let who_ate_who_list = Self::get_players_collision(&players_manager).await;
             let mut players_who_died: Vec<PlayerID> = vec![];
             let mut manager = self.amount_manager.write().await;
-            let mut read_manager = self.amount_manager.read().await;
+            let read_manager = self.amount_manager.read().await;
             for ((player_who_eat, cell_who_eat), (player_eated, cell_eated)) in
                 who_ate_who_list.into_iter()
             {
