@@ -172,7 +172,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let amount_queue: Mutex<VecDeque<AmountQueue>> = Mutex::new(VecDeque::new());
     let match_making_socket = match mode.as_str() {
         "DEBUG" => None,
-        _ => setup_matchmaking_service(amount_queue).await,
+        _ => setup_matchmaking_service(&amount_queue).await,
     };
     let game = Arc::new(Game::new(
         io_socket.clone(), // No need to clone, assuming io_socket is already of type SocketIo
