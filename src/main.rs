@@ -114,9 +114,9 @@ async fn setup_matchmaking_service(
     queue: Arc<Mutex<VecDeque<AmountQueue>>>
 ) -> Option<Client> {
     let url_domain = Cli::try_parse().expect("Error parsing CLI args").sub_domain;
-
     let callback = move |payload: Payload, _: Client| {
         info!("RECEIVED USERAMOUNT RESPONSE");
+        let queue = Arc::clone(&queue);
         async move {
             match payload {
                 Payload::Text(json_vec) => {
