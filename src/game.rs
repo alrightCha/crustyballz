@@ -31,6 +31,7 @@ use crate::{
         VirusAddedMessage,
     },
     utils::{
+        amount_queue::AmountQueue,
         consts::{Mass, TotalMass},
         id::{FoodID, MassFoodID, PlayerID, VirusID},
         quad_tree::{QuadTree, Rectangle},
@@ -56,7 +57,7 @@ const TICKER_LOOP_FPS: f64 = 1.0 / (30.0 * 1.0);
 
 pub struct Game {
     pub port: u16,
-    pub amount_manager: Arc<Mutex<AmountManager>>,
+    pub amount_manager: RwLock<AmountManager>,
     pub food_manager: FoodManager,
     pub virus_manager: RwLock<VirusManager>,
     pub mass_food_manager: RwLock<MassFoodManager>,
@@ -65,17 +66,18 @@ pub struct Game {
     pub io_socket: SocketIo,
     pub matchmaking_socket: Option<Client>,
     pub update_queue: Mutex<VecDeque<QueueMessage>>,
+    pub amount_queue: Mutex<VecDeque<AmountQueue>>,
 }
 
 impl Game {
     pub fn new(
-        amount_manager: Arc<Mutex<AmountManager>>,
         io_socket: SocketIo,
         matchmaking_socket: Option<Client>,
+        amount_queue: Mutex<VecDeque<AmountQueue>>,
     ) -> Self {
         let config = get_current_config();
         Game {
-            amount_manager,
+            amount_manager: RwLock::new(AmountManager::new()),
             port: *get_websockets_port(),
             food_manager: FoodManager::new(
                 config.food_mass,
@@ -96,6 +98,7 @@ impl Game {
             main_room: "main".to_string(),
             io_socket,
             matchmaking_socket,
+            amount_queue,
         }
     }
 
@@ -435,9 +438,29 @@ impl Game {
         who_ate_who_list
     }
 
+    pub async fn handle_amount_queue(&self) {
+        let mut queue = self.amount_queue.lock().await;
+        let mut manager = self.amount_manager.write().await;
+        loop {
+            match queue.pop_front() {
+                Some(message) => match message {
+                    AmountQueue::AddAmount { id, amount, uid } => {
+                        manager.set_user_id(uid, id);
+                        manager.set_amount(id, amount);
+                    }
+                },
+                None => {
+                    break;
+                }
+            }
+        }
+        drop(queue);
+        drop(manager);
+    }
+
     pub async fn handle_queue(&self) {
         let mut queue = self.update_queue.lock().await;
-        let mut manager = self.amount_manager.lock().await;
+        let mut manager = self.amount_manager.write().await;
         loop {
             match queue.pop_front() {
                 Some(message) => match message {
@@ -476,6 +499,7 @@ impl Game {
             start = instant.elapsed();
             // let elapsed_handle_queue = instant.elapsed() - start;
             self.handle_queue().await;
+            self.handle_amount_queue().await;
             let players_manager = self.player_manager.read().await;
             if (get_current_timestamp() - last_game_loop) >= GAME_LOOP_INTERVAL {
                 last_game_loop = get_current_timestamp();
@@ -541,7 +565,8 @@ impl Game {
             // handling collision btw players
             let who_ate_who_list = Self::get_players_collision(&players_manager).await;
             let mut players_who_died: Vec<PlayerID> = vec![];
-            let mut manager = self.amount_manager.lock().await;
+            let mut manager = self.amount_manager.write().await;
+            let mut read_manager = self.amount_manager.read().await;
             for ((player_who_eat, cell_who_eat), (player_eated, cell_eated)) in
                 who_ate_who_list.into_iter()
             {
@@ -595,26 +620,26 @@ impl Game {
                         },
                     );
 
-                    let eaten_id = manager.get_user_id(player_eated.id).unwrap_or_default();
-                    let eater_id = manager.get_user_id(player_who_eat.id).unwrap_or_default();
+                    let eaten_id = read_manager.get_user_id(player_eated.id).unwrap_or_default();
+                    let eater_id = read_manager.get_user_id(player_who_eat.id).unwrap_or_default();
 
                     info!("User ids: {} {}", eaten_id, eater_id);
-                    let eaten_amount = manager.get_amount(eaten_id).unwrap_or_default();
-                    let eater_amount = manager.get_amount(eater_id).unwrap_or_default();
+                    let eaten_amount = read_manager.get_amount(eaten_id).unwrap_or_default();
+                    let eater_amount = read_manager.get_amount(eater_id).unwrap_or_default();
 
                     info!("Amounts: {} {}", eaten_amount, eater_amount);
                     let transfer_amount = eaten_amount.min(eater_amount);
 
                     //Adding eaten sol amount to eater
                     manager.push_value(eater_id, transfer_amount); // Player eater gains SOL
-                    player_who_eat.won = manager.calculate_total(eater_id);
+                    player_who_eat.won = read_manager.calculate_total(eater_id);
                     if eater_amount < eaten_amount {
                         // Reduce eaten sol amount
                         manager.push_value(eaten_id, eaten_amount - transfer_amount);
                         // Player eaten gains SOL
                     }
 
-                    let eaten_total = manager.calculate_total(eaten_id);
+                    let eaten_total = read_manager.calculate_total(eaten_id);
                     //Transferring balance to eaten
                     if eaten_total > 0 {
                         let transfer_info = TransferInfo {
@@ -650,10 +675,9 @@ impl Game {
                     players_who_died.push(player_eated.id);
                 }
             }
-            drop(manager);
             // let elapsed_killing_players_tick = instant.elapsed() - start;
             // execute tick_player for each player
-            let amount_man = self.amount_manager.lock().await;
+            let amount_man = self.amount_manager.read().await;
             for (player_id, player) in players_manager.players.iter() {
                 if players_who_died.contains(player_id) {
                     continue;
@@ -682,7 +706,6 @@ impl Game {
                     None => {}
                 }
             }
-            drop(players_manager);
             self.remove_players(players_who_died.iter()).await;
 
             // send chunk data to all players

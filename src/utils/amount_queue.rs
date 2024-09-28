@@ -1,6 +1,7 @@
 pub enum AmountQueue{
     AddAmount{
-        id: u8,
+        id: i64,
         amount: u64, 
+        uid: u8
     }
 }
