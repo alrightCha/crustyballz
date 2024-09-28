@@ -115,7 +115,7 @@ impl Cell {
         let (mut delta_y, mut delta_x);
 
         if self.can_move {
-            if self.speed <= MIN_SPEED {
+            if self.speed >= MIN_SPEED {
                 slow_down = (self.mass as f32).log(slow_base * 3.0) - init_mass_log + 1.0;
             }
 
