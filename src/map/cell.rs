@@ -90,14 +90,15 @@ impl Cell {
         mouse_y: f32,
         slow_base: f32,
         init_mass_log: f32,
-        rat: f32
+        rat: f32,
     ) {
-
-        let pointer = Point{
+        let pointer = Point {
             x: mouse_x,
             y: mouse_y,
-            radius: 0.0
-        }.normalize().scale(100.0);
+            radius: 0.0,
+        }
+        .normalize()
+        .scale(100.0);
 
         let target_x = player_position.x - self.position.x + mouse_x;
         let target_y = player_position.y - self.position.y + mouse_y;
@@ -111,9 +112,12 @@ impl Cell {
             if self.speed <= MIN_SPEED {
                 slow_down = (self.mass as f32).log(slow_base * 3.0) - init_mass_log + 1.0;
             }
-            delta_y = self.speed * deg.sin() / slow_down;
-            delta_x = self.speed * deg.cos() / slow_down;
-
+            if (deg.sin() > 0) {
+                delta_y = self.speed * deg.sin() / slow_down;
+            }
+            if (deg.cos() > 0) {
+                delta_x = self.speed * deg.cos() / slow_down;
+            }
             if dist * rat < self.position.radius {
                 let ratio = dist * rat / (self.position.radius);
                 delta_y *= ratio;
