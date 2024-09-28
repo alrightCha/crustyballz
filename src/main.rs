@@ -111,12 +111,13 @@ pub fn get_websockets_port() -> &'static u16 {
 }
 
 async fn setup_matchmaking_service(
-    queue: &Mutex<VecDeque<AmountQueue>>
+    queue: Arc<Mutex<VecDeque<AmountQueue>>>
 ) -> Option<Client> {
     let url_domain = Cli::try_parse().expect("Error parsing CLI args").sub_domain;
 
     let callback = move |payload: Payload, _: Client| {
         info!("RECEIVED USERAMOUNT RESPONSE");
+        let queue_clone = queue.clone();
         async move {
             match payload {
                 Payload::Text(json_vec) => {
@@ -124,7 +125,7 @@ async fn setup_matchmaking_service(
                         info!("Data received: {:?}", json_str);
                         let data: AmountMessage = from_value(json_str.clone())
                             .expect("Could not derive to data from json");
-                        queue.lock().await.push_back(AmountQueue::AddAmount {
+                        queue_clone.lock().await.push_back(AmountQueue::AddAmount {
                             id: data.id,
                             amount: data.amount,
                             uid: data.uid,
@@ -169,7 +170,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mode = env::var("MODE").unwrap_or("DEBUG".to_string());
     //MARK: ADDED NEWLY
-    let amount_queue: Mutex<VecDeque<AmountQueue>> = Mutex::new(VecDeque::new());
+    let amount_queue: Arc<Mutex<VecDeque<AmountQueue>>> = Arc::new(Mutex::new(VecDeque::new()));
     let match_making_socket = match mode.as_str() {
         "DEBUG" => None,
         _ => setup_matchmaking_service(&amount_queue).await,
@@ -177,7 +178,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let game = Arc::new(Game::new(
         io_socket.clone(), // No need to clone, assuming io_socket is already of type SocketIo
         match_making_socket,
-        amount_queue
+        amount_queue.clone()
     ));
     let game_cloned = game.clone();
 

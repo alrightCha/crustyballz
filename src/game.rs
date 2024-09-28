@@ -66,14 +66,14 @@ pub struct Game {
     pub io_socket: SocketIo,
     pub matchmaking_socket: Option<Client>,
     pub update_queue: Mutex<VecDeque<QueueMessage>>,
-    pub amount_queue: Mutex<VecDeque<AmountQueue>>,
+    pub amount_queue: Arc<Mutex<VecDeque<AmountQueue>>>,
 }
 
 impl Game {
     pub fn new(
         io_socket: SocketIo,
         matchmaking_socket: Option<Client>,
-        amount_queue: Mutex<VecDeque<AmountQueue>>,
+        amount_queue: Arc<Mutex<VecDeque<AmountQueue>>>,
     ) -> Self {
         let config = get_current_config();
         Game {
@@ -439,7 +439,7 @@ impl Game {
     }
 
     pub async fn handle_amount_queue(&self) {
-        let mut queue = self.amount_queue.lock().await;
+        let mut queue = self.amount_queue.clone().lock().await;
         let mut manager = self.amount_manager.write().await;
         loop {
             match queue.pop_front() {
