@@ -10,7 +10,6 @@ use axum_server::tls_rustls::RustlsConfig;
 use clap::Parser;
 use config::get_current_config;
 use game::Game;
-use managers::amount_manager::AmountManager;
 use map::player::Player;
 use recv_messages::{AmountMessage, ChatMessage, LetMeInMessage, RecvEvent, TargetMessage, UserIdMessage};
 use rust_socketio::asynchronous::{Client, ClientBuilder};
@@ -21,6 +20,7 @@ use tokio::sync::{Mutex, RwLock};
 //Debugging
 use dotenv::dotenv;
 use log::{error, info, warn};
+use utils::amount_queue::AmountQueue;
 use std::net::Ipv4Addr;
 use std::str::FromStr;
 use std::{net::SocketAddr, path::PathBuf};

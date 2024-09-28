@@ -437,7 +437,7 @@ impl Game {
 
     pub async fn handle_queue(&self) {
         let mut queue = self.update_queue.lock().await;
-
+        let mut manager = self.amount_manager.lock().await;
         loop {
             match queue.pop_front() {
                 Some(message) => match message {
@@ -446,7 +446,6 @@ impl Game {
                         id,
                         socket_id,
                     } => {
-                        let mut manager = self.amount_manager.lock().await;
                         let uid = manager.get_user_id(id);
                         if let Some(pid) = uid {
                             manager.set_amount(pid, 0);
@@ -460,6 +459,8 @@ impl Game {
                 }
             }
         }
+        drop(queue);
+        drop(manager);
     }
 
     // equivalent to tick_game in node.js backend
@@ -540,6 +541,7 @@ impl Game {
             // handling collision btw players
             let who_ate_who_list = Self::get_players_collision(&players_manager).await;
             let mut players_who_died: Vec<PlayerID> = vec![];
+            let mut manager = self.amount_manager.lock().await;
             for ((player_who_eat, cell_who_eat), (player_eated, cell_eated)) in
                 who_ate_who_list.into_iter()
             {
@@ -593,8 +595,6 @@ impl Game {
                         },
                     );
 
-                    let mut manager = self.amount_manager.lock().await;
-
                     let eaten_id = manager.get_user_id(player_eated.id).unwrap_or_default();
                     let eater_id = manager.get_user_id(player_who_eat.id).unwrap_or_default();
 
@@ -642,8 +642,6 @@ impl Game {
                             // Optionally handle the case where there is no matchmaking socket
                             eprintln!("No matchmaking socket available");
                         }
-
-                        drop(manager);
                     }
 
                     info!("Player [{:?}] was killed !", player_eated.name);
@@ -652,7 +650,7 @@ impl Game {
                     players_who_died.push(player_eated.id);
                 }
             }
-
+            drop(manager);
             // let elapsed_killing_players_tick = instant.elapsed() - start;
             // execute tick_player for each player
             let amount_man = self.amount_manager.lock().await;
