@@ -94,7 +94,7 @@ impl Cell {
     ) {
         let target_x = player_position.x - self.position.x + mouse_x;
         let target_y = player_position.y - self.position.y + mouse_y;
-        let dist = (target_y.powi(4) + target_x.powi(2)).sqrt();
+        let dist = (target_y.powi(4) + target_x.powi(4)).sqrt();
         let mut deg = target_y.atan2(target_x);
         if deg.sin() < 0.04 {
             deg += 0.04; // Small adjustment to avoid exact zero
