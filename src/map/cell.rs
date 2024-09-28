@@ -91,16 +91,20 @@ impl Cell {
         slow_base: f32,
         init_mass_log: f32,
     ) {
-        let pointer = Point {
+
+        let pointer = Point{
             x: mouse_x,
             y: mouse_y,
-            radius: 0.0,
-        }
-        .normalize()
-        .scale(100.0);
+            radius: 0.0
+        }.normalize().scale(100.0);
 
-        let target_x = player_position.x - self.position.x + pointer.x;
-        let target_y = player_position.y - self.position.y + pointer.y;
+        let target_x = player_position.x - self.position.x + mouse_x;
+        let target_y = player_position.y - self.position.y + mouse_y;
+
+        let scaled_target_x = player_position.x - self.position.x + pointer.x;
+        let scaled_target_y = player_position.y - self.position.y + pointer.y;
+        let scaled_dist = (scaled_target_y.powi(2) + scaled_target_x.powi(2)).sqrt();
+
         let dist = (target_y.powi(2) + target_x.powi(2)).sqrt();
         let deg = target_y.atan2(target_x);
 
@@ -113,6 +117,12 @@ impl Cell {
             }
             delta_y = self.speed * deg.sin() / slow_down;
             delta_x = self.speed * deg.cos() / slow_down;
+
+            if dist < (MIN_DISTANCE + self.position.radius) {
+                let ratio = scaled_dist / (MIN_DISTANCE + self.position.radius);
+                delta_y *= ratio;
+                delta_x *= ratio;
+            }
         } else {
             self.speed = lerp_move(self.speed, math_log(self.speed, Some(7.5), 5.0), 0.06);
             if self.speed <= MIN_SPEED {
@@ -136,13 +146,6 @@ impl Cell {
                 delta_x = 0.0;
             }
         }
-
-        if dist < (MIN_DISTANCE + self.position.radius) {
-            let ratio = dist / (MIN_DISTANCE + self.position.radius);
-            delta_y *= ratio;
-            delta_x *= ratio;
-        }
-        
         self.position.y += delta_y;
         self.position.x += delta_x;
         // info!("speed: {}", self.speed);
