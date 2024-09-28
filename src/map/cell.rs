@@ -103,7 +103,13 @@ impl Cell {
         let target_x = player_position.x - self.position.x + mouse_x;
         let target_y = player_position.y - self.position.y + mouse_y;
         let dist = (target_y.powi(2) + target_x.powi(4)).sqrt();
-        let deg = target_y.atan2(target_x);
+        let mut deg = target_y.atan2(target_x);
+        if deg.sin() == 0.0 {
+            deg += 0.0001; // Small adjustment to avoid exact zero
+        }
+        if deg.cos() == 0.0 {
+            deg += 0.0001;
+        }
 
         let mut slow_down = 0.03;
         let (mut delta_y, mut delta_x);
@@ -112,12 +118,10 @@ impl Cell {
             if self.speed <= MIN_SPEED {
                 slow_down = (self.mass as f32).log(slow_base * 3.0) - init_mass_log + 1.0;
             }
-            if (deg.sin() > 0.0) {
-                delta_y = self.speed * deg.sin() / slow_down;
-            }
-            if (deg.cos() > 0.0) {
-                delta_x = self.speed * deg.cos() / slow_down;
-            }
+
+            delta_y = self.speed * deg.sin() / slow_down;
+            delta_x = self.speed * deg.cos() / slow_down;
+
             if dist * rat < self.position.radius {
                 let ratio = dist * rat / (self.position.radius);
                 delta_y *= ratio;
