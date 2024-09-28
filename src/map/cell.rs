@@ -91,12 +91,13 @@ impl Cell {
         slow_base: f32,
         init_mass_log: f32,
     ) {
-
-        let pointer = Point{
+        let pointer = Point {
             x: mouse_x,
             y: mouse_y,
-            radius: 0.0
-        }.normalize().scale(100.0);
+            radius: 0.0,
+        }
+        .normalize()
+        .scale(100.0);
 
         let target_x = player_position.x - self.position.x + pointer.x;
         let target_y = player_position.y - self.position.y + pointer.y;
@@ -106,18 +107,18 @@ impl Cell {
         let mut slow_down = 0.03;
         let (mut delta_y, mut delta_x);
 
+        if dist < (MIN_DISTANCE + self.position.radius) {
+            let ratio = dist / (MIN_DISTANCE + self.position.radius);
+            delta_y *= ratio;
+            delta_x *= ratio;
+        }
+
         if self.can_move {
             if self.speed <= MIN_SPEED {
                 slow_down = (self.mass as f32).log(slow_base * 3.0) - init_mass_log + 1.0;
             }
             delta_y = self.speed * deg.sin() / slow_down;
             delta_x = self.speed * deg.cos() / slow_down;
-
-            if dist < (MIN_DISTANCE + self.position.radius) {
-                let ratio = dist / (MIN_DISTANCE + self.position.radius);
-                delta_y *= ratio;
-                delta_x *= ratio;
-            }
         } else {
             self.speed = lerp_move(self.speed, math_log(self.speed, Some(7.5), 5.0), 0.06);
             if self.speed <= MIN_SPEED {
