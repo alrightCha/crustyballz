@@ -32,7 +32,7 @@ use crate::{
     },
     utils::{
         amount_queue::AmountQueue, consts::{Mass, TotalMass}, id::{FoodID, MassFoodID, PlayerID, VirusID}, quad_tree::{QuadTree, Rectangle}, queue_message::QueueMessage, solana_util::transfer_sol, util::{
-            are_colliding, check_who_ate_who, create_random_position_in_range,
+            are_colliding, check_who_ate_who, create_random_position_in_range, uniform_position,
             get_current_timestamp, is_visible_entity, mass_to_radius, random_in_range,
         }
     },

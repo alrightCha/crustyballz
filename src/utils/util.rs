@@ -120,7 +120,7 @@ fn random_position(radius: f32) -> Point {
 }
 
 //makes sure that the posiiton is not below a player, used to determine the spawning point of a player in accordance to the rest of the players
-fn uniform_position(points: &[Point], radius: f32) -> Point {
+pub fn uniform_position(points: &[Point], radius: f32) -> Point {
     let mut max_distance = 0.0;
     let mut best_candidate = random_position(radius);
     let number_of_candidates = 10;
