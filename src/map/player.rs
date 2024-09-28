@@ -556,13 +556,13 @@ impl Player {
                 game_height as f32,
             );
 
-            x_sum += cell.position.x * (cell.mass as f32)/ (self.total_mass as f32);
-            y_sum += cell.position.y * (cell.mass as f32) / (self.total_mass as f32);
+            x_sum += cell.position.x;
+            y_sum += cell.position.y;
         }
 
         if !self.cells.is_empty() {
-            self.x = x_sum / self.cells.len() as f32;
-            self.y = y_sum / self.cells.len() as f32;
+            self.x = x_sum * ratio / self.cells.len() as f32;
+            self.y = y_sum * ratio / self.cells.len() as f32;
         }
     }
 
