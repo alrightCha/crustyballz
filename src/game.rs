@@ -57,7 +57,7 @@ const TICKER_LOOP_FPS: f64 = 1.0 / (30.0 * 1.0);
 
 pub struct Game {
     pub port: u16,
-    pub amount_manager: RwLock<AmountManager>,
+    pub amount_manager: Arc<RwLock<AmountManager>>,
     pub food_manager: FoodManager,
     pub virus_manager: RwLock<VirusManager>,
     pub mass_food_manager: RwLock<MassFoodManager>,

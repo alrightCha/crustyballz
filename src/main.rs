@@ -110,7 +110,7 @@ pub fn get_websockets_port() -> &'static u16 {
     })
 }
 
-async fn setup_matchmaking_service(amount_manager: RwLock<AmountManager>) -> Option<Client> {
+async fn setup_matchmaking_service(amount_manager: Arc<RwLock<AmountManager>>) -> Option<Client> {
     let url_domain = Cli::try_parse().expect("Error parsing CLI args").sub_domain;
     let callback = move |payload: Payload, _: Client| {
         info!("RECEIVED USERAMOUNT RESPONSE");
