@@ -104,11 +104,11 @@ impl Cell {
         let target_y = player_position.y - self.position.y + mouse_y;
         let dist = (target_y.powi(2) + target_x.powi(4)).sqrt();
         let mut deg = target_y.atan2(target_x);
-        if deg.sin() < 1.0 {
-            deg += 1.0; // Small adjustment to avoid exact zero
+        if deg.sin() < 0.04 {
+            deg += 0.04; // Small adjustment to avoid exact zero
         }
-        if deg.cos() < 1.0 {
-            deg += 1.0;
+        if deg.cos() < 0.04 {
+            deg += 0.04;
         }
 
         let mut slow_down = 0.03;
