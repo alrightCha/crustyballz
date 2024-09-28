@@ -112,10 +112,10 @@ impl Cell {
             if self.speed <= MIN_SPEED {
                 slow_down = (self.mass as f32).log(slow_base * 3.0) - init_mass_log + 1.0;
             }
-            if (deg.sin() > 0) {
+            if (deg.sin() > 0.0) {
                 delta_y = self.speed * deg.sin() / slow_down;
             }
-            if (deg.cos() > 0) {
+            if (deg.cos() > 0.0) {
                 delta_x = self.speed * deg.cos() / slow_down;
             }
             if dist * rat < self.position.radius {
