@@ -72,7 +72,7 @@ impl Game {
     pub fn new(
         io_socket: SocketIo,
         matchmaking_socket: Option<Client>,
-        amount_manager: RwLock<AmountManager>
+        amount_manager: Arc<RwLock<AmountManager>>
     ) -> Self {
         let config = get_current_config();
         Game {
