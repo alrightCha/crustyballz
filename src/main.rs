@@ -10,15 +10,12 @@ use axum_server::tls_rustls::RustlsConfig;
 use clap::Parser;
 use config::get_current_config;
 use game::Game;
-use managers::amount_manager::{self, AmountManager};
+use managers::amount_manager::AmountManager;
 use map::player::Player;
-use recv_messages::{
-    AmountMessage, ChatMessage, LetMeInMessage, RecvEvent, TargetMessage, UserIdMessage,
-};
+use recv_messages::{AmountMessage, ChatMessage, LetMeInMessage, RecvEvent, TargetMessage, UserIdMessage};
 use rust_socketio::asynchronous::{Client, ClientBuilder};
 use rust_socketio::Payload;
 use send_messages::{MassFoodAddedMessage, PlayerJoinMessage, SendEvent, WelcomeMessage};
-use std::collections::VecDeque;
 use time::OffsetDateTime;
 use tokio::sync::{Mutex, RwLock};
 //Debugging
@@ -30,7 +27,6 @@ use std::{net::SocketAddr, path::PathBuf};
 use tower::ServiceBuilder;
 use tower_http::compression::CompressionLayer;
 use tower_http::cors::CorsLayer;
-use utils::amount_queue::AmountQueue;
 use utils::id::PlayerID;
 //JSON RESP
 use serde_json::{from_value, json};
@@ -110,8 +106,9 @@ pub fn get_websockets_port() -> &'static u16 {
     })
 }
 
-async fn setup_matchmaking_service(amount_manager: Arc<RwLock<AmountManager>>) -> Option<Client> {
+async fn setup_matchmaking_service(amount_manager: Arc<Mutex<AmountManager>>) -> Option<Client> {
     let url_domain = Cli::try_parse().expect("Error parsing CLI args").sub_domain;
+
     let callback = move |payload: Payload, _: Client| {
         info!("RECEIVED USERAMOUNT RESPONSE");
         let amount_manager = amount_manager.clone();
@@ -122,7 +119,7 @@ async fn setup_matchmaking_service(amount_manager: Arc<RwLock<AmountManager>>) -
                         info!("Data received: {:?}", json_str);
                         let data: AmountMessage = from_value(json_str.clone())
                             .expect("Could not derive to data from json");
-                        let mut manager = amount_manager.write().await;
+                        let mut manager = amount_manager.lock().await;
                         manager.set_user_id(data.uid, data.id);
                         manager.set_amount(data.id, data.amount);
                     }
@@ -165,16 +162,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mode = env::var("MODE").unwrap_or("DEBUG".to_string());
     //MARK: ADDED NEWLY
-    let amount_manager: Arc<RwLock<AmountManager>> = Arc::new(RwLock::new(AmountManager::new()));
-
+    let amount_manager = Arc::new(Mutex::new(AmountManager::new()));
     let match_making_socket = match mode.as_str() {
         "DEBUG" => None,
         _ => setup_matchmaking_service(amount_manager.clone()).await,
     };
     let game = Arc::new(Game::new(
+        amount_manager,    // No need to clone here
         io_socket.clone(), // No need to clone, assuming io_socket is already of type SocketIo
         match_making_socket,
-        amount_manager.clone()
     ));
     let game_cloned = game.clone();
 
