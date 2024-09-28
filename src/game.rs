@@ -439,7 +439,7 @@ impl Game {
     }
 
     pub async fn handle_amount_queue(&self) {
-        let mut queue = self.amount_queue.clone().lock().await;
+        let mut queue = self.amount_queue.lock().await;
         let mut manager = self.amount_manager.write().await;
         loop {
             match queue.pop_front() {

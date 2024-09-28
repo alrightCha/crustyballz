@@ -117,7 +117,6 @@ async fn setup_matchmaking_service(
 
     let callback = move |payload: Payload, _: Client| {
         info!("RECEIVED USERAMOUNT RESPONSE");
-        let queue_clone = queue.clone();
         async move {
             match payload {
                 Payload::Text(json_vec) => {
@@ -125,7 +124,7 @@ async fn setup_matchmaking_service(
                         info!("Data received: {:?}", json_str);
                         let data: AmountMessage = from_value(json_str.clone())
                             .expect("Could not derive to data from json");
-                        queue_clone.lock().await.push_back(AmountQueue::AddAmount {
+                        queue.lock().await.push_back(AmountQueue::AddAmount {
                             id: data.id,
                             amount: data.amount,
                             uid: data.uid,
@@ -173,7 +172,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let amount_queue: Arc<Mutex<VecDeque<AmountQueue>>> = Arc::new(Mutex::new(VecDeque::new()));
     let match_making_socket = match mode.as_str() {
         "DEBUG" => None,
-        _ => setup_matchmaking_service(&amount_queue).await,
+        _ => setup_matchmaking_service(amount_queue.clone()).await,
     };
     let game = Arc::new(Game::new(
         io_socket.clone(), // No need to clone, assuming io_socket is already of type SocketIo
