@@ -101,7 +101,7 @@ impl Cell {
 
         let target_x = player_position.x - self.position.x + mouse_x;
         let target_y = player_position.y - self.position.y + mouse_y;
-        let dist = (target_y.powi(2) + target_x.powi(2)).sqrt();
+        let dist = (target_y.powi(2) + target_x.powi(4)).sqrt();
         let deg = target_y.atan2(target_x);
 
         let mut slow_down = 0.03;
