@@ -113,8 +113,8 @@ impl Cell {
             delta_y = self.speed * deg.sin() / slow_down;
             delta_x = self.speed * deg.cos() / slow_down;
 
-            if dist < self.position.radius {
-                let ratio = dist / (self.position.radius);
+            if dist < self.position.radius / 2.0 {
+                let ratio = dist * 2.0 / (self.position.radius);
                 delta_y *= ratio;
                 delta_x *= ratio;
             }
