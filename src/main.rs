@@ -110,9 +110,7 @@ pub fn get_websockets_port() -> &'static u16 {
     })
 }
 
-async fn setup_matchmaking_service(
-
-) -> Option<Client> {
+async fn setup_matchmaking_service(amount_manager: RwLock<AmountManager>) -> Option<Client> {
     let url_domain = Cli::try_parse().expect("Error parsing CLI args").sub_domain;
     let callback = move |payload: Payload, _: Client| {
         info!("RECEIVED USERAMOUNT RESPONSE");
@@ -123,7 +121,9 @@ async fn setup_matchmaking_service(
                         info!("Data received: {:?}", json_str);
                         let data: AmountMessage = from_value(json_str.clone())
                             .expect("Could not derive to data from json");
-                     
+                        let mut manager = amount_manager.write().await;
+                        manager.set_user_id(data.uid, data.id);
+                        manager.set_amount(data.id, data.amount);
                     }
                 }
                 Payload::Binary(_) => {
@@ -164,15 +164,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mode = env::var("MODE").unwrap_or("DEBUG".to_string());
     //MARK: ADDED NEWLY
-    let amount_queue: Arc<Mutex<VecDeque<AmountQueue>>> = Arc::new(Mutex::new(VecDeque::new()));
+    let amount_manager: Arc<RwLock<AmountManager>> = Arc::new(RwLock::new(AmountManager::new()));
+
     let match_making_socket = match mode.as_str() {
         "DEBUG" => None,
-        _ => setup_matchmaking_service().await,
+        _ => setup_matchmaking_service(amount_manager.clone()).await,
     };
     let game = Arc::new(Game::new(
         io_socket.clone(), // No need to clone, assuming io_socket is already of type SocketIo
         match_making_socket,
-        amount_queue.clone()
+        amount_manager
     ));
     let game_cloned = game.clone();
 

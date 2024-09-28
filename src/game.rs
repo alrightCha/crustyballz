@@ -66,18 +66,17 @@ pub struct Game {
     pub io_socket: SocketIo,
     pub matchmaking_socket: Option<Client>,
     pub update_queue: Mutex<VecDeque<QueueMessage>>,
-    pub amount_queue: Arc<Mutex<VecDeque<AmountQueue>>>,
 }
 
 impl Game {
     pub fn new(
         io_socket: SocketIo,
         matchmaking_socket: Option<Client>,
-        amount_queue: Arc<Mutex<VecDeque<AmountQueue>>>,
+        amount_manager: RwLock<AmountManager>
     ) -> Self {
         let config = get_current_config();
         Game {
-            amount_manager: RwLock::new(AmountManager::new()),
+            amount_manager,
             port: *get_websockets_port(),
             food_manager: FoodManager::new(
                 config.food_mass,
@@ -98,7 +97,6 @@ impl Game {
             main_room: "main".to_string(),
             io_socket,
             matchmaking_socket,
-            amount_queue,
         }
     }
 
@@ -438,26 +436,6 @@ impl Game {
         who_ate_who_list
     }
 
-    pub async fn handle_amount_queue(&self) {
-        let mut queue = self.amount_queue.lock().await;
-        let mut manager = self.amount_manager.write().await;
-        loop {
-            match queue.pop_front() {
-                Some(message) => match message {
-                    AmountQueue::AddAmount { id, amount, uid } => {
-                        manager.set_user_id(uid, id);
-                        manager.set_amount(id, amount);
-                    }
-                },
-                None => {
-                    break;
-                }
-            }
-        }
-        drop(queue);
-        drop(manager);
-    }
-
     pub async fn handle_queue(&self) {
         let mut queue = self.update_queue.lock().await;
         let mut manager = self.amount_manager.write().await;
@@ -499,7 +477,6 @@ impl Game {
             start = instant.elapsed();
             // let elapsed_handle_queue = instant.elapsed() - start;
             self.handle_queue().await;
-            self.handle_amount_queue().await;
             let players_manager = self.player_manager.read().await;
             if (get_current_timestamp() - last_game_loop) >= GAME_LOOP_INTERVAL {
                 last_game_loop = get_current_timestamp();
