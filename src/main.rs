@@ -111,7 +111,7 @@ pub fn get_websockets_port() -> &'static u16 {
 }
 
 async fn setup_matchmaking_service(
-    queue: Mutex<VecDeque<AmountQueue>>
+    queue: &Mutex<VecDeque<AmountQueue>>
 ) -> Option<Client> {
     let url_domain = Cli::try_parse().expect("Error parsing CLI args").sub_domain;
 
