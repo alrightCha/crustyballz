@@ -107,12 +107,6 @@ impl Cell {
         let mut slow_down = 0.03;
         let (mut delta_y, mut delta_x);
 
-        if dist < (MIN_DISTANCE + self.position.radius) {
-            let ratio = dist / (MIN_DISTANCE + self.position.radius);
-            delta_y *= ratio;
-            delta_x *= ratio;
-        }
-
         if self.can_move {
             if self.speed <= MIN_SPEED {
                 slow_down = (self.mass as f32).log(slow_base * 3.0) - init_mass_log + 1.0;
@@ -142,6 +136,13 @@ impl Cell {
                 delta_x = 0.0;
             }
         }
+
+        if dist < (MIN_DISTANCE + self.position.radius) {
+            let ratio = dist / (MIN_DISTANCE + self.position.radius);
+            delta_y *= ratio;
+            delta_x *= ratio;
+        }
+        
         self.position.y += delta_y;
         self.position.x += delta_x;
         // info!("speed: {}", self.speed);
