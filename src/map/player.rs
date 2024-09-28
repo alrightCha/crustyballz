@@ -561,8 +561,8 @@ impl Player {
         }
 
         if !self.cells.is_empty() {
-            self.x = x_sum * ratio / self.cells.len() as f32;
-            self.y = y_sum * ratio / self.cells.len() as f32;
+            self.x = x_sum * self.ratio / self.cells.len() as f32;
+            self.y = y_sum * self.ratio / self.cells.len() as f32;
         }
     }
 
