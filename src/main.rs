@@ -111,12 +111,11 @@ pub fn get_websockets_port() -> &'static u16 {
 }
 
 async fn setup_matchmaking_service(
-    queue: Arc<Mutex<VecDeque<AmountQueue>>>
+
 ) -> Option<Client> {
     let url_domain = Cli::try_parse().expect("Error parsing CLI args").sub_domain;
     let callback = move |payload: Payload, _: Client| {
         info!("RECEIVED USERAMOUNT RESPONSE");
-        let queue = Arc::clone(&queue);
         async move {
             match payload {
                 Payload::Text(json_vec) => {
@@ -168,7 +167,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let amount_queue: Arc<Mutex<VecDeque<AmountQueue>>> = Arc::new(Mutex::new(VecDeque::new()));
     let match_making_socket = match mode.as_str() {
         "DEBUG" => None,
-        _ => setup_matchmaking_service(amount_queue.clone()).await,
+        _ => setup_matchmaking_service().await,
     };
     let game = Arc::new(Game::new(
         io_socket.clone(), // No need to clone, assuming io_socket is already of type SocketIo
