@@ -507,8 +507,8 @@ impl Player {
             .scale(PUSHING_AWAY_SPEED);
 
             if vector.x <= PUSHING_AWAY_SPEED && vector.y <= PUSHING_AWAY_SPEED {
-                vector.x = PUSHING_AWAY_SPEED;
-                vector.y = PUSHING_AWAY_SPEED;
+                vector.x += PUSHING_AWAY_SPEED;
+                vector.y += PUSHING_AWAY_SPEED;
             }
 
             cell_a.position.x -= vector.x;
