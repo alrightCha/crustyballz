@@ -498,11 +498,14 @@ impl Player {
                 x: cell_b.position.x - cell_a.position.x,
                 y: cell_b.position.y - cell_a.position.y,
                 radius: 0.0,
-            };
-            cell_a.position.x -= vector.x / 10.0;
-            cell_a.position.y -= vector.y / 10.0;
-            cell_b.position.x += vector.x / 10.0;
-            cell_b.position.y += vector.y / 10.0;
+            }
+            .normalize()
+            .scale(PUSHING_AWAY_SPEED);
+        
+            cell_a.position.x -= vector.x;
+            cell_a.position.y -= vector.y;
+            cell_b.position.x += vector.x;
+            cell_b.position.y += vector.y;
         });
     }
 
