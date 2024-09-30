@@ -468,19 +468,6 @@ impl Player {
         self.cells.retain(|cell| !cell.to_be_removed);
     }
 
-    fn are_colliding(cell1: &Point, cell2: &Point) -> bool {
-        // Calculate the distance between the centers of the two cells
-        let dx = cell1.x - cell2.x;
-        let dy = cell1.y - cell2.y;
-        let distance = (dx * dx + dy * dy).sqrt();
-    
-        // Calculate the sum of the radii
-        let radii_sum = cell1.radius + cell2.radius;
-    
-        // Check if the distance is less than or equal to the sum of the radii
-        distance <= radii_sum
-    }
-
     //loops through the players with a sort and sweep algorithm and checks for collision between them
     pub fn enumerate_colliding_cells<T>(&mut self, mut callback: T)
     where
@@ -491,7 +478,7 @@ impl Player {
             let cell_a = &mut split_a[i];
 
             for cell_b in split_b {
-                if are_colliding(cell_a, cell_b){
+                if are_colliding(&cell_a.position, &cell_b.position){
                     callback(cell_a, cell_b);
                 }
             }
