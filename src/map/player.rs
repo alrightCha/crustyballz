@@ -499,12 +499,12 @@ impl Player {
     pub fn push_away_colliding_cells(&mut self) {
         self.enumerate_colliding_cells(|cell_a, cell_b| {
             let mut vector = Point {
-                x: cell_b.position.x - cell_a.position.x,
-                y: cell_b.position.y - cell_a.position.y,
+                x: cell_b.position.radius - cell_a.position.radius,
+                y: cell_b.position.radius - cell_a.position.radius,
                 radius: 0.0,
             }
             .normalize()
-            .scale(200.0 / (cell_b.position.distance(&cell_a.position)));
+            .scale(PUSHING_AWAY_SPEED);
 
             cell_a.position.x -= vector.x;
             cell_a.position.y -= vector.y;
