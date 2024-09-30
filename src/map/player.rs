@@ -8,7 +8,8 @@ use crate::utils::game_logic::adjust_for_boundaries;
 use crate::utils::id::PlayerID;
 use crate::utils::quad_tree::Rectangle;
 use crate::utils::util::{
-    check_overlap, check_who_ate_who, get_current_timestamp, lerp, total_mass_to_radius,
+    are_colliding, check_overlap, check_who_ate_who, get_current_timestamp, lerp,
+    total_mass_to_radius,
 };
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
@@ -468,6 +469,19 @@ impl Player {
         self.cells.retain(|cell| !cell.to_be_removed);
     }
 
+    fn are_colliding(cell1: &Cell, cell2: &Cell) -> bool {
+        // Calculate the distance between the centers of the two cells
+        let dx = cell1.position.x - cell2.position.x;
+        let dy = cell1.position.y - cell2.position.y;
+        let distance = (dx * dx + dy * dy).sqrt();
+
+        // Calculate the sum of the radii
+        let radii_sum = cell1.position.radius + cell2.position.radius;
+
+        // Check if the distance is less than or equal to the sum of the radii
+        distance <= radii_sum
+    }
+
     //loops through the players with a sort and sweep algorithm and checks for collision between them
     pub fn enumerate_colliding_cells<T>(&mut self, mut callback: T)
     where
@@ -480,11 +494,13 @@ impl Player {
             let cell_a = &mut split_a[i];
 
             for cell_b in split_b {
-                if cell_b.position.x - cell_b.position.radius > cell_a.position.x + cell_a.position.radius {
+                if cell_b.position.x - cell_b.position.radius
+                    > cell_a.position.x + cell_a.position.radius
+                {
                     break;
                 }
 
-                if cell_a.position.distance(&cell_b.position) <= (cell_a.position.radius + cell_b.position.radius) {
+                if are_colliding(&cell_a, &cell_b) {
                     callback(cell_a, cell_b);
                 }
             }
@@ -501,7 +517,7 @@ impl Player {
             }
             .normalize()
             .scale(PUSHING_AWAY_SPEED);
-        
+
             cell_a.position.x -= vector.x;
             cell_a.position.y -= vector.y;
             cell_b.position.x += vector.x;
