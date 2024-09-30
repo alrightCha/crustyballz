@@ -127,7 +127,7 @@ impl Cell {
                 delta_x = self.speed * real_deg.cos();
                 if not_dis < MIN_DISTANCE + self.position.radius {
                     let ratio =
-                        not_dis / (MIN_DISTANCE + (self.position.radius * 0.01)) / slow_down;
+                        not_dis / (MIN_DISTANCE + (self.position.radius * 0.001)) / slow_down;
                     delta_y *= ratio;
                     delta_x *= ratio;
                 }
