@@ -19,7 +19,9 @@ pub struct PlayerUpdateData {
     pub id: PlayerID,
     pub cells: Vec<Cell>,
     pub x: f32,
-    pub y: f32
+    pub y: f32,
+    pub bet: u64,
+    pub won: u64,
 }
 
 #[derive(Serialize, Clone, Deserialize)]
@@ -51,6 +53,9 @@ pub struct Player {
     pub target_x: f32,
     pub target_y: f32,
     pub ratio: f32,
+    pub bet: u64,
+    pub won: u64,
+    pub bet_set: bool,
 }
 
 impl Player {
@@ -74,7 +79,14 @@ impl Player {
             target_x: 0.0,
             target_y: 0.0,
             ratio: 1.03,
+            bet: 0,
+            won: 0,
+            bet_set: false,
         }
+    }
+
+    pub fn get_id(&self) -> u8 {
+        self.id
     }
 
     pub fn reset(&mut self, new_position: &Point, new_mass: Mass) {
@@ -83,19 +95,20 @@ impl Player {
         self.target_x = 0.0;
         self.target_y = 0.0;
 
-        self.cells = vec![
-            Cell::new(new_position.x, new_position.y, new_mass, MIN_SPEED, true, None)
-        ];
+        self.cells = vec![Cell::new(
+            new_position.x,
+            new_position.y,
+            new_mass,
+            MIN_SPEED,
+            true,
+            None,
+        )];
 
         self.recalculate_total_mass();
         self.recalculate_ratio();
     }
 
-    pub fn setup(
-        &mut self,
-        name: Option<String>,
-        img_url: Option<String>,
-    ) {
+    pub fn setup(&mut self, name: Option<String>, img_url: Option<String>) {
         self.name = name;
         self.img_url = img_url.clone();
     }
@@ -123,11 +136,11 @@ impl Player {
     pub fn recalculate_ratio(&mut self) {
         let new_val = lerp(
             self.ratio,
-            0.8 - 0.2 * ((self.total_mass as f32) / 500.0).ln()
+            0.7 - 0.2 * ((self.total_mass as f32) / 500.0).ln()
                 - 0.3 * (self.cells.len() as f32) / 18.0,
             0.1,
         );
-        if new_val > 0.3 {
+        if new_val > 0.15 {
             self.ratio = new_val;
         } else {
             self.ratio = 0.3;
@@ -153,7 +166,9 @@ impl Player {
             id: self.id,
             cells: self.cells.clone(),
             x: self.x,
-            y: self.y
+            y: self.y,
+            bet: self.bet,
+            won: self.won,
         }
     }
 
@@ -454,25 +469,25 @@ impl Player {
     }
 
     //loops through the players with a sort and sweep algorithm and checks for collision between them
-    pub fn enumerate_colliding_cells<T>(&mut self, callback: T)
+    pub fn enumerate_colliding_cells<T>(&mut self, mut callback: T)
     where
-        T: Fn(&mut Cell, &mut Cell),
+        T: FnMut(&mut Cell, &mut Cell),
     {
         self.sort_by_left();
 
-        for i in 0..self.cells.len() - 1 {
+        for i in 0..self.cells.len() {
             let (split_a, split_b) = self.cells.split_at_mut(i + 1);
             let cell_a = &mut split_a[i];
 
             for cell_b in split_b {
-                if (cell_b.position.x - cell_b.position.radius)
-                    > (cell_a.position.x + cell_a.position.radius)
+                if cell_b.position.x - cell_b.position.radius
+                    > cell_a.position.x + cell_a.position.radius
                 {
                     break;
                 }
 
                 if cell_a.position.distance(&cell_b.position)
-                    <= (cell_a.position.radius + cell_b.position.radius)
+                    <= (cell_a.position.radius + cell_b.position.radius + 20.0)
                 {
                     callback(cell_a, cell_b);
                 }
@@ -490,6 +505,7 @@ impl Player {
             }
             .normalize()
             .scale(PUSHING_AWAY_SPEED);
+
             cell_a.position.x -= vector.x;
             cell_a.position.y -= vector.y;
             cell_b.position.x += vector.x;
@@ -504,18 +520,6 @@ impl Player {
         game_height: i32,
         init_mass_log: f32,
     ) {
-        let current_time = get_current_timestamp();
-
-        if self.cells.len() > 1 {
-            if let Some(time_to_merge) = self.time_to_merge {
-                if current_time > time_to_merge {
-                    self.merge_colliding_cells();
-                } else {
-                    self.push_away_colliding_cells();
-                }
-            }
-        }
-
         let mut x_sum = 0.0;
         let mut y_sum = 0.0;
 
@@ -531,6 +535,7 @@ impl Player {
                 self.target_y,
                 slow_base,
                 init_mass_log,
+                self.ratio,
             );
             adjust_for_boundaries(
                 &mut cell.position.x,
@@ -548,6 +553,18 @@ impl Player {
         if !self.cells.is_empty() {
             self.x = x_sum / self.cells.len() as f32;
             self.y = y_sum / self.cells.len() as f32;
+        }
+
+        let current_time = get_current_timestamp();
+
+        if self.cells.len() > 1 {
+            if let Some(time_to_merge) = self.time_to_merge {
+                if current_time > time_to_merge {
+                    self.merge_colliding_cells();
+                } else {
+                    self.push_away_colliding_cells();
+                }
+            }
         }
     }
 
