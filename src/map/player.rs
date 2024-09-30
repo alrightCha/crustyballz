@@ -8,7 +8,8 @@ use crate::utils::game_logic::adjust_for_boundaries;
 use crate::utils::id::PlayerID;
 use crate::utils::quad_tree::Rectangle;
 use crate::utils::util::{
-    check_overlap, check_who_ate_who, get_current_timestamp, lerp, total_mass_to_radius,
+    are_colliding, check_overlap, check_who_ate_who, get_current_timestamp, lerp,
+    total_mass_to_radius,
 };
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
@@ -497,25 +498,26 @@ impl Player {
 
     //pushes cells when they are in contact in case the user is still split
     pub fn push_away_colliding_cells(&mut self) {
-        self.enumerate_colliding_cells(|cell_a, cell_b| {
-            let mut vector = Point {
-                x: cell_b.position.x - cell_a.position.x,
-                y: cell_b.position.y - cell_a.position.y,
-                radius: 0.0,
-            }
-            .normalize()
-            .scale(PUSHING_AWAY_SPEED);
+        for i in 0..self.cells.len() {
+            let (split_a, split_b) = self.cells.split_at_mut(i + 1);
+            let cell_a = &mut split_a[i];
+            for cell_b in split_b {
+                if (are_colliding(&cell_a.position, &cell_b.position)) {
+                    let vector = Point {
+                        x: cell_b.position.x - cell_a.position.x,
+                        y: cell_b.position.y - cell_a.position.y,
+                        radius: 0.0,
+                    }
+                    .normalize()
+                    .scale(PUSHING_AWAY_SPEED);
 
-            if vector.x <= PUSHING_AWAY_SPEED && vector.y <= PUSHING_AWAY_SPEED {
-                vector.x += PUSHING_AWAY_SPEED;
-                vector.y += PUSHING_AWAY_SPEED;
+                    cell_a.position.x -= vector.x;
+                    cell_a.position.y -= vector.y;
+                    cell_b.position.x += vector.x;
+                    cell_b.position.y += vector.y;
+                }
             }
-
-            cell_a.position.x -= vector.x;
-            cell_a.position.y -= vector.y;
-            cell_b.position.x += vector.x;
-            cell_b.position.y += vector.y;
-        });
+        }
     }
 
     pub fn move_cells(
