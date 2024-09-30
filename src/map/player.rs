@@ -494,14 +494,13 @@ impl Player {
             let cell_a = &mut split_a[i];
 
             for cell_b in split_b {
+                if are_colliding(&cell_a.position, &cell_b.position) {
+                    callback(cell_a, cell_b);
+                }
                 if cell_b.position.x - cell_b.position.radius
                     > cell_a.position.x + cell_a.position.radius
                 {
                     break;
-                }
-
-                if are_colliding(&cell_a.position, &cell_b.position) {
-                    callback(cell_a, cell_b);
                 }
             }
         }
