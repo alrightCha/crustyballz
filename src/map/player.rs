@@ -500,7 +500,7 @@ impl Player {
                     break;
                 }
 
-                if are_colliding(&cell_a, &cell_b) {
+                if are_colliding(&cell_a.position, &cell_b.position) {
                     callback(cell_a, cell_b);
                 }
             }
