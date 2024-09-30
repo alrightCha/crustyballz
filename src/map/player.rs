@@ -21,7 +21,7 @@ pub struct PlayerUpdateData {
     pub x: f32,
     pub y: f32,
     pub bet: u64,
-    pub won: u64
+    pub won: u64,
 }
 
 #[derive(Serialize, Clone, Deserialize)]
@@ -55,7 +55,7 @@ pub struct Player {
     pub ratio: f32,
     pub bet: u64,
     pub won: u64,
-    pub bet_set: bool
+    pub bet_set: bool,
 }
 
 impl Player {
@@ -81,10 +81,10 @@ impl Player {
             ratio: 1.03,
             bet: 0,
             won: 0,
-            bet_set: false
+            bet_set: false,
         }
     }
-    
+
     pub fn get_id(&self) -> u8 {
         self.id
     }
@@ -95,19 +95,20 @@ impl Player {
         self.target_x = 0.0;
         self.target_y = 0.0;
 
-        self.cells = vec![
-            Cell::new(new_position.x, new_position.y, new_mass, MIN_SPEED, true, None)
-        ];
+        self.cells = vec![Cell::new(
+            new_position.x,
+            new_position.y,
+            new_mass,
+            MIN_SPEED,
+            true,
+            None,
+        )];
 
         self.recalculate_total_mass();
         self.recalculate_ratio();
     }
 
-    pub fn setup(
-        &mut self,
-        name: Option<String>,
-        img_url: Option<String>,
-    ) {
+    pub fn setup(&mut self, name: Option<String>, img_url: Option<String>) {
         self.name = name;
         self.img_url = img_url.clone();
     }
@@ -167,7 +168,7 @@ impl Player {
             x: self.x,
             y: self.y,
             bet: self.bet,
-            won: self.won
+            won: self.won,
         }
     }
 
@@ -518,18 +519,6 @@ impl Player {
         game_height: i32,
         init_mass_log: f32,
     ) {
-        let current_time = get_current_timestamp();
-
-        if self.cells.len() > 1 {
-            if let Some(time_to_merge) = self.time_to_merge {
-                if current_time > time_to_merge {
-                    self.merge_colliding_cells();
-                } else {
-                    self.push_away_colliding_cells();
-                }
-            }
-        }
-
         let mut x_sum = 0.0;
         let mut y_sum = 0.0;
 
@@ -545,7 +534,7 @@ impl Player {
                 self.target_y,
                 slow_base,
                 init_mass_log,
-                self.ratio
+                self.ratio,
             );
             adjust_for_boundaries(
                 &mut cell.position.x,
@@ -563,6 +552,18 @@ impl Player {
         if !self.cells.is_empty() {
             self.x = x_sum / self.cells.len() as f32;
             self.y = y_sum / self.cells.len() as f32;
+        }
+
+        let current_time = get_current_timestamp();
+
+        if self.cells.len() > 1 {
+            if let Some(time_to_merge) = self.time_to_merge {
+                if current_time > time_to_merge {
+                    self.merge_colliding_cells();
+                } else {
+                    self.push_away_colliding_cells();
+                }
+            }
         }
     }
 
