@@ -8,7 +8,7 @@ use crate::utils::game_logic::adjust_for_boundaries;
 use crate::utils::id::PlayerID;
 use crate::utils::quad_tree::Rectangle;
 use crate::utils::util::{
-    check_overlap, check_who_ate_who, get_current_timestamp, lerp, total_mass_to_radius,
+    are_colliding, check_overlap, check_who_ate_who, get_current_timestamp, lerp, total_mass_to_radius
 };
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
@@ -468,27 +468,30 @@ impl Player {
         self.cells.retain(|cell| !cell.to_be_removed);
     }
 
+    fn are_colliding(cell1: &Point, cell2: &Point) -> bool {
+        // Calculate the distance between the centers of the two cells
+        let dx = cell1.x - cell2.x;
+        let dy = cell1.y - cell2.y;
+        let distance = (dx * dx + dy * dy).sqrt();
+    
+        // Calculate the sum of the radii
+        let radii_sum = cell1.radius + cell2.radius;
+    
+        // Check if the distance is less than or equal to the sum of the radii
+        distance <= radii_sum
+    }
+
     //loops through the players with a sort and sweep algorithm and checks for collision between them
     pub fn enumerate_colliding_cells<T>(&mut self, mut callback: T)
     where
         T: FnMut(&mut Cell, &mut Cell),
     {
-        self.sort_by_left();
-
         for i in 0..self.cells.len() {
             let (split_a, split_b) = self.cells.split_at_mut(i + 1);
             let cell_a = &mut split_a[i];
 
             for cell_b in split_b {
-                if cell_b.position.x - cell_b.position.radius
-                    > cell_a.position.x + cell_a.position.radius
-                {
-                    break;
-                }
-
-                if cell_a.position.distance(&cell_b.position)
-                    <= (cell_a.position.radius + cell_b.position.radius + 20.0)
-                {
+                if are_colliding(cell_a, cell_b){
                     callback(cell_a, cell_b);
                 }
             }
