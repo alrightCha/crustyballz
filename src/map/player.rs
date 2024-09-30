@@ -8,7 +8,7 @@ use crate::utils::game_logic::adjust_for_boundaries;
 use crate::utils::id::PlayerID;
 use crate::utils::quad_tree::Rectangle;
 use crate::utils::util::{
-    are_colliding, check_overlap, check_who_ate_who, get_current_timestamp, lerp, total_mass_to_radius
+    check_overlap, check_who_ate_who, get_current_timestamp, lerp, total_mass_to_radius,
 };
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
@@ -473,12 +473,22 @@ impl Player {
     where
         T: FnMut(&mut Cell, &mut Cell),
     {
+        self.sort_by_left();
+
         for i in 0..self.cells.len() {
             let (split_a, split_b) = self.cells.split_at_mut(i + 1);
             let cell_a = &mut split_a[i];
 
             for cell_b in split_b {
-                if are_colliding(&cell_a.position, &cell_b.position){
+                if cell_b.position.x - cell_b.position.radius
+                    > cell_a.position.x + cell_a.position.radius
+                {
+                    break;
+                }
+
+                if cell_a.position.distance(&cell_b.position)
+                    <= (cell_a.position.radius + cell_b.position.radius)
+                {
                     callback(cell_a, cell_b);
                 }
             }
@@ -488,13 +498,19 @@ impl Player {
     //pushes cells when they are in contact in case the user is still split
     pub fn push_away_colliding_cells(&mut self) {
         self.enumerate_colliding_cells(|cell_a, cell_b| {
-            let vector = Point {
+            let mut vector = Point {
                 x: cell_b.position.x - cell_a.position.x,
                 y: cell_b.position.y - cell_a.position.y,
                 radius: 0.0,
             }
             .normalize()
             .scale(PUSHING_AWAY_SPEED);
+
+            if vector.x == 0.0 && vector.y == 0.0 {
+                // Use a default vector, e.g., (0, 1)
+                vector.x = 0.0;
+                vector.y = 1.0;
+            }
 
             cell_a.position.x -= vector.x;
             cell_a.position.y -= vector.y;
