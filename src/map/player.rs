@@ -504,17 +504,25 @@ impl Player {
             for cell_b in split_b {
                 if (are_colliding(&cell_a.position, &cell_b.position)) {
                     let vector = Point {
-                        x: cell_b.position.x - cell_a.position.x,
-                        y: cell_b.position.y - cell_a.position.y,
+                        x: if cell_b.position.x - cell_a.position.x > 5.0 {
+                            cell_a.position.x
+                        } else {
+                            5.0
+                        },
+                        y: if cell_b.position.y - cell_a.position.y > 5.0 {
+                            cell_a.position.x
+                        } else {
+                            5.0
+                        },
                         radius: 0.0,
                     }
                     .normalize()
                     .scale(PUSHING_AWAY_SPEED);
 
-                    cell_a.position.x -= vector.x;
-                    cell_a.position.y -= vector.y;
-                    cell_b.position.x += vector.x;
-                    cell_b.position.y += vector.y;
+                    cell_a.position.x -= vector.x / 2.0;
+                    cell_a.position.y -= vector.y / 2.0;
+                    cell_b.position.x += vector.x / 2.0;
+                    cell_b.position.y += vector.y / 2.0;
                 }
             }
         }
