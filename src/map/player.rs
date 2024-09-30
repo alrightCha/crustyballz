@@ -504,7 +504,7 @@ impl Player {
                 radius: 0.0,
             }
             .normalize()
-            .scale(100.0 / (cell_b.position.distance(&cell_a.position)));
+            .scale(200.0 / (cell_b.position.distance(&cell_a.position)));
 
             cell_a.position.x -= vector.x;
             cell_a.position.y -= vector.y;
