@@ -499,10 +499,10 @@ impl Player {
                 y: cell_b.position.y - cell_a.position.y,
                 radius: 0.0,
             };
-            cell_a.position.x -= vector.x / 8.0;
-            cell_a.position.y -= vector.y / 8.0;
-            cell_b.position.x += vector.x / 8.0;
-            cell_b.position.y += vector.y / 8.0;
+            cell_a.position.x -= vector.x / 10.0;
+            cell_a.position.y -= vector.y / 10.0;
+            cell_b.position.x += vector.x / 10.0;
+            cell_b.position.y += vector.y / 10.0;
         });
     }
 
