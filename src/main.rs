@@ -131,7 +131,7 @@ async fn setup_matchmaking_service(
                             Ok(data) => {
                                 let mut retries = 0;
                                 loop {
-                                    match amount_queue.lock().await.try_push_back(AmountQueue::AddAmount {
+                                    match amount_queue.lock().await.push_back(AmountQueue::AddAmount {
                                         id: data.id,
                                         amount: data.amount,
                                         uid: data.uid,
