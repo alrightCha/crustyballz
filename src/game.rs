@@ -617,13 +617,12 @@ impl Game {
 
                     info!("User ids: {} {}", eaten_id, eater_id);
 
-                    info!("Amounts: {} {}", eaten_amount, eater_amount);
                     let transfer_amount = player_eated.bet.min(player_who_eat.bet);
 
                     //Adding eaten sol amount to eater
                     player_who_eat.total_won += transfer_amount;
 
-                    if eater_amount < eaten_amount {
+                    if player_who_eat.bet < player_eated.bet {
                         player_eated.total_won += (player_eated.bet - transfer_amount);
                         // Reduce eaten sol amount
                     }
