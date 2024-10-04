@@ -642,8 +642,8 @@ impl Game {
                             {
                                 Ok(_) => {
                                     // If emit is successful, proceed to clear the data
-                                    manager.set_amount(eaten_id, 0);
-                                    manager.clear_data(eaten_id);
+                                    player_eated.bet = 0;
+                                    player_eated.total_won = 0;
                                 }
                                 Err(e) => {
                                     // Log the error or handle it appropriately
