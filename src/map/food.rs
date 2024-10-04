@@ -13,7 +13,7 @@ use rand::Rng;
 //     pub hue: u16,
 // }
 
-pub type FoodData = (FoodID, u16);
+pub type FoodData = (FoodID);
 
 #[derive(Debug, Clone, Copy)]
 pub struct Food {
@@ -22,7 +22,6 @@ pub struct Food {
     pub y: f32,
     pub radius: f32,
     pub mass: Mass,
-    pub hue: u16,
 }
 
 impl Food {
@@ -35,19 +34,11 @@ impl Food {
             y: point.y,
             radius: mass_to_radius(mass),
             mass,
-            hue: rng.gen_range(0..360),
         }
     }
 
     pub fn generate_data(&self) -> FoodData {
-        (self.id, self.hue)
-        // FoodData {
-        //     id: self.id,
-        //     // x: self.x,
-        //     // y: self.y,
-        //     // mass: self.mass,
-        //     hue: self.hue,
-        // }
+        (self.id)
     }
 }
 
