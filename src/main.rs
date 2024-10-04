@@ -131,12 +131,14 @@ async fn setup_matchmaking_service(
                             Ok(data) => {
                                 let mut retries = 0;
                                 loop {
-                                    match amount_queue.lock().await.push_back(AmountQueue::AddAmount {
-                                        id: data.id,
-                                        amount: data.amount,
-                                        uid: data.uid,
-                                    }) {
-                                        Ok(_) => {
+                                    // Attempt to acquire the lock
+                                    match amount_queue.lock().await {
+                                        Ok(mut queue) => {
+                                            queue.push_back(AmountQueue::AddAmount {
+                                                id: data.id,
+                                                amount: data.amount,
+                                                uid: data.uid,
+                                            });
                                             break; // Successfully added data, break the loop
                                         }
                                         Err(_) => {
@@ -168,6 +170,7 @@ async fn setup_matchmaking_service(
         }
         .boxed()
     };
+
 
     info!("URL DOMAIN FOR MATCHMAKING : {:?}", url_domain);
 
