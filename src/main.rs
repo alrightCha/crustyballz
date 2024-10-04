@@ -19,6 +19,7 @@ use rust_socketio::Payload;
 use send_messages::{MassFoodAddedMessage, PlayerJoinMessage, SendEvent, WelcomeMessage};
 use time::OffsetDateTime;
 use tokio::sync::{Mutex, RwLock};
+use tokio::time::Duration;
 //Debugging
 use dotenv::dotenv;
 use log::{error, info, warn};
@@ -167,7 +168,7 @@ async fn setup_matchmaking_service(
         }
         .boxed()
     };
-    
+
     info!("URL DOMAIN FOR MATCHMAKING : {:?}", url_domain);
 
     let client = ClientBuilder::new(url_domain)
