@@ -142,7 +142,8 @@ impl Game {
             .get_mass_food_init_data();
 
         let mut player = player.write().await;
-        let spawn_point = self.create_player_spawn_point();
+        let all_points = self.player_manager.read().await.collect_and_clone_all_pos().await;
+        let spawn_point = uniform_position(&all_points, mass_to_radius(10.0));
         player.reset(&spawn_point, get_current_config().default_player_mass);
 
         // send init data

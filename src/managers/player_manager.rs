@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
 
 use crate::{
-    map::player::{Player, PlayerInitData},
+    map::{player::{Player, PlayerInitData}, point::Point},
     send_messages::LeaderboardPlayer,
     utils::{
         consts::{Mass, TotalMass},
@@ -22,6 +22,17 @@ impl PlayerManager {
             players: HashMap::new(),
             id_counter: PlayerID::MAX,
         }
+    }
+
+    pub async fn collect_and_clone_all_pos(&self) -> Vec<Point> {
+        let mut all_pos = Vec::new();
+        for player in self.players.values() {
+            let player = player.read().await;  // Acquire read lock asynchronously
+            for cell in &player.cells {       // Assuming `cells` is accessible and is a Vec<Cell>
+                all_pos.push(cell.position.clone()); // Clone each cell and push it to the vector
+            }
+        }
+        all_pos
     }
 
     pub fn get_new_id(&mut self) -> PlayerID {
