@@ -65,14 +65,13 @@ pub struct Game {
 
 impl Game {
     pub fn new(
-        amount_manager: Arc<Mutex<AmountManager>>,
         io_socket: SocketIo,
         matchmaking_socket: Option<Client>,
         amount_queue: Arc<Mutex<VecDeque<AmountQueue>>>
     ) -> Self {
         let config = get_current_config();
         Game {
-            amount_manager,
+            amount_manager: Arc::new(Mutex::new(AmountManager::new())),
             port: *get_websockets_port(),
             food_manager: FoodManager::new(
                 config.food_mass,

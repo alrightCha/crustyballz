@@ -10,7 +10,6 @@ use axum_server::tls_rustls::RustlsConfig;
 use clap::Parser;
 use config::get_current_config;
 use game::Game;
-use managers::amount_manager::AmountManager;
 use map::player::Player;
 use recv_messages::{
     AmountMessage, ChatMessage, LetMeInMessage, RecvEvent, TargetMessage, UserIdMessage,
@@ -115,33 +114,60 @@ async fn setup_matchmaking_service(
     amount_queue: Arc<Mutex<VecDeque<AmountQueue>>>,
 ) -> Option<Client> {
     let url_domain = Cli::try_parse().expect("Error parsing CLI args").sub_domain;
-
     let callback = move |payload: Payload, _: Client| {
-        info!("RECEIVED USERAMOUNT RESPONSE");
-        let mut amount_queue = amount_queue.clone();
+        let amount_queue = Arc::clone(&amount_queue);
         async move {
+            let mut backoff = Duration::from_millis(10);
+            info!("RECEIVED USERAMOUNT RESPONSE");
+    
             match payload {
                 Payload::Text(json_vec) => {
                     if let Some(json_str) = json_vec.get(0) {
                         info!("Data received: {:?}", json_str);
-                        let data: AmountMessage = from_value(json_str.clone())
-                            .expect("Could not derive to data from json");
-                        amount_queue.lock().await.push_back(AmountQueue::AddAmount {
-                            id: data.id,
-                            amount: data.amount,
-                            uid: data.uid,
-                        });
+                        let data_result: Result<AmountMessage, _> = from_value(json_str.clone());
+    
+                        match data_result {
+                            Ok(data) => {
+                                let mut retries = 0;
+                                loop {
+                                    match amount_queue.lock().await.try_push_back(AmountQueue::AddAmount {
+                                        id: data.id,
+                                        amount: data.amount,
+                                        uid: data.uid,
+                                    }) {
+                                        Ok(_) => {
+                                            break; // Successfully added data, break the loop
+                                        }
+                                        Err(_) => {
+                                            if retries >= 5 { // Limit the retries to avoid infinite loops
+                                                error!("Failed to acquire lock after several attempts.");
+                                                break;
+                                            }
+                                            error!("Lock acquisition failed, retrying...");
+                                            sleep(backoff).await;
+                                            backoff *= 2; // Exponential backoff
+                                            retries += 1;
+                                        }
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                error!("Failed to deserialize JSON: {}", e);
+                            }
+                        }
                     }
                 }
                 Payload::Binary(_) => {
                     info!("Received binary data for userAmount, expected JSON string.");
                 }
-                _ => info!("Unexpected payload type."),
+                _ => {
+                    info!("Unexpected payload type.");
+                }
             }
         }
         .boxed()
     };
-
+    
     info!("URL DOMAIN FOR MATCHMAKING : {:?}", url_domain);
 
     let client = ClientBuilder::new(url_domain)
@@ -171,7 +197,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mode = env::var("MODE").unwrap_or("DEBUG".to_string());
     //MARK: ADDED NEWLY
-    let amount_manager = Arc::new(Mutex::new(AmountManager::new()));
     let amount_queue: Arc<Mutex<VecDeque<AmountQueue>>> = Arc::new(Mutex::new(VecDeque::new()));
     let shared_queue = Arc::clone(&amount_queue);
     let match_making_socket: Option<Client> = match mode.as_str() {
@@ -179,7 +204,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         _ => setup_matchmaking_service(amount_queue).await,
     };
     let game = Arc::new(Game::new(
-        amount_manager,    // No need to clone here
         io_socket.clone(), // No need to clone, assuming io_socket is already of type SocketIo
         match_making_socket,
         shared_queue,
