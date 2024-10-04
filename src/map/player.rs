@@ -80,7 +80,6 @@ impl Player {
             target_y: 0.0,
             ratio: 1.03,
             bet: 0,
-            won: 0,
             bet_set: false,
             total_won: 0
         }
