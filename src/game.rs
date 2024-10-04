@@ -616,8 +616,6 @@ impl Game {
                     let eater_id = manager.get_user_id(player_who_eat.id).unwrap_or_default();
 
                     info!("User ids: {} {}", eaten_id, eater_id);
-                    let eaten_amount = manager.get_amount(eaten_id).unwrap_or_default();
-                    let eater_amount = manager.get_amount(eater_id).unwrap_or_default();
 
                     info!("Amounts: {} {}", eaten_amount, eater_amount);
                     let transfer_amount = player_eated.bet.min(player_who_eat.bet);
@@ -626,7 +624,7 @@ impl Game {
                     player_who_eat.total_won += transfer_amount;
 
                     if eater_amount < eaten_amount {
-                        player_eated.total_won += (eaten_amount - transfer_amount);
+                        player_eated.total_won += (player_eated.bet - transfer_amount);
                         // Reduce eaten sol amount
                     }
                     //Transferring balance to eaten
