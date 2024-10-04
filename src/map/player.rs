@@ -54,8 +54,8 @@ pub struct Player {
     pub target_y: f32,
     pub ratio: f32,
     pub bet: u64,
-    pub won: u64,
     pub bet_set: bool,
+    pub total_won: u64
 }
 
 impl Player {
@@ -82,6 +82,7 @@ impl Player {
             bet: 0,
             won: 0,
             bet_set: false,
+            total_won: 0
         }
     }
 
@@ -168,7 +169,7 @@ impl Player {
             x: self.x,
             y: self.y,
             bet: self.bet,
-            won: self.won,
+            won: self.total_won,
         }
     }
 

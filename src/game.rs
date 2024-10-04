@@ -31,10 +31,17 @@ use crate::{
         VirusAddedMessage,
     },
     utils::{
-        amount_queue::AmountQueue, consts::{Mass, TotalMass}, id::{FoodID, MassFoodID, PlayerID, VirusID}, quad_tree::{QuadTree, Rectangle}, queue_message::QueueMessage, solana_util::transfer_sol, util::{
-            are_colliding, check_who_ate_who, create_random_position_in_range, uniform_position,
+        amount_queue::AmountQueue,
+        consts::{Mass, TotalMass},
+        id::{FoodID, MassFoodID, PlayerID, VirusID},
+        quad_tree::{QuadTree, Rectangle},
+        queue_message::QueueMessage,
+        solana_util::transfer_sol,
+        util::{
+            are_colliding, check_who_ate_who, create_random_position_in_range,
             get_current_timestamp, is_visible_entity, mass_to_radius, random_in_range,
-        }
+            uniform_position,
+        },
     },
 };
 
@@ -60,14 +67,14 @@ pub struct Game {
     pub io_socket: SocketIo,
     pub matchmaking_socket: Option<Client>,
     pub update_queue: Mutex<VecDeque<QueueMessage>>,
-    pub amount_queue: Arc<Mutex<VecDeque<AmountQueue>>>
+    pub amount_queue: Arc<Mutex<VecDeque<AmountQueue>>>,
 }
 
 impl Game {
     pub fn new(
         io_socket: SocketIo,
         matchmaking_socket: Option<Client>,
-        amount_queue: Arc<Mutex<VecDeque<AmountQueue>>>
+        amount_queue: Arc<Mutex<VecDeque<AmountQueue>>>,
     ) -> Self {
         let config = get_current_config();
         Game {
@@ -92,7 +99,7 @@ impl Game {
             main_room: "main".to_string(),
             io_socket,
             matchmaking_socket,
-            amount_queue: amount_queue
+            amount_queue: amount_queue,
         }
     }
 
@@ -432,29 +439,27 @@ impl Game {
         who_ate_who_list
     }
 
+    //Trying with gpt less amount of lock from the amount_queue
     pub async fn handle_amount_queue(&self) {
-        let mut queue = self.amount_queue.lock().await;
+        let messages = {
+            let mut queue = self.amount_queue.lock().await;
+            let msgs = queue.drain(..).collect::<Vec<_>>();
+            drop(queue); // Explicitly drop the lock early
+            msgs
+        };
+
         let mut manager = self.amount_manager.lock().await;
-        loop {
-            match queue.pop_front() {
-                Some(message) => match message {
-                    AmountQueue::AddAmount { id, amount, uid } => {
-                        manager.set_user_id(uid, id);
-                        manager.set_amount(id, amount);
-                    }
-                },
-                None => {
-                    break;
-                }
+        for message in messages {
+            if let AmountQueue::AddAmount { id, amount, uid } = message {
+                let players_manager = self.player_manager.read().await;
+                players_manager.set_bet(uid, amount);
+                manager.set_user_id(uid, id);
             }
         }
-        drop(queue);
-        drop(manager);
     }
 
     pub async fn handle_queue(&self) {
         let mut queue = self.update_queue.lock().await;
-        let mut manager = self.amount_manager.lock().await;
         loop {
             match queue.pop_front() {
                 Some(message) => match message {
@@ -463,11 +468,6 @@ impl Game {
                         id,
                         socket_id,
                     } => {
-                        let uid = manager.get_user_id(id);
-                        if let Some(pid) = uid {
-                            manager.set_amount(pid, 0);
-                            manager.clear_data(pid);
-                        }
                         self.kick_player(name, id, socket_id).await;
                     }
                 },
@@ -476,8 +476,6 @@ impl Game {
                 }
             }
         }
-        drop(queue);
-        drop(manager);
     }
 
     // equivalent to tick_game in node.js backend
@@ -559,7 +557,6 @@ impl Game {
             // handling collision btw players
             let who_ate_who_list = Self::get_players_collision(&players_manager).await;
             let mut players_who_died: Vec<PlayerID> = vec![];
-            let mut manager = self.amount_manager.lock().await;
             for ((player_who_eat, cell_who_eat), (player_eated, cell_eated)) in
                 who_ate_who_list.into_iter()
             {
@@ -613,6 +610,8 @@ impl Game {
                         },
                     );
 
+                    let mut manager = self.amount_manager.lock().await;
+
                     let eaten_id = manager.get_user_id(player_eated.id).unwrap_or_default();
                     let eater_id = manager.get_user_id(player_who_eat.id).unwrap_or_default();
 
@@ -621,23 +620,20 @@ impl Game {
                     let eater_amount = manager.get_amount(eater_id).unwrap_or_default();
 
                     info!("Amounts: {} {}", eaten_amount, eater_amount);
-                    let transfer_amount = eaten_amount.min(eater_amount);
+                    let transfer_amount = player_eated.bet.min(player_who_eat.bet);
 
                     //Adding eaten sol amount to eater
-                    manager.push_value(eater_id, transfer_amount); // Player eater gains SOL
-                    player_who_eat.won = manager.calculate_total(eater_id);
-                    if eater_amount < eaten_amount {
-                        // Reduce eaten sol amount
-                        manager.push_value(eaten_id, eaten_amount - transfer_amount);
-                        // Player eaten gains SOL
-                    }
+                    player_who_eat.total_won += transfer_amount;
 
-                    let eaten_total = manager.calculate_total(eaten_id);
+                    if eater_amount < eaten_amount {
+                        player_eated.total_won += (eaten_amount - transfer_amount);
+                        // Reduce eaten sol amount
+                    }
                     //Transferring balance to eaten
-                    if eaten_total > 0 {
+                    if player_eated.total_won > 0 {
                         let transfer_info = TransferInfo {
                             id: eaten_id,
-                            amount: eaten_total,
+                            amount: player_eated.total_won,
                             port: self.port,
                         };
                         if let Some(ref match_making_socket) = self.matchmaking_socket {
@@ -668,33 +664,17 @@ impl Game {
                     players_who_died.push(player_eated.id);
                 }
             }
-            drop(manager);
             // let elapsed_killing_players_tick = instant.elapsed() - start;
-            // execute tick_player for each player
-            let amount_man = self.amount_manager.lock().await;
             for (player_id, player) in players_manager.players.iter() {
                 if players_who_died.contains(player_id) {
                     continue;
                 }
                 let mut player = player.write().await;
-                if !player.bet_set {
-                    let player_id = amount_man.get_user_id(player.id);
-                    if let Some(pid) = player_id {
-                        let amount = amount_man.get_amount(pid);
-                        if let Some(bet_amount) = amount {
-                            player.bet = bet_amount;
-                        } else {
-                            player.bet = 0;
-                        }
-                        player.bet_set = true;
-                    }
-                }
                 match self.tick_player(&mut player, &config).await {
                     Some((player_eat_foods, player_eat_mass, player_eat_virus)) => {
                         removed_foods.extend(player_eat_foods);
                         removed_mass.extend(player_eat_mass);
                         removed_virus.extend(player_eat_virus);
-
                         players_update_data.push(player.generate_update_player_data());
                     }
                     None => {}

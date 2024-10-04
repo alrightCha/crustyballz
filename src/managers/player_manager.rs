@@ -5,7 +5,10 @@ use tokio::sync::RwLock;
 use crate::{
     map::player::{Player, PlayerInitData},
     send_messages::LeaderboardPlayer,
-    utils::{consts::{Mass, TotalMass}, id::PlayerID},
+    utils::{
+        consts::{Mass, TotalMass},
+        id::PlayerID,
+    },
 };
 
 pub struct PlayerManager {
@@ -31,9 +34,9 @@ impl PlayerManager {
         }
     }
 
-    pub async fn insert_if_not_in(&mut self, player: Arc<RwLock<Player>>) -> bool{
+    pub async fn insert_if_not_in(&mut self, player: Arc<RwLock<Player>>) -> bool {
         let player_id = player.read().await.id;
-        
+
         if self.players.contains_key(&player_id) {
             return false;
         }
@@ -108,5 +111,16 @@ impl PlayerManager {
             sum = sum.saturating_add(player.read().await.total_mass as TotalMass);
         }
         sum
+    }
+
+    pub async fn set_bet(&self, id: PlayerID, bet: u64) -> Option<()> {
+        if let Some(player) = self.players.get(&id) {
+            let mut player = player.write().await;
+            // Perform modifications
+            player.bet = bet;
+            player.bet_set = true;
+            return Some(());
+        }
+        None
     }
 }
