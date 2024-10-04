@@ -19,7 +19,6 @@ use rust_socketio::Payload;
 use send_messages::{MassFoodAddedMessage, PlayerJoinMessage, SendEvent, WelcomeMessage};
 use time::OffsetDateTime;
 use tokio::sync::{Mutex, RwLock};
-use tokio::time::Duration;
 //Debugging
 use dotenv::dotenv;
 use log::{error, info, warn};
@@ -115,62 +114,33 @@ async fn setup_matchmaking_service(
     amount_queue: Arc<Mutex<VecDeque<AmountQueue>>>,
 ) -> Option<Client> {
     let url_domain = Cli::try_parse().expect("Error parsing CLI args").sub_domain;
+
     let callback = move |payload: Payload, _: Client| {
-        let amount_queue = Arc::clone(&amount_queue);
+        let mut backoff = Duration::from_millis(10);
+        info!("RECEIVED USERAMOUNT RESPONSE");
+        let mut amount_queue = amount_queue.clone();
         async move {
-            let mut backoff = Duration::from_millis(10);
-            info!("RECEIVED USERAMOUNT RESPONSE");
-    
             match payload {
                 Payload::Text(json_vec) => {
                     if let Some(json_str) = json_vec.get(0) {
                         info!("Data received: {:?}", json_str);
-                        let data_result: Result<AmountMessage, _> = from_value(json_str.clone());
-    
-                        match data_result {
-                            Ok(data) => {
-                                let mut retries = 0;
-                                loop {
-                                    // Attempt to acquire the lock
-                                    match amount_queue.lock().await {
-                                        Ok(mut queue) => {
-                                            queue.push_back(AmountQueue::AddAmount {
-                                                id: data.id,
-                                                amount: data.amount,
-                                                uid: data.uid,
-                                            });
-                                            break; // Successfully added data, break the loop
-                                        }
-                                        Err(_) => {
-                                            if retries >= 5 { // Limit the retries to avoid infinite loops
-                                                error!("Failed to acquire lock after several attempts.");
-                                                break;
-                                            }
-                                            error!("Lock acquisition failed, retrying...");
-                                            sleep(backoff).await;
-                                            backoff *= 2; // Exponential backoff
-                                            retries += 1;
-                                        }
-                                    }
-                                }
-                            }
-                            Err(e) => {
-                                error!("Failed to deserialize JSON: {}", e);
-                            }
-                        }
+                        let data: AmountMessage = from_value(json_str.clone())
+                            .expect("Could not derive to data from json");
+                        amount_queue.lock().await.push_back(AmountQueue::AddAmount {
+                            id: data.id,
+                            amount: data.amount,
+                            uid: data.uid,
+                        });
                     }
                 }
                 Payload::Binary(_) => {
                     info!("Received binary data for userAmount, expected JSON string.");
                 }
-                _ => {
-                    info!("Unexpected payload type.");
-                }
+                _ => info!("Unexpected payload type."),
             }
         }
         .boxed()
     };
-
 
     info!("URL DOMAIN FOR MATCHMAKING : {:?}", url_domain);
 
