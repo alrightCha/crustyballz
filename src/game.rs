@@ -452,7 +452,7 @@ impl Game {
         for message in messages {
             if let AmountQueue::AddAmount { id, amount, uid } = message {
                 let players_manager = self.player_manager.read().await;
-                players_manager.set_bet(uid, amount);
+                players_manager.set_bet(uid, amount).await;
                 manager.set_user_id(uid, id);
             }
         }
