@@ -120,6 +120,7 @@ async fn setup_matchmaking_service(
             let amount_queue = amount_queue.clone();
             move |payload: Payload, _: Client| {
                 info!("RECEIVED USERAMOUNT RESPONSE");
+                let amount_queue = amount_queue.clone(); // Clone the Arc to be used inside async block
                 async move {
                     match payload {
                         Payload::Text(json_vec) => {
@@ -143,14 +144,14 @@ async fn setup_matchmaking_service(
                 .boxed()
             }
         })
-        .on("open", {
-            move |err, _| async move { info!("MATCHMAKING OPEN: {:#?}", err) }.boxed()
+        .on("open", |err, _| {
+            async move { info!("MATCHMAKING OPEN: {:#?}", err) }.boxed()
         })
-        .on("error", {
-            move |err, _| async move { error!("MATCHMAKING ERROR: {:#?}", err) }.boxed()
+        .on("error", |err, _| {
+            async move { error!("MATCHMAKING ERROR: {:#?}", err) }.boxed()
         })
-        .on("close", {
-            move |err, _| async move { info!("MATCHMAKING CLOSE: {:#?}", err) }.boxed()
+        .on("close", |err, _| {
+            async move { info!("MATCHMAKING CLOSE: {:#?}", err) }.boxed()
         })
         .connect()
         .await
@@ -158,6 +159,7 @@ async fn setup_matchmaking_service(
 
     Some(client)
 }
+
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
