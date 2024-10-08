@@ -451,7 +451,7 @@ impl Game {
         let mut manager = self.amount_manager.lock().await;
         for message in messages {
             if let AmountQueue::AddAmount { id, amount, uid } = message {
-                let players_manager = self.player_manager.read().await;
+                let players_manager = self.player_manager.write().await;
                 players_manager.set_bet(uid, amount).await;
                 manager.set_user_id(uid, id);
             }

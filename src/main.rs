@@ -111,48 +111,46 @@ pub fn get_websockets_port() -> &'static u16 {
 }
 
 async fn setup_matchmaking_service(
-    amount_queue: Arc<Mutex<VecDeque<AmountQueue>>>,
+    amount_queue: Arc<TokioMutex<VecDeque<AmountQueue>>>,
 ) -> Option<Client> {
     let url_domain = Cli::try_parse().expect("Error parsing CLI args").sub_domain;
 
-    let callback = move |payload: Payload, _: Client| {
-        info!("RECEIVED USERAMOUNT RESPONSE");
-        let mut amount_queue = amount_queue.clone();
-        async move {
-            match payload {
-                Payload::Text(json_vec) => {
-                    if let Some(json_str) = json_vec.get(0) {
-                        info!("Data received: {:?}", json_str);
-                        let data: AmountMessage = from_value(json_str.clone())
-                            .expect("Could not derive to data from json");
-                        amount_queue.lock().await.push_back(AmountQueue::AddAmount {
-                            id: data.id,
-                            amount: data.amount,
-                            uid: data.uid,
-                        });
+    let client = ClientBuilder::new(url_domain)
+        .on("userAmount", {
+            let amount_queue = amount_queue.clone();
+            move |payload: Payload, _: Client| {
+                info!("RECEIVED USERAMOUNT RESPONSE");
+                async move {
+                    match payload {
+                        Payload::Text(json_vec) => {
+                            if let Some(json_str) = json_vec.get(0) {
+                                info!("Data received: {:?}", json_str);
+                                let data: AmountMessage = from_value(json_str.clone())
+                                    .expect("Could not derive data from json");
+                                amount_queue.lock().await.push_back(AmountQueue::AddAmount {
+                                    id: data.id,
+                                    amount: data.amount,
+                                    uid: data.uid,
+                                });
+                            }
+                        }
+                        Payload::Binary(_) => {
+                            info!("Received binary data for userAmount, expected JSON string.");
+                        }
+                        _ => info!("Unexpected payload type."),
                     }
                 }
-                Payload::Binary(_) => {
-                    info!("Received binary data for userAmount, expected JSON string.");
-                }
-                _ => info!("Unexpected payload type."),
+                .boxed()
             }
-        }
-        .boxed()
-    };
-
-    info!("URL DOMAIN FOR MATCHMAKING : {:?}", url_domain);
-
-    let client = ClientBuilder::new(url_domain)
-        .on("userAmount", callback)
-        .on("open", |err, _| {
-            async move { info!("MATCHMAKING OPEN: {:#?}", err) }.boxed()
         })
-        .on("error", |err, _| {
-            async move { error!("MATCHMAKING ERROR: {:#?}", err) }.boxed()
+        .on("open", {
+            move |err, _| async move { info!("MATCHMAKING OPEN: {:#?}", err) }.boxed()
         })
-        .on("close", |err, _| {
-            async move { info!("MATCHMAKING CLOSE: {:#?}", err) }.boxed()
+        .on("error", {
+            move |err, _| async move { error!("MATCHMAKING ERROR: {:#?}", err) }.boxed()
+        })
+        .on("close", {
+            move |err, _| async move { info!("MATCHMAKING CLOSE: {:#?}", err) }.boxed()
         })
         .connect()
         .await
