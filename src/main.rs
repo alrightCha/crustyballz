@@ -126,13 +126,21 @@ async fn setup_matchmaking_service(
                         Payload::Text(json_vec) => {
                             if let Some(json_str) = json_vec.get(0) {
                                 info!("Data received: {:?}", json_str);
-                                let data: AmountMessage = from_value(json_str.clone())
-                                    .expect("Could not derive data from json");
-                                amount_queue.lock().await.push_back(AmountQueue::AddAmount {
-                                    id: data.id,
-                                    amount: data.amount,
-                                    uid: data.uid,
-                                });
+                                match from_value::<AmountMessage>(json_str.clone()) {
+                                    Ok(data) => {
+                                        amount_queue.lock().await.push_back(
+                                            AmountQueue::AddAmount {
+                                                id: data.id,
+                                                amount: data.amount,
+                                                uid: data.uid,
+                                            },
+                                        );
+                                    }
+                                    Err(e) => {
+                                        // Handle deserialization error
+                                        eprintln!("ERROR$$)$)$$)$)$()$) parsing JSON data: {:?}", e);
+                                    }
+                                }
                             }
                         }
                         Payload::Binary(_) => {
@@ -159,7 +167,6 @@ async fn setup_matchmaking_service(
 
     Some(client)
 }
-
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
