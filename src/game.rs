@@ -310,7 +310,7 @@ impl Game {
     pub fn create_player_spawn_point(&self, positions: Vec<Point>) -> Point {
         let config = get_current_config();
         if positions.is_empty(){
-            create_random_position_in_range(config.game_width, config.game_height)
+            create_random_position_in_range(config.game_width as f32, config.game_height as f32)
         }else{
             uniform_position(&positions, mass_to_radius(config.default_player_mass))
         }
