@@ -31,11 +31,8 @@ impl PlayerManager {
         let mut all_points = Vec::new();
 
         for player in self.players.values() {
-            let player = player.read().await; // Lock the player for reading
-
-            for cell in &player.cells {
-                all_points.push(cell.position.clone());
-            }
+            let player = player.read().await.get_position_point(); // Lock the player for reading
+            all_points.push(player);
         }
         all_points
     }
