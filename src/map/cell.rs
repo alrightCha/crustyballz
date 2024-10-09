@@ -90,7 +90,6 @@ impl Cell {
         mouse_y: f32,
         slow_base: f32,
         init_mass_log: f32,
-        rat: f32,
         is_teleport: bool
     ) {
         if is_teleport{

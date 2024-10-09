@@ -36,7 +36,6 @@ use crate::{
         id::{FoodID, MassFoodID, PlayerID, VirusID},
         quad_tree::{QuadTree, Rectangle},
         queue_message::QueueMessage,
-        solana_util::transfer_sol,
         util::{
             are_colliding, check_who_ate_who, create_random_position_in_range,
             get_current_timestamp, is_visible_entity, mass_to_radius, random_in_range,
@@ -614,7 +613,7 @@ impl Game {
                         },
                     );
 
-                    let mut manager = self.amount_manager.lock().await;
+                    let manager = self.amount_manager.lock().await;
 
                     let eaten_id = manager.get_user_id(player_eated.id).unwrap_or_default();
                     let eater_id = manager.get_user_id(player_who_eat.id).unwrap_or_default();
@@ -628,7 +627,7 @@ impl Game {
                     player_who_eat.total_won += transfer_amount;
 
                     if player_who_eat.bet < player_eated.bet {
-                        player_eated.total_won += (player_eated.bet - transfer_amount);
+                        player_eated.total_won += player_eated.bet - transfer_amount;
                         // Reduce eaten sol amount
                     }
                     //Transferring balance to eaten

@@ -78,11 +78,7 @@ impl MassFood {
             y: self.point.y,
         }
     }
-
-    pub fn get_player_target(&self) -> Point {
-        self.direction
-    }
-
+    
     pub fn can_be_eat_by(&self, cell_mass: Mass, cell_position: &Point) -> bool {
         if are_colliding(&cell_position, &self.point) {
             if self.speed.unwrap_or_default() > 0.0 {

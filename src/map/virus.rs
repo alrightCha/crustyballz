@@ -21,11 +21,8 @@ pub struct Virus {
     y: f32,
     radius: f32,
     pub mass: Mass,
-    stroke: String,
-    stroke_width: f32,
     direction: Option<Point>,
     pub speed: Option<f32>,
-    fill: String,
 }
 
 impl Virus {
@@ -39,9 +36,6 @@ impl Virus {
             mass: mass,
             speed: Some(0.0),
             direction: direction,
-            stroke_width: virus_config.stroke_width,
-            stroke: virus_config.stroke,
-            fill: virus_config.fill,
         }
     }
 

@@ -4,5 +4,4 @@ pub mod quad_tree;
 pub mod consts;
 pub mod queue_message;
 pub mod id;
-pub mod solana_util;
 pub mod amount_queue;

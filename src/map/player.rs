@@ -89,10 +89,6 @@ impl Player {
         }
     }
 
-    pub fn get_id(&self) -> u8 {
-        self.id
-    }
-
     pub fn reset(&mut self, new_position: &Point, new_mass: Mass) {
         self.x = new_position.x;
         self.y = new_position.y;
@@ -218,10 +214,6 @@ impl Player {
                 self.reduce_cell_mass(i as u8, mass_loss);
             }
         }
-    }
-
-    pub fn set_last_heartbeat(&mut self) {
-        self.last_heartbeat = get_current_timestamp();
     }
 
     pub fn set_last_split(&mut self) {
@@ -393,10 +385,10 @@ impl Player {
     // }
 
     pub fn teleport(&mut self) {
-        if (self.total_mass > 150 as usize) {
+        if self.total_mass > 150 as usize {
             return;
         }
-        if (self.can_teleport) {
+        if self.can_teleport {
             let mut x_sum = 0.0;
             let mut y_sum = 0.0;
             let config = get_current_config();
@@ -414,7 +406,6 @@ impl Player {
                     self.target_y,
                     config.slow_base as f32,
                     config.get_init_mass_log(),
-                    self.ratio,
                     true
                 );
                 adjust_for_boundaries(
@@ -549,7 +540,7 @@ impl Player {
     //pushes cells when they are in contact in case the user is still split
     pub fn push_away_colliding_cells(&mut self) {
         self.enumerate_colliding_cells(|cell_a, cell_b| {
-            let mut vector = Point {
+            let vector = Point {
                 x: cell_b.position.x - cell_a.position.x + 20.0,
                 y: cell_b.position.y - cell_a.position.y + 20.0,
                 radius: 0.0,
@@ -586,7 +577,6 @@ impl Player {
                 self.target_y,
                 slow_base,
                 init_mass_log,
-                self.ratio,
                 false
             );
             adjust_for_boundaries(
@@ -615,32 +605,6 @@ impl Player {
                     self.merge_colliding_cells();
                 } else {
                     self.push_away_colliding_cells();
-                }
-            }
-        }
-    }
-
-    pub fn check_for_collisions(
-        player_a: &Player,
-        player_b: &Player,
-        player_a_index: usize,
-        player_b_index: usize,
-        callback: &dyn Fn((usize, usize), (usize, usize)),
-    ) {
-        for (cell_a_index, cell_a) in player_a.cells.iter().enumerate() {
-            for (cell_b_index, cell_b) in player_b.cells.iter().enumerate() {
-                let who_ate_who = check_who_ate_who(cell_a, cell_b);
-                match who_ate_who {
-                    0 => (),
-                    1 => callback(
-                        (player_b_index, cell_b_index),
-                        (player_a_index, cell_a_index),
-                    ),
-                    2 => callback(
-                        (player_a_index, cell_a_index),
-                        (player_b_index, cell_b_index),
-                    ),
-                    _ => (),
                 }
             }
         }

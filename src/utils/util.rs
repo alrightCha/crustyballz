@@ -151,18 +151,6 @@ pub fn uniform_position(points: &[Point], radius: f32) -> Point {
     best_candidate
 }
 
-pub fn find_index(arr: &[Player], id: PlayerID) -> Option<usize> {
-    arr.iter().enumerate().rev().find_map(
-        |(i, player)| {
-            if player.id == id {
-                Some(i)
-            } else {
-                None
-            }
-        },
-    )
-}
-
 //checks which cell ate the other one by knowing which one is bigger, if there is an overlap between the cells
 pub fn check_who_ate_who(cell_a: &Cell, cell_b: &Cell) -> u8 {
     if check_overlap(&cell_a.position, &cell_b.position) {
@@ -264,18 +252,4 @@ pub fn check_overlap(circle_a: &Point, circle_b: &Point) -> bool {
     }
 
     false
-}
-
-//generates a random color for the food and the players
-pub fn random_color() -> (String, String) {
-    let mut rng = rand::thread_rng();
-    let random_number = rng.gen_range(0..(1 << 24));
-    let color = format!("#{:06x}", random_number);
-
-    let r = (((random_number >> 16) & 0xFF) as u8).saturating_sub(32);
-    let g = (((random_number >> 8) & 0xFF) as u8).saturating_sub(32);
-    let b = ((random_number & 0xFF) as u8).saturating_sub(32);
-    let border_color = format!("#{:06x}", (r as u32) << 16 | (g as u32) << 8 | (b as u32));
-
-    (color, border_color)
 }
