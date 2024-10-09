@@ -311,7 +311,7 @@ impl Game {
         if points.is_empty(){
             create_random_position_in_range(config.game_width as f32, config.game_height as f32)
         }else{
-            uniform_position(&points, get_current_config().default_player_mass)
+            uniform_position(&points, get_current_config().default_player_mass as f32)
         }
     }
 
