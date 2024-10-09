@@ -412,8 +412,8 @@ impl Player {
                     &new_position,
                     self.target_x,
                     self.target_y,
-                    slow_base,
-                    init_mass_log,
+                    config.slow_base,
+                    config.get_init_mass_log(),
                     self.ratio,
                 );
                 adjust_for_boundaries(
@@ -421,8 +421,8 @@ impl Player {
                     &mut cell.position.y,
                     cell.position.radius / 3.0,
                     0.0,
-                    game_width as f32,
-                    game_height as f32,
+                    config.game_width as f32,
+                    config.game_height as f32,
                 );
 
                 x_sum += cell.position.x;
