@@ -27,9 +27,17 @@ impl PlayerManager {
         }
     }
 
-    pub async fn collect_and_clone_all_pos(&self) -> Vec<Point> {
-        let mut all_pos = Vec::new();
-        all_pos
+    pub async fn collect_all_points(&self) -> Vec<Point> {
+        let mut all_points = Vec::new();
+
+        for player in self.players.values() {
+            let player = player.read().await; // Lock the player for reading
+
+            for cell in &player.cells {
+                all_points.push(cell.position.clone());
+            }
+        }
+        all_points
     }
 
     pub fn get_new_id(&mut self) -> PlayerID {

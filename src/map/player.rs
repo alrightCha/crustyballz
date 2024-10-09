@@ -566,7 +566,6 @@ impl Player {
         let mut y_sum = 0.0;
 
         let player_position = self.get_position_point();
-        info!("POS {} {}", player_position.x, player_position.y);
         for cell in self.cells.iter_mut() {
             // TODO: remove the enumerate
             // Assume cell has a method `move` taking necessary parameters
