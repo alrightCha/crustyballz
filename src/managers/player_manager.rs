@@ -27,14 +27,15 @@ impl PlayerManager {
         }
     }
 
-    pub async fn collect_all_points(&self) -> Vec<Point> {
-        let mut all_points = Vec::new();
+    pub async fn get_points(&self) -> Vec<Point> {
+        // First, clone the players to a mutable local variable to sort
 
+        let mut players = vec![];
         for player in self.players.values() {
-            let player = player.read().await.get_position_point(); // Lock the player for reading
-            all_points.push(player);
+            let player = player.read().await;
+            players.push(player.get_position_point());
         }
-        all_points
+        players.into_iter().collect()
     }
 
     pub fn get_new_id(&mut self) -> PlayerID {
