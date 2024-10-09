@@ -119,7 +119,7 @@ fn random_position(radius: f32) -> Point {
 }
 
 //makes sure that the posiiton is not below a player, used to determine the spawning point of a player in accordance to the rest of the players
-pub fn uniform_position(points: &Vec<Point>, radius: f32) -> Point {
+pub fn uniform_position(points: &[Point], radius: f32) -> Point {
     if points.is_empty() {
         return random_position(radius);
     }
