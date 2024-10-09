@@ -29,6 +29,9 @@ impl PlayerManager {
 
     pub async fn collect_and_clone_all_pos(&self) -> Vec<Point> {
         let mut all_pos = Vec::new();
+        if self.players.is_empty(){
+            all_pos
+        }
         for player in self.players.values() {
             let player = player.read().await; // Acquire read lock asynchronously
             for cell in &player.cells {
