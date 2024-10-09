@@ -415,6 +415,7 @@ impl Player {
                     config.slow_base as f32,
                     config.get_init_mass_log(),
                     self.ratio,
+                    true
                 );
                 adjust_for_boundaries(
                     &mut cell.position.x,
@@ -586,6 +587,7 @@ impl Player {
                 slow_base,
                 init_mass_log,
                 self.ratio,
+                false
             );
             adjust_for_boundaries(
                 &mut cell.position.x,

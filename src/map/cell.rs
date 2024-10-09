@@ -91,8 +91,14 @@ impl Cell {
         slow_base: f32,
         init_mass_log: f32,
         rat: f32,
+        is_teleport: bool
     ) {
-       
+        if is_teleport{
+            self.position.x = player_position.x;
+            self.position.y = player_position.y;
+            return
+        }
+
         let target_x = player_position.x - self.position.x + mouse_x;
         let target_y = player_position.y - self.position.y + mouse_y;
         let dist = (target_y.powi(2) + target_x.powi(2)).sqrt();
