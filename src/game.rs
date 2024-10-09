@@ -309,7 +309,11 @@ impl Game {
 
     pub fn create_player_spawn_point(&self, positions: Vec<Point>) -> Point {
         let config = get_current_config();
-        uniform_position(&positions, mass_to_radius(config.default_player_mass))
+        if positions.is_empty(){
+            create_random_position_in_range(config.game_width, config.game_height)
+        }else{
+            uniform_position(&positions, mass_to_radius(config.default_player_mass))
+        }
     }
 
     // returns the shoot direction if the virus "exploded"
