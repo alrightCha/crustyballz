@@ -402,9 +402,9 @@ impl Player {
                 config.game_width as f32 - mass_to_radius(config.default_player_mass),
                 config.game_height as f32 - mass_to_radius(config.default_player_mass),
             );
+            info!("Teleporting to new positions {} {}", new_position.x, new_position.y);
             self.x = new_position.x;
             self.y = new_position.y;
-            self.can_teleport = false;
         }
     }
 
