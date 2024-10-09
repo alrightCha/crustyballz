@@ -9,7 +9,6 @@ use regex::Regex;
 use std::f32::consts::PI;
 
 use super::consts::{Mass, TotalMass};
-use super::id::PlayerID;
 
 lazy_static! {
     // Regex matches any string of 0 to 14 word characters.

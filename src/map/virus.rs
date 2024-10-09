@@ -27,7 +27,6 @@ pub struct Virus {
 
 impl Virus {
     pub fn new(virus_id: VirusID, point: Point, mass: Mass, direction: Option<Point>) -> Self {
-        let virus_config = VirusConfig::default();
         Virus {
             id: virus_id,
             x: point.x,
