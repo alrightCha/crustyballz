@@ -26,7 +26,7 @@ impl Display for RecvEvent {
             RecvEvent::PlayerSplit => "2",
             RecvEvent::PlayerChat => "playerChat",
             RecvEvent::PlayerGotIt => "gotit",
-            RecvEvent::Teleport => '3'
+            RecvEvent::Teleport => "3"
         })
     }
 }

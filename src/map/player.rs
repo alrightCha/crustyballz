@@ -9,7 +9,7 @@ use crate::utils::id::PlayerID;
 use crate::utils::quad_tree::Rectangle;
 use crate::utils::util::{
     check_overlap, check_who_ate_who, create_random_position_in_range, get_current_timestamp, lerp,
-    total_mass_to_radius,
+    total_mass_to_radius, mass_to_radius
 };
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
