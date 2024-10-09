@@ -119,20 +119,20 @@ fn random_position(radius: f32) -> Point {
 }
 
 //makes sure that the posiiton is not below a player, used to determine the spawning point of a player in accordance to the rest of the players
-pub fn uniform_position(points: &vec![Point], radius: f32) -> Point {
-    let mut max_distance = 0.0;
-    let mut best_candidate = random_position(radius);
-    let number_of_candidates = 10;
-
+pub fn uniform_position(points: &Vec<Point>, radius: f32) -> Point {
     if points.is_empty() {
-        return best_candidate;
+        return random_position(radius);
     }
 
-    for _ in 0..number_of_candidates {
-        let mut min_distance = f32::INFINITY;
-        let candidate = random_position(radius);
+    let number_of_candidates = 10;
+    let mut max_distance = 0.0;
+    let mut best_candidate = random_position(radius);
 
-        for point in points {
+    for _ in 0..number_of_candidates {
+        let candidate = random_position(radius);
+        let mut min_distance = f32::INFINITY;
+
+        for point in points.iter() {
             let distance = get_distance(&candidate, point);
             if distance < min_distance {
                 min_distance = distance;
@@ -142,8 +142,6 @@ pub fn uniform_position(points: &vec![Point], radius: f32) -> Point {
         if min_distance > max_distance {
             best_candidate = candidate;
             max_distance = min_distance;
-        } else {
-            return random_position(radius);
         }
     }
 

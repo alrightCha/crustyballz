@@ -311,7 +311,7 @@ impl Game {
         Some((eated_foods_id, eated_mass, eated_virus))
     }
 
-    pub fn create_player_spawn_point(&self, points: vec![Point]) -> Point {
+    pub fn create_player_spawn_point(&self, points: Vec<Point>) -> Point {
         let config = get_current_config();
         uniform_position(&points, config.default_player_mass as f32)
     }
