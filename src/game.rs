@@ -140,7 +140,12 @@ impl Game {
             .await
             .get_mass_food_init_data();
 
-        let points = self.player_manager.read().await.collect_and_clone_all_pos().await;
+        let points = self
+            .player_manager
+            .read()
+            .await
+            .collect_and_clone_all_pos()
+            .await;
         let spawn_point = self.create_player_spawn_point(points);
         let mut player = player.write().await;
         info!("Points: {:?}", points);
@@ -308,11 +313,7 @@ impl Game {
 
     pub fn create_player_spawn_point(&self, points: vec![Point]) -> Point {
         let config = get_current_config();
-        if points.is_empty(){
-            create_random_position_in_range(config.game_width as f32, config.game_height as f32)
-        }else{
-            uniform_position(&points, get_current_config().default_player_mass as f32)
-        }
+        uniform_position(&points, config.default_player_mass as f32)
     }
 
     // returns the shoot direction if the virus "exploded"
