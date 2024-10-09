@@ -145,7 +145,7 @@ impl Game {
             .player_manager
             .read()
             .await
-            .collect_and_clone_all_pos()
+            .collect_all_points()
             .await;
         let spawn_point = self.create_player_spawn_point();
         player.reset(&spawn_point, get_current_config().default_player_mass);
