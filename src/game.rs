@@ -212,7 +212,7 @@ impl Game {
                 });
             return None;
         }
-        
+
         player.move_cells(
             config.slow_base as f32,
             config.game_width as i32,
@@ -306,13 +306,9 @@ impl Game {
         Some((eated_foods_id, eated_mass, eated_virus))
     }
 
-    pub fn create_player_spawn_point(&self, positions: Vec<Point>) -> Point {
+    pub fn create_player_spawn_point(&self) -> Point {
         let config = get_current_config();
-        if positions.is_empty(){
-            create_random_position_in_range(config.game_width as f32, config.game_height as f32)
-        }else{
-            uniform_position(&positions, mass_to_radius(config.default_player_mass))
-        }
+        create_random_position_in_range(config.game_width as f32, config.game_height as f32)
     }
 
     // returns the shoot direction if the virus "exploded"

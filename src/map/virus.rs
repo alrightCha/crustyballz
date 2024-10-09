@@ -1,5 +1,4 @@
 use super::point::Point;
-use crate::config::VirusConfig;
 use crate::utils::consts::Mass;
 use crate::utils::game_logic::adjust_for_boundaries;
 use crate::utils::id::VirusID;
