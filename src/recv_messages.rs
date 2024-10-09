@@ -11,7 +11,8 @@ pub enum RecvEvent {
     PlayerSplit,
     PlayerChat,
     PlayerGotIt,
-    LetMeIn
+    LetMeIn,
+    Teleport
 }
 
 impl Display for RecvEvent {
@@ -25,6 +26,7 @@ impl Display for RecvEvent {
             RecvEvent::PlayerSplit => "2",
             RecvEvent::PlayerChat => "playerChat",
             RecvEvent::PlayerGotIt => "gotit",
+            RecvEvent::Teleport => '3'
         })
     }
 }

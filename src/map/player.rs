@@ -8,7 +8,8 @@ use crate::utils::game_logic::adjust_for_boundaries;
 use crate::utils::id::PlayerID;
 use crate::utils::quad_tree::Rectangle;
 use crate::utils::util::{
-    check_overlap, check_who_ate_who, get_current_timestamp, lerp, total_mass_to_radius,
+    check_overlap, check_who_ate_who, create_random_position_in_range, get_current_timestamp, lerp,
+    total_mass_to_radius,
 };
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
@@ -22,6 +23,7 @@ pub struct PlayerUpdateData {
     pub y: f32,
     pub bet: u64,
     pub won: u64,
+    pub can_teleport: bool,
 }
 
 #[derive(Serialize, Clone, Deserialize)]
@@ -55,7 +57,8 @@ pub struct Player {
     pub ratio: f32,
     pub bet: u64,
     pub bet_set: bool,
-    pub total_won: u64
+    pub total_won: u64,
+    pub can_teleport: bool,
 }
 
 impl Player {
@@ -81,7 +84,8 @@ impl Player {
             ratio: 1.03,
             bet: 0,
             bet_set: false,
-            total_won: 0
+            total_won: 0,
+            can_teleport: true,
         }
     }
 
@@ -169,6 +173,7 @@ impl Player {
             y: self.y,
             bet: self.bet,
             won: self.total_won,
+            can_teleport: self.can_teleport,
         }
     }
 
@@ -386,6 +391,22 @@ impl Player {
 
     //     masses
     // }
+
+    pub fn teleport(&mut self) {
+        if(self.total_mass > 150 as usize){
+            return;
+        }
+        if (self.can_teleport) {
+            let config = get_current_config();
+            let new_position = create_random_position_in_range(
+                config.game_width as f32 - mass_to_radius(config.default_player_mass),
+                config.game_height as f32 - mass_to_radius(config.default_player_mass),
+            );
+            self.x = new_position.x;
+            self.y = new_position.y;
+            self.can_teleport = false;
+        }
+    }
 
     pub fn virus_split(
         &mut self,

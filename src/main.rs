@@ -295,6 +295,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             },
         );
 
+
         let game_ref_cloned = game_ref.clone();
         let new_player_clone = player_ref.clone();
         s.on(
@@ -330,6 +331,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
             },
+        );
+
+        let teleport_player_clone = player_ref.clone();
+        s.on(
+            RecvEvent::Teleport,
+            |_socket: SocketRef| async move {
+                let mut player = teleport_player_clone.write().await;
+                player.teleport();
+            }
         );
 
         let new_player_clone = player_ref.clone();
