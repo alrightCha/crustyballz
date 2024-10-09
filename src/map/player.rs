@@ -412,7 +412,7 @@ impl Player {
                     &new_position,
                     self.target_x,
                     self.target_y,
-                    config.slow_base,
+                    config.slow_base as f32,
                     config.get_init_mass_log(),
                     self.ratio,
                 );
