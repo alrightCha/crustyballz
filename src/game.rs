@@ -148,7 +148,6 @@ impl Game {
             .await;
         let spawn_point = self.create_player_spawn_point(points);
         let mut player = player.write().await;
-        info!("Points: {:?}", points);
         player.reset(&spawn_point, get_current_config().default_player_mass);
 
         // send init data
