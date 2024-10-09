@@ -384,7 +384,7 @@ impl Player {
     //     masses
     // }
 
-    pub fn teleport(&mut self) {
+    pub fn teleport(&mut self, new_position: &Point) {
         if self.total_mass > 150 as usize {
             return;
         }
@@ -392,10 +392,6 @@ impl Player {
             let mut x_sum = 0.0;
             let mut y_sum = 0.0;
             let config = get_current_config();
-            let new_position = create_random_position_in_range(
-                config.game_width as f32 - mass_to_radius(config.default_player_mass),
-                config.game_height as f32 - mass_to_radius(config.default_player_mass),
-            );
             for cell in self.cells.iter_mut() {
                 // TODO: remove the enumerate
                 // Assume cell has a method `move` taking necessary parameters

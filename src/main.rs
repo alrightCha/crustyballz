@@ -137,7 +137,10 @@ async fn setup_matchmaking_service(
                                     }
                                     Err(e) => {
                                         // Handle deserialization error
-                                        eprintln!("ERROR$$)$)$$)$)$()$) parsing JSON data: {:?}", e);
+                                        eprintln!(
+                                            "ERROR$$)$)$$)$)$()$) parsing JSON data: {:?}",
+                                            e
+                                        );
                                     }
                                 }
                             }
@@ -294,7 +297,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             },
         );
 
-
         let game_ref_cloned = game_ref.clone();
         let new_player_clone = player_ref.clone();
         s.on(
@@ -333,13 +335,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
 
         let teleport_player_clone = player_ref.clone();
-        s.on(
-            RecvEvent::Teleport,
-            |_socket: SocketRef| async move {
-                let mut player = teleport_player_clone.write().await;
-                player.teleport();
-            }
-        );
+        s.on(RecvEvent::Teleport, |_socket: SocketRef| async move {
+            let points = game
+                .player_manager
+                .read()
+                .await
+                .collect_and_clone_all_pos()
+                .await;
+            let spawn_point = game.create_player_spawn_point(points);
+            let mut player = teleport_player_clone.write().await;
+            player.teleport(&spawn_point);
+        });
 
         let new_player_clone = player_ref.clone();
         s.on(RecvEvent::PlayerSplit, |socket: SocketRef| async move {
