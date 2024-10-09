@@ -141,7 +141,7 @@ impl Game {
             .get_mass_food_init_data();
 
         let mut player = player.write().await;
-        let points_dom = self.player_manager.read().await.get_points().await;
+        let points_dom = self.player_manager.write().await.get_points().await;
         let spawn_point = self.create_player_spawn_point();
         player.reset(&spawn_point, get_current_config().default_player_mass);
 
