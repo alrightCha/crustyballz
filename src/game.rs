@@ -211,12 +211,6 @@ impl Game {
                 });
             return None;
         }
-        player.move_cells(
-            config.slow_base as f32,
-            config.game_width as i32,
-            config.game_height as i32,
-            config.get_init_mass_log(),
-        );
 
         let player_view = self.enumerate_what_player_sees(player).await;
 
