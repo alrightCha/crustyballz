@@ -140,7 +140,7 @@ impl Game {
             .await
             .get_mass_food_init_data();
 
-        let points = self.player_manager.read().await.get_points().await;
+        let points = self.player_manager.read().await.collect_and_clone_all_pos().await;
         let spawn_point = self.create_player_spawn_point(points);
         let mut player = player.write().await;
         info!("Points: {:?}", points);
@@ -306,7 +306,7 @@ impl Game {
         Some((eated_foods_id, eated_mass, eated_virus))
     }
 
-    pub fn create_player_spawn_point(&self, points: [Point]) -> Point {
+    pub fn create_player_spawn_point(&self, points: vec![Point]) -> Point {
         let config = get_current_config();
         if points.is_empty(){
             create_random_position_in_range(config.game_width as f32, config.game_height as f32)
