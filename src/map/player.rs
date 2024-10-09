@@ -9,7 +9,7 @@ use crate::utils::id::PlayerID;
 use crate::utils::quad_tree::Rectangle;
 use crate::utils::util::{
     check_overlap, check_who_ate_who, create_random_position_in_range, get_current_timestamp, lerp,
-    total_mass_to_radius, mass_to_radius
+    mass_to_radius, total_mass_to_radius,
 };
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
@@ -393,18 +393,47 @@ impl Player {
     // }
 
     pub fn teleport(&mut self) {
-        if(self.total_mass > 150 as usize){
+        if (self.total_mass > 150 as usize) {
             return;
         }
         if (self.can_teleport) {
+            let mut x_sum = 0.0;
+            let mut y_sum = 0.0;
             let config = get_current_config();
             let new_position = create_random_position_in_range(
                 config.game_width as f32 - mass_to_radius(config.default_player_mass),
                 config.game_height as f32 - mass_to_radius(config.default_player_mass),
             );
-            info!("Teleporting to new positions {} {}", new_position.x, new_position.y);
-            self.x = new_position.x;
-            self.y = new_position.y;
+            for cell in self.cells.iter_mut() {
+                // TODO: remove the enumerate
+                // Assume cell has a method `move` taking necessary parameters
+                // info!("Cell {}", i);
+                cell.move_cell(
+                    &new_position,
+                    self.target_x,
+                    self.target_y,
+                    slow_base,
+                    init_mass_log,
+                    self.ratio,
+                );
+                adjust_for_boundaries(
+                    &mut cell.position.x,
+                    &mut cell.position.y,
+                    cell.position.radius / 3.0,
+                    0.0,
+                    game_width as f32,
+                    game_height as f32,
+                );
+
+                x_sum += cell.position.x;
+                y_sum += cell.position.y;
+            }
+
+            if !self.cells.is_empty() {
+                self.x = x_sum / self.cells.len() as f32;
+                self.y = y_sum / self.cells.len() as f32;
+            }
+            self.can_teleport = false;
         }
     }
 
