@@ -533,6 +533,7 @@ impl Player {
         }
     }
 
+
     //pushes cells when they are in contact in case the user is still split
     pub fn push_away_colliding_cells(&mut self) {
         self.enumerate_colliding_cells(|cell_a, cell_b| {
