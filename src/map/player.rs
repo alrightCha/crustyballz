@@ -507,19 +507,19 @@ impl Player {
     }
 
     //loops through the players with a sort and sweep algorithm and checks for collision between them
-    pub fn enumerate_colliding_cells<T>(&mut self, mut callback: T)
+    pub fn enumerate_colliding_cells<T>(&mut self, callback: T)
     where
-        T: FnMut(&mut Cell, &mut Cell),
+        T: Fn(&mut Cell, &mut Cell),
     {
         self.sort_by_left();
 
-        for i in 0..self.cells.len() {
+        for i in 0..self.cells.len() - 1 {
             let (split_a, split_b) = self.cells.split_at_mut(i + 1);
             let cell_a = &mut split_a[i];
 
             for cell_b in split_b {
-                if cell_b.position.x - cell_b.position.radius
-                    > cell_a.position.x + cell_a.position.radius
+                if (cell_b.position.x - cell_b.position.radius)
+                    > (cell_a.position.x + cell_a.position.radius)
                 {
                     break;
                 }
