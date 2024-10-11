@@ -8,8 +8,8 @@ use crate::utils::game_logic::adjust_for_boundaries;
 use crate::utils::id::PlayerID;
 use crate::utils::quad_tree::Rectangle;
 use crate::utils::util::{
-    check_overlap, create_random_position_in_range, get_current_timestamp, lerp,
-    mass_to_radius, total_mass_to_radius,
+    check_overlap, create_random_position_in_range, get_current_timestamp, lerp, mass_to_radius,
+    total_mass_to_radius,
 };
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
@@ -402,7 +402,7 @@ impl Player {
                     self.target_y,
                     config.slow_base as f32,
                     config.get_init_mass_log(),
-                    true
+                    true,
                 );
                 adjust_for_boundaries(
                     &mut cell.position.x,
@@ -533,18 +533,16 @@ impl Player {
         }
     }
 
-
     //pushes cells when they are in contact in case the user is still split
     pub fn push_away_colliding_cells(&mut self) {
         self.enumerate_colliding_cells(|cell_a, cell_b| {
             let vector = Point {
-                x: cell_b.position.x - cell_a.position.x + 20.0,
-                y: cell_b.position.y - cell_a.position.y + 20.0,
+                x: cell_b.position.x - cell_a.position.x,
+                y: cell_b.position.y - cell_a.position.y,
                 radius: 0.0,
             }
             .normalize()
             .scale(PUSHING_AWAY_SPEED);
-
             cell_a.position.x -= vector.x;
             cell_a.position.y -= vector.y;
             cell_b.position.x += vector.x;
@@ -573,7 +571,7 @@ impl Player {
                 self.target_y,
                 slow_base,
                 init_mass_log,
-                false
+                false,
             );
             adjust_for_boundaries(
                 &mut cell.position.x,
