@@ -79,7 +79,7 @@ impl Default for Config {
             virus: VirusConfig::default(),
             game_width: 15000,
             game_height: 15000,
-            food_capacity_q: 10,
+            food_capacity_q: 100,
             admin_pass: "DEFAULT".to_string(),
             game_mass: 500000,
             max_food: 4_000,
