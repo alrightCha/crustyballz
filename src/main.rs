@@ -334,15 +334,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             },
         );
 
+        // Assuming player_ref is an Arc and needs to be cloned to be used across tasks.
+        let player_ref_clone = player_ref.clone();
 
+        s.on(RecvEvent::Teleport, move |_socket: SocketRef| {
+            let player_clone_for_teleport = player_ref_clone.clone();
+            async move {
+                let points = game
+                    .player_manager
+                    .read()
+                    .await
+                    .collect_and_clone_all_pos()
+                    .await;
+                let spawn_point = game.create_player_spawn_point(points);
+                let mut player = player_clone_for_teleport.write().await;
+                player.teleport(&spawn_point);
+            }
+        });
 
-        let new_player_clone = player_ref.clone();
-        s.on(RecvEvent::PlayerSplit, |socket: SocketRef| async move {
-            let config = get_current_config();
-            let mut player = new_player_clone.write().await;
+        s.on(RecvEvent::PlayerSplit, move |socket: SocketRef| {
+            let player_clone_for_split = player_ref_clone.clone();
+            async move {
+                let config = get_current_config();
+                let mut player = player_clone_for_split.write().await;
 
-            player.user_split(config.limit_split as usize, config.split_min_mass);
-            let _ = socket.emit(SendEvent::NotifyPlayerSplit, ());
+                player.user_split(config.limit_split as usize, config.split_min_mass);
+                let _ = socket.emit(SendEvent::NotifyPlayerSplit, ());
+            }
         });
 
         let game_ref_cloned = game_ref.clone();

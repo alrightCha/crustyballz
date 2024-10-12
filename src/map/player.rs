@@ -536,13 +536,14 @@ impl Player {
     //pushes cells when they are in contact in case the user is still split
     pub fn push_away_colliding_cells(&mut self) {
         self.enumerate_colliding_cells(|cell_a, cell_b| {
-            let vector = Point {
-                x: cell_b.position.x - cell_a.position.x + 20.0,
-                y: cell_b.position.y - cell_a.position.y + 20.0,
+            let mut vector = Point {
+                x: cell_b.position.x - cell_a.position.x,
+                y: cell_b.position.y - cell_a.position.y,
                 radius: 0.0,
             }
             .normalize()
-            .scale(PUSHING_AWAY_SPEED);
+            .scale(10.0 / (cell_b.position.distance(&cell_a.position)));
+
             cell_a.position.x -= vector.x;
             cell_a.position.y -= vector.y;
             cell_b.position.x += vector.x;
