@@ -483,7 +483,6 @@ impl Player {
             self.split_cell(i, 1, default_player_mass, None);
         }
         self.recalculate_total_mass();
-        info!("player mass after split: {}", self.total_mass);
     }
 
     fn sort_by_left(&mut self) {
