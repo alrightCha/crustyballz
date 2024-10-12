@@ -272,7 +272,6 @@ impl Player {
             }
         } else {
             let target_direction = self.calculate_target_direction(); // A method to calculate and normalize the target direction
-            debug!("we are here: {:?}", target_direction);
             directions.resize(pieces_to_create as usize, target_direction);
         }
 
@@ -542,7 +541,7 @@ impl Player {
                 radius: 0.0,
             }
             .normalize()
-            .scale(10.0 / (cell_b.position.distance(&cell_a.position)));
+            .scale(4.0);
 
             cell_a.position.x -= vector.x;
             cell_a.position.y -= vector.y;
