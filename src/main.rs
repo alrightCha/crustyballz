@@ -334,18 +334,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             },
         );
 
-        let teleport_player_clone = player_ref.clone();
-        s.on(RecvEvent::Teleport, |_socket: SocketRef| async move {
-            let points = game
-                .player_manager
-                .read()
-                .await
-                .collect_and_clone_all_pos()
-                .await;
-            let spawn_point = game.create_player_spawn_point(points);
-            let mut player = teleport_player_clone.write().await;
-            player.teleport(&spawn_point);
-        });
+
 
         let new_player_clone = player_ref.clone();
         s.on(RecvEvent::PlayerSplit, |socket: SocketRef| async move {
