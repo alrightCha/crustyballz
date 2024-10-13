@@ -518,44 +518,51 @@ impl Player {
 
     pub fn handle_cells(&mut self) {
         let current_time = get_current_timestamp();
-
-        let push_away = |cell_a: &mut Cell, cell_b: &mut Cell| {
-            let vector = Point {
-                x: cell_b.position.x - cell_a.position.x + 20.0,
-                y: cell_b.position.y - cell_a.position.y + 20.0,
-                radius: 0.0,
-            }
-            .normalize()
-            .scale(PUSHING_AWAY_SPEED);
-
-            cell_a.position.x -= vector.x;
-            cell_a.position.y -= vector.y;
-            cell_b.position.x += vector.x;
-            cell_b.position.y += vector.y;
-        };
-
         self.enumerate_colliding_cells(|cell_a, cell_b| {
-            match (cell_a.time_to_merge, cell_b.time_to_merge) {
-                (Some(time_a), Some(time_b)) if current_time > time_a && current_time > time_b => {
-                    if !cell_a.to_be_removed
-                        && !cell_b.to_be_removed
-                        && check_overlap(&cell_a.position, &cell_b.position)
-                    {
-                        cell_a.add_mass(cell_b.mass);
-                        cell_a.time_to_merge = None;
-                        cell_b.mark_for_removal();
-                    } else {
-                        push_away(cell_a, cell_b);
+            if let (Some(time_a), Some(time_b)) = (cell_a.time_to_merge, cell_b.time_to_merge) {
+                if current_time > time_a && current_time > time_b {
+                    //Merge cells
+                    if !cell_a.to_be_removed && !cell_b.to_be_removed {
+                        if check_overlap(&cell_a.position, &cell_b.position) {
+                            cell_a.add_mass(cell_b.mass);
+                            cell_a.time_to_merge = None;
+                            cell_b.mark_for_removal();
+                        }
                     }
+                } else {
+                    let mut vector = Point {
+                        x: cell_b.position.x - cell_a.position.x + 20.0,
+                        y: cell_b.position.y - cell_a.position.y + 20.0,
+                        radius: 0.0,
+                    }
+                    .normalize()
+                    .scale(PUSHING_AWAY_SPEED);
+
+                    cell_a.position.x -= vector.x;
+                    cell_a.position.y -= vector.y;
+                    cell_b.position.x += vector.x;
+                    cell_b.position.y += vector.y;
                 }
-                _ => push_away(cell_a, cell_b),
+            } else {
+                //Push away colliding cells
+                let mut vector = Point {
+                    x: cell_b.position.x - cell_a.position.x + 20.0,
+                    y: cell_b.position.y - cell_a.position.y + 20.0,
+                    radius: 0.0,
+                }
+                .normalize()
+                .scale(PUSHING_AWAY_SPEED);
+
+                cell_a.position.x -= vector.x;
+                cell_a.position.y -= vector.y;
+                cell_b.position.x += vector.x;
+                cell_b.position.y += vector.y;
             }
         });
-
-        // Remove all cells marked for removal (merged)
+        //Remove all cells marked for removal (merged)
         self.cells.retain(|cell| !cell.to_be_removed);
     }
-
+    
     pub fn move_cells(
         &mut self,
         slow_base: f32,
