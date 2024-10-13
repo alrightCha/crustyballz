@@ -48,7 +48,7 @@ impl Cell {
         speed: f32,
         can_move: bool,
         direction_shot: Option<Point>,
-        time_to_merge: Option<u16>
+        time_to_merge: Option<i64>
     ) -> Self {
         Self {
             position: Point {
