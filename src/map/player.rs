@@ -275,6 +275,8 @@ impl Player {
             Some(get_current_timestamp() + merge_duration as i64);
         // Create new cells
         for direction in directions {
+            let time_to_merge: i64 =
+                get_current_timestamp() + (MERGE_TIMER + (new_cells_mass as f32) / 20.0) as i64;
             let new_cell = Cell::new(
                 cell_pos_x,
                 cell_pos_y,
@@ -282,11 +284,10 @@ impl Player {
                 SPLIT_CELL_SPEED, // Assuming a fixed speed for new cells
                 false,            // Can move
                 Some(direction),
-                Some(get_current_timestamp() + merge_duration as i64), // set time to merge for new cells
+                Some(time_to_merge), // set time to merge for new cells
             );
             self.cells.push(new_cell);
         }
-        // Set last split time, assuming such a method exists
         self.recalculate_total_mass();
         self.recalculate_ratio();
     }
