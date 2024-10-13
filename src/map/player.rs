@@ -525,7 +525,6 @@ impl Player {
                     if !cell_a.to_be_removed && !cell_b.to_be_removed {
                         if check_overlap(&cell_a.position, &cell_b.position) {
                             cell_a.add_mass(cell_b.mass);
-                            cell_a.time_to_merge = None;
                             cell_b.mark_for_removal();
                         }
                     }
@@ -562,7 +561,7 @@ impl Player {
         //Remove all cells marked for removal (merged)
         self.cells.retain(|cell| !cell.to_be_removed);
     }
-    
+
     pub fn move_cells(
         &mut self,
         slow_base: f32,
