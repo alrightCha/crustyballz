@@ -44,7 +44,6 @@ pub struct Player {
     admin: bool,
     pub screen_width: f32,
     pub screen_height: f32,
-    pub time_to_merge: Option<i64>,
     pub img_url: Option<String>,
     pub last_heartbeat: i64,
     // Properties to be initialized later
@@ -71,7 +70,6 @@ impl Player {
             admin: false,
             screen_width: 800.0,
             screen_height: 600.0,
-            time_to_merge: None,
             img_url: None,
             last_heartbeat: get_current_timestamp(),
             // Initial states for properties to be initialized later
@@ -101,6 +99,7 @@ impl Player {
             new_mass,
             MIN_SPEED,
             true,
+            None,
             None,
         )];
 
@@ -216,12 +215,6 @@ impl Player {
         }
     }
 
-    pub fn set_last_split(&mut self) {
-        // let merge_duration = 1000.0 * MERGE_TIMER + self.total_mass / 100.0;
-        let merge_duration = MERGE_TIMER + (self.total_mass as f32) / 100.0;
-        self.time_to_merge = Some(get_current_timestamp() + merge_duration as i64);
-    }
-
     pub fn reduce_cell_mass(&mut self, cell_index: u8, mass: Mass) {
         self.cells[cell_index as usize].remove_mass(mass);
         self.total_mass = self.total_mass.saturating_add(mass as usize);
@@ -274,10 +267,11 @@ impl Player {
             let target_direction = self.calculate_target_direction(); // A method to calculate and normalize the target direction
             directions.resize(pieces_to_create as usize, target_direction);
         }
-
+        let merge_duration = MERGE_TIMER + (new_cells_mass as f32) / 20.0;
         // Update the original cell mass before creating new cells
         self.cells[cell_index].set_mass(new_cells_mass);
-
+        // Set time to merge for split cell
+        self.cells[cell_index].time_to_merge = Some(get_current_timestamp() + merge_duration as i64);
         // Create new cells
         for direction in directions {
             let new_cell = Cell::new(
@@ -287,11 +281,11 @@ impl Player {
                 SPLIT_CELL_SPEED, // Assuming a fixed speed for new cells
                 false,            // Can move
                 Some(direction),
+                Some(get_current_timestamp() + merge_duration as i64), // set time to merge for new cells
             );
             self.cells.push(new_cell);
         }
         // Set last split time, assuming such a method exists
-        self.set_last_split();
         self.recalculate_total_mass();
         self.recalculate_ratio();
     }
@@ -493,18 +487,6 @@ impl Player {
         });
     }
 
-    pub fn merge_colliding_cells(&mut self) {
-        self.enumerate_colliding_cells(|cell_a, cell_b| {
-            if !cell_a.to_be_removed && !cell_b.to_be_removed {
-                if check_overlap(&cell_a.position, &cell_b.position) {
-                    cell_a.add_mass(cell_b.mass);
-                    cell_b.mark_for_removal();
-                }
-            }
-        });
-        self.cells.retain(|cell| !cell.to_be_removed);
-    }
-
     //loops through the players with a sort and sweep algorithm and checks for collision between them
     pub fn enumerate_colliding_cells<T>(&mut self, mut callback: T)
     where
@@ -532,22 +514,36 @@ impl Player {
         }
     }
 
-    //pushes cells when they are in contact in case the user is still split
-    pub fn push_away_colliding_cells(&mut self) {
+    pub fn handle_cells(&mut self) {
+        let current_time = get_current_timestamp();
         self.enumerate_colliding_cells(|cell_a, cell_b| {
-            let mut vector = Point {
-                x: cell_b.position.x - cell_a.position.x + 20.0,
-                y: cell_b.position.y - cell_a.position.y + 20.0,
-                radius: 0.0,
-            }
-            .normalize()
-            .scale(PUSHING_AWAY_SPEED);
+            if current_time > cell_a.time_to_merge && current_time > cell_b.time_to_merge {
+                //Merge cells
+                if !cell_a.to_be_removed && !cell_b.to_be_removed {
+                    if check_overlap(&cell_a.position, &cell_b.position) {
+                        cell_a.add_mass(cell_b.mass);
+                        cell_a.time_to_merge = None;
+                        cell_b.mark_for_removal();
+                    }
+                }
+            } else {
+                //Push away colliding cells
+                let mut vector = Point {
+                    x: cell_b.position.x - cell_a.position.x + 20.0,
+                    y: cell_b.position.y - cell_a.position.y + 20.0,
+                    radius: 0.0,
+                }
+                .normalize()
+                .scale(PUSHING_AWAY_SPEED);
 
-            cell_a.position.x -= vector.x;
-            cell_a.position.y -= vector.y;
-            cell_b.position.x += vector.x;
-            cell_b.position.y += vector.y;
+                cell_a.position.x -= vector.x;
+                cell_a.position.y -= vector.y;
+                cell_b.position.x += vector.x;
+                cell_b.position.y += vector.y;
+            }
         });
+        //Remove all cells marked for removal (merged)
+        self.cells.retain(|cell| !cell.to_be_removed);
     }
 
     pub fn move_cells(
@@ -591,16 +587,8 @@ impl Player {
             self.y = y_sum / self.cells.len() as f32;
         }
 
-        let current_time = get_current_timestamp();
-
         if self.cells.len() > 1 {
-            if let Some(time_to_merge) = self.time_to_merge {
-                if current_time > time_to_merge {
-                    self.merge_colliding_cells();
-                } else {
-                    self.push_away_colliding_cells();
-                }
-            }
+            self.handle_cells();
         }
     }
 }

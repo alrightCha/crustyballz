@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::utils::{
     consts::{Mass, MIN_DISTANCE, MIN_SPEED, SPLIT_CELL_SPEED},
-    util::{lerp_deg, lerp_move, mass_to_radius, math_log},
+    util::{lerp_deg, lerp_move, mass_to_radius, math_log, get_current_timestamp},
 };
 
 use super::point::Point;
@@ -23,6 +23,7 @@ pub struct Cell {
     can_move: bool,
     direction_shot: Option<Point>,
     pub to_be_removed: bool,
+    pub time_to_merge: Option<i64>,
 }
 
 impl Serialize for Cell {
@@ -47,6 +48,7 @@ impl Cell {
         speed: f32,
         can_move: bool,
         direction_shot: Option<Point>,
+        time_to_merge: Option<u16>
     ) -> Self {
         Self {
             position: Point {
@@ -59,6 +61,7 @@ impl Cell {
             can_move,
             direction_shot,
             to_be_removed: false,
+            time_to_merge
         }
     }
 
