@@ -8,8 +8,8 @@ use crate::utils::game_logic::adjust_for_boundaries;
 use crate::utils::id::PlayerID;
 use crate::utils::quad_tree::Rectangle;
 use crate::utils::util::{
-    check_overlap, create_random_position_in_range, get_current_timestamp, lerp,
-    mass_to_radius, total_mass_to_radius,
+    check_overlap, create_random_position_in_range, get_current_timestamp, lerp, mass_to_radius,
+    total_mass_to_radius,
 };
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
@@ -272,7 +272,6 @@ impl Player {
             }
         } else {
             let target_direction = self.calculate_target_direction(); // A method to calculate and normalize the target direction
-            debug!("we are here: {:?}", target_direction);
             directions.resize(pieces_to_create as usize, target_direction);
         }
 
@@ -402,7 +401,7 @@ impl Player {
                     self.target_y,
                     config.slow_base as f32,
                     config.get_init_mass_log(),
-                    true
+                    true,
                 );
                 adjust_for_boundaries(
                     &mut cell.position.x,
@@ -484,7 +483,6 @@ impl Player {
             self.split_cell(i, 1, default_player_mass, None);
         }
         self.recalculate_total_mass();
-        info!("player mass after split: {}", self.total_mass);
     }
 
     fn sort_by_left(&mut self) {
@@ -497,12 +495,13 @@ impl Player {
 
     pub fn merge_colliding_cells(&mut self) {
         self.enumerate_colliding_cells(|cell_a, cell_b| {
-            if check_overlap(&cell_a.position, &cell_b.position) {
-                cell_a.add_mass(cell_b.mass);
-                cell_b.mark_for_removal();
+            if !cell_a.to_be_removed && !cell_b.to_be_removed {
+                if check_overlap(&cell_a.position, &cell_b.position) {
+                    cell_a.add_mass(cell_b.mass);
+                    cell_b.mark_for_removal();
+                }
             }
         });
-
         self.cells.retain(|cell| !cell.to_be_removed);
     }
 
@@ -536,7 +535,7 @@ impl Player {
     //pushes cells when they are in contact in case the user is still split
     pub fn push_away_colliding_cells(&mut self) {
         self.enumerate_colliding_cells(|cell_a, cell_b| {
-            let vector = Point {
+            let mut vector = Point {
                 x: cell_b.position.x - cell_a.position.x + 20.0,
                 y: cell_b.position.y - cell_a.position.y + 20.0,
                 radius: 0.0,
@@ -572,7 +571,7 @@ impl Player {
                 self.target_y,
                 slow_base,
                 init_mass_log,
-                false
+                false,
             );
             adjust_for_boundaries(
                 &mut cell.position.x,
