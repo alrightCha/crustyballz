@@ -267,7 +267,7 @@ impl Player {
             let target_direction = self.calculate_target_direction(); // A method to calculate and normalize the target direction
             directions.resize(pieces_to_create as usize, target_direction);
         }
-        let merge_duration = MERGE_TIMER + (new_cells_mass as f32) / 20.0;
+        let merge_duration = MERGE_TIMER + (self.total_mass as f32) / 100.0;
         // Update the original cell mass before creating new cells
         self.cells[cell_index].set_mass(new_cells_mass);
         // Set time to merge for split cell
@@ -276,7 +276,7 @@ impl Player {
         // Create new cells
         for direction in directions {
             let time_to_merge: i64 =
-                get_current_timestamp() + (MERGE_TIMER + (new_cells_mass as f32) / 20.0) as i64;
+                get_current_timestamp() + (MERGE_TIMER + (self.total_mass as f32) / 100.0) as i64;
             let new_cell = Cell::new(
                 cell_pos_x,
                 cell_pos_y,
