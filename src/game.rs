@@ -4,11 +4,12 @@ use std::{
     time::{Duration, Instant},
 };
 
-use log::info;
+use log::{debug, info};
 use rust_socketio::asynchronous::Client;
 use socketioxide::{socket::Sid, SocketIo};
 use tokio::sync::{Mutex, RwLock};
-use tokio_timerfd::sleep;
+// use tokio_timerfd::sleep;
+use tokio::time::sleep;
 
 use crate::{
     config::{get_current_config, Config},
@@ -599,9 +600,7 @@ impl Game {
                         Some(s) => {
                             let _ = s.emit(SendEvent::RIP, ());
                         }
-                        None => {
-                            continue;
-                        }
+                        None => (), // For test..
                     };
 
                     // io emit 'playerDied' with name of who died, and who killed
@@ -620,6 +619,7 @@ impl Game {
 
                     drop(manager);
                     info!("User ids: {} {}", eaten_id, eater_id);
+                    info!("bet amount : {} {}", player_eated.bet, player_who_eat.bet);
 
                     let transfer_amount = player_eated.bet.min(player_who_eat.bet);
 
@@ -680,6 +680,7 @@ impl Game {
                     }
                     None => {}
                 }
+                debug!("player {} : mass {}, {}, {}", player.id, player.cells[0].mass, player.cells[0].position.x, player.cells[0].position.y);
             }
             drop(players_manager);
             self.remove_players(players_who_died.iter()).await;

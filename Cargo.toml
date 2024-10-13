@@ -7,7 +7,7 @@ edition = "2021"
 regex = "1"
 rand = "0.8"
 uuid = { version = "1.0", features = ["v4", "serde"] }
-tokio-timerfd = "0.2.0"
+# tokio-timerfd = "0.2.0"
 solana-sdk = "1.17"
 solana-client = "1.17"
 anyhow = "1.0"

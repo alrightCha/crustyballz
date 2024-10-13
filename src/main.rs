@@ -5,6 +5,7 @@ mod map;
 mod recv_messages;
 mod send_messages;
 mod utils;
+mod tests;
 
 use axum_server::tls_rustls::RustlsConfig;
 use clap::Parser;
@@ -112,6 +113,7 @@ pub fn get_websockets_port() -> &'static u16 {
 async fn setup_matchmaking_service(
     amount_queue: Arc<Mutex<VecDeque<AmountQueue>>>,
 ) -> Option<Client> {
+
     let url_domain = Cli::try_parse().expect("Error parsing CLI args").sub_domain;
 
     let client = ClientBuilder::new(url_domain)
