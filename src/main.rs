@@ -24,12 +24,15 @@ use dotenv::dotenv;
 use log::{error, info, warn};
 use std::net::Ipv4Addr;
 use std::str::FromStr;
+use std::time::Duration;
 use std::{net::SocketAddr, path::PathBuf};
 use tower::ServiceBuilder;
 use tower_http::compression::CompressionLayer;
 use tower_http::cors::CorsLayer;
 use utils::amount_queue::AmountQueue;
 use utils::id::PlayerID;
+use wtransport::endpoint::IncomingSession;
+use wtransport::{Endpoint, Identity, ServerConfig};
 //JSON RESP
 use serde_json::{from_value, json};
 //Server routing
@@ -170,6 +173,226 @@ async fn setup_matchmaking_service(
     Some(client)
 }
 
+async fn start_webtransport_server(game_ref: Arc<Game>) -> anyhow::Result<()> {
+    info!("webtransport test");
+    let config = ServerConfig::builder()
+        .with_bind_default(4433)
+        .with_identity(Identity::load_pemfiles("test_cert.pem", "test_key.pem").await?)
+        .keep_alive_interval(Some(Duration::from_secs(3)))
+        .build();
+
+    let server = Endpoint::server(config)?;
+
+    info!("WebTransport Server is ready at : [{}]", server.local_addr().unwrap());
+
+    for _id in 0.. {
+        let incoming_session = server.accept().await;
+        tokio::spawn(handle_connection(game_ref.clone(), incoming_session));
+    }
+
+    Ok(())
+}
+
+trait WebTransportEmit {
+    // async fn wt_bi_emit(&mut self, send_event: SendEvent, data: &str) {}
+    async fn wt_bi_emit<T: serde::Serialize>(&mut self, send_event: SendEvent, data: T) {}
+}
+
+impl WebTransportEmit for wtransport::SendStream {
+    async fn wt_bi_emit<T: serde::Serialize>(&mut self, send_event: SendEvent, data: T) {
+        // self.write_all(data.as_bytes()).await.unwrap();
+    }
+}
+
+async fn handle_connection(
+    game_ref: Arc<Game>,
+    incoming_session: IncomingSession,
+) -> anyhow::Result<()> {
+    let mut buffer = vec![0; 10000].into_boxed_slice();
+
+    info!("Waiting for session request...");
+
+    // Awaits session request
+    let session_request = incoming_session.await?;
+    // Accepts request & Awaits ready session
+    let connection = session_request.accept().await?;
+
+    info!("Waiting for data from client...");
+
+    let (mut s_send, mut s_recv) = connection.accept_bi().await?;
+
+    info!("Accepted BI stream");
+
+    let fake_id = socketioxide::socket::Sid::ZERO;
+    let player = Player::new(PlayerID::MAX, fake_id);
+    let player_ref: Arc<RwLock<Player>> = Arc::new(RwLock::new(player));
+
+    loop {
+        let is_disconnected: bool = false;
+
+        if is_disconnected {
+            let player = player_ref.read().await;
+
+            game_ref
+                .update_queue
+                .lock()
+                .await
+                .push_back(QueueMessage::KickPlayer {
+                    name: player.name.clone(),
+                    id: player.id,
+                    socket_id: player.socket_id,
+                });
+
+            break;
+        }
+
+        let bytes_read = match s_recv.read(&mut buffer).await? {
+            Some(bytes_read) => bytes_read,
+            None => continue,
+        };
+        let str_data = std::str::from_utf8(&buffer[..bytes_read])?;
+        info!("Received (bi) '{str_data}' from client");
+        s_send.write_all(b"ACK").await?;
+
+        let recv_event_number: u8 = str_data.parse().unwrap();
+        let recv_event = RecvEvent::from(recv_event_number);
+
+        match recv_event {
+            RecvEvent::LetMeIn => {
+                let data: LetMeInMessage = todo!();
+                let config = get_current_config();
+
+                if let Some(ref name) = data.name {
+                    if !valid_nick(name) {
+                        // kick_player
+                        let _ = s_send
+                            .wt_bi_emit(SendEvent::KickPlayer, "invalid username.")
+                            .await;
+                        error!("Invalid username");
+                    }
+                }
+
+                let mut player = player_ref.write().await;
+
+                player.setup(data.name, data.img_url);
+                drop(player);
+
+                let _ = s_send.wt_bi_emit(
+                    SendEvent::Welcome,
+                    WelcomeMessage {
+                        height: config.game_height,
+                        width: config.game_width,
+                        default_player_mass: config.default_player_mass,
+                        default_mass_food: config.food_mass,
+                        default_mass_mass_food: config.fire_food,
+                    },
+                );
+            }
+            RecvEvent::PlayerGotIt => {
+                let data: UserIdMessage = todo!();
+
+                game_ref.add_player(player_ref.clone()).await;
+
+                let player = player_ref.read().await;
+                let player_init_data = player.generate_init_player_data();
+
+                let _ = s_send.wt_bi_emit(SendEvent::PlayerInitData, player_init_data.clone());
+
+                let _ = game_ref.emit_broadcast(
+                    SendEvent::NotifyPlayerJoined,
+                    PlayerJoinMessage(player_init_data),
+                );
+
+                info!("Player[{:?} / {}] joined", player.name, player.id);
+                //MARK: Added newly
+                if let Some(socket_mtchmkng) = &game_ref.matchmaking_socket {
+                    if let Some(ref user_id) = data.user_id {
+                        info!("User id game received {}", user_id);
+                        let json_payload = json!({"id": user_id, "uid": player.id});
+                        let _ = socket_mtchmkng.emit("getAmount", json_payload).await;
+                    }
+                }
+            }
+            RecvEvent::Respawn => {
+                game_ref.respawn_player(player_ref.clone()).await;
+            }
+            RecvEvent::PingCheck => {
+                let _ = s_send.wt_bi_emit(SendEvent::PongCheck, get_current_timestamp_micros());
+            }
+            RecvEvent::PlayerMousePosition => {
+                let data: TargetMessage = todo!();
+                let mut player = player_ref.write().await;
+                player.target_x = data.target.x;
+                player.target_y = data.target.y;
+            }
+            RecvEvent::PlayerSendingMass => {
+                let config = get_current_config();
+                let mut player = player_ref.write().await;
+
+                if player.total_mass < config.min_cell_mass() as usize {
+                    continue;
+                }
+
+                let player_position = player.get_position_point();
+                let player_target = player.get_target_point();
+                let player_hue = player.hue;
+
+                let mut mass_food_manager = game_ref.mass_food_manager.write().await;
+                for cell in player.cells.iter_mut() {
+                    if cell.mass >= config.min_cell_mass() {
+                        cell.remove_mass(config.fire_food);
+                        let mass_food_init_data = mass_food_manager.add_new(
+                            &player_position,
+                            &player_target,
+                            &cell.position,
+                            player_hue,
+                            config.fire_food,
+                        );
+
+                        let _ = game_ref.emit_broadcast(
+                            SendEvent::MassFoodAdded,
+                            MassFoodAddedMessage(mass_food_init_data),
+                        );
+                    }
+                }
+            }
+            RecvEvent::Teleport => {
+                let points = game_ref
+                    .player_manager
+                    .read()
+                    .await
+                    .collect_and_clone_all_pos()
+                    .await;
+                let spawn_point = game_ref.create_player_spawn_point(points);
+
+                {
+                    let mut player = player_ref.write().await;
+                    player.teleport(&spawn_point);
+                }
+            }
+            RecvEvent::PlayerSplit => {
+                let config = get_current_config();
+
+                {
+                    let mut player = player_ref.write().await;
+                    player.user_split(config.limit_split as usize, config.split_min_mass);
+                }
+
+                let _ = s_send.wt_bi_emit(SendEvent::NotifyPlayerSplit, ());
+            }
+            RecvEvent::PlayerChat => {
+                let data: ChatMessage = todo!();
+
+                let _ = game_ref
+                    .emit_broadcast(SendEvent::PlayerMessage, data);
+            }
+            _ => {}
+        }
+    }
+
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _ = dotenv().unwrap();
@@ -198,191 +421,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     let game_cloned = game.clone();
+
+    tokio::spawn(start_webtransport_server(game_cloned.clone()));
+
     info!("Game started! Waiting for players");
-
-    io_socket.ns("/", |s: SocketRef| {
-        info!("Socket connected: {}", s.id);
-
-        let main_room: &'static str = "main"; //main room that holds all the users
-        let _ = s.leave_all();
-        let _ = s.join(main_room);
-
-        // create a player with a id place holder
-        let player = Player::new(PlayerID::MAX, s.id);
-
-        let player_ref: Arc<RwLock<Player>> = Arc::new(RwLock::new(player));
-        let game_ref = game_cloned;
-
-        let player_ref_cloned = player_ref.clone();
-        s.on(
-            RecvEvent::LetMeIn,
-            |socket: SocketRef, Data::<LetMeInMessage>(data)| async move {
-                let config = get_current_config();
-
-                if let Some(ref name) = data.name {
-                    if !valid_nick(name) {
-                        // kick_player
-                        let _ = socket.emit(SendEvent::KickPlayer, "invalid username.");
-                        error!("Invalid username");
-                    }
-                }
-
-                let mut player = player_ref_cloned.write().await;
-
-                player.setup(data.name, data.img_url);
-                drop(player);
-
-                let _ = socket.emit(
-                    SendEvent::Welcome,
-                    WelcomeMessage {
-                        height: config.game_height,
-                        width: config.game_width,
-                        default_player_mass: config.default_player_mass,
-                        default_mass_food: config.food_mass,
-                        default_mass_mass_food: config.fire_food,
-                    },
-                );
-            },
-        );
-
-        let player_ref_cloned = player_ref.clone();
-        let game_ref_cloned = game_ref.clone();
-
-        s.on(
-            RecvEvent::PlayerGotIt,
-            |socket: SocketRef, Data::<UserIdMessage>(data)| async move {
-                //
-                game_ref_cloned.add_player(player_ref_cloned.clone()).await;
-
-                let player = player_ref_cloned.read().await;
-                let player_init_data = player.generate_init_player_data();
-
-                let _ = socket.emit(SendEvent::PlayerInitData, player_init_data.clone());
-
-                let _ = game_ref_cloned.io_socket.emit(
-                    SendEvent::NotifyPlayerJoined,
-                    PlayerJoinMessage(player_init_data),
-                );
-
-                info!("Player[{:?} / {}] joined", player.name, player.id);
-                //MARK: Added newly
-                if let Some(socket_mtchmkng) = &game_ref_cloned.matchmaking_socket {
-                    if let Some(ref user_id) = data.user_id {
-                        info!("User id game received {}", user_id);
-                        let json_payload = json!({"id": user_id, "uid": player.id});
-                        let _ = socket_mtchmkng.emit("getAmount", json_payload).await;
-                    }
-                }
-            },
-        );
-
-        let player_ref_cloned = player_ref.clone();
-        let game_ref_cloned = game_ref.clone();
-
-        s.on(RecvEvent::Respawn, |_: SocketRef| async move {
-            game_ref_cloned.respawn_player(player_ref_cloned).await;
-        });
-
-        s.on(RecvEvent::PingCheck, |socket: SocketRef| {
-            let _ = socket.emit(SendEvent::PongCheck, get_current_timestamp_micros());
-        });
-
-        let new_player_clone = player_ref.clone();
-        s.on(
-            RecvEvent::PlayerMousePosition,
-            |_socket: SocketRef, Data::<TargetMessage>(data)| async move {
-                let mut player = new_player_clone.write().await;
-                player.target_x = data.target.x;
-                player.target_y = data.target.y;
-            },
-        );
-
-        let game_ref_cloned = game_ref.clone();
-        let new_player_clone = player_ref.clone();
-        s.on(
-            RecvEvent::PlayerSendingMass,
-            |_socket: SocketRef| async move {
-                let config = get_current_config();
-                let mut player = new_player_clone.write().await;
-
-                if player.total_mass < config.min_cell_mass() as usize {
-                    return ();
-                }
-
-                let player_position = player.get_position_point();
-                let player_target = player.get_target_point();
-                let player_hue = player.hue;
-
-                let mut mass_food_manager = game_ref_cloned.mass_food_manager.write().await;
-                for cell in player.cells.iter_mut() {
-                    if cell.mass >= config.min_cell_mass() {
-                        cell.remove_mass(config.fire_food);
-                        let mass_food_init_data = mass_food_manager.add_new(
-                            &player_position,
-                            &player_target,
-                            &cell.position,
-                            player_hue,
-                            config.fire_food,
-                        );
-
-                        let _ = game_ref_cloned.io_socket.emit(
-                            SendEvent::MassFoodAdded,
-                            MassFoodAddedMessage(mass_food_init_data),
-                        );
-                    }
-                }
-            },
-        );
-
-        let teleport_player_clone = player_ref.clone();
-        s.on(RecvEvent::Teleport, |_socket: SocketRef| async move {
-            let points = game
-                .player_manager
-                .read()
-                .await
-                .collect_and_clone_all_pos()
-                .await;
-            let spawn_point = game.create_player_spawn_point(points);
-            let mut player = teleport_player_clone.write().await;
-            player.teleport(&spawn_point);
-        });
-
-        let new_player_clone = player_ref.clone();
-        s.on(RecvEvent::PlayerSplit, |socket: SocketRef| async move {
-            let config = get_current_config();
-            let mut player = new_player_clone.write().await;
-
-            player.user_split(config.limit_split as usize, config.split_min_mass);
-            let _ = socket.emit(SendEvent::NotifyPlayerSplit, ());
-        });
-
-        let game_ref_cloned = game_ref.clone();
-        s.on(
-            RecvEvent::PlayerChat,
-            move |_: SocketRef, Data::<ChatMessage>(data)| {
-                let _ = game_ref_cloned
-                    .io_socket
-                    .within(&*main_room)
-                    .emit(SendEvent::PlayerMessage, data);
-            },
-        );
-
-        let new_player_clone = player_ref.clone();
-        let game_ref_cloned = game_ref.clone();
-        s.on_disconnect(|| async move {
-            let player = new_player_clone.read().await;
-
-            game_ref_cloned
-                .update_queue
-                .lock()
-                .await
-                .push_back(QueueMessage::KickPlayer {
-                    name: player.name.clone(),
-                    id: player.id,
-                    socket_id: player.socket_id,
-                })
-        });
-    });
 
     let compression_layer: CompressionLayer = CompressionLayer::new().deflate(true);
 

@@ -3,6 +3,7 @@ use std::{borrow::Cow, fmt::Display};
 use rust_socketio::Event;
 use serde::{Deserialize, Serialize};
 
+#[derive(PartialEq, PartialOrd, Debug)]
 pub enum RecvEvent {
     Respawn,
     PingCheck,
@@ -13,6 +14,12 @@ pub enum RecvEvent {
     PlayerGotIt,
     LetMeIn,
     Teleport
+}
+
+impl From<u8> for RecvEvent {
+    fn from(value: u8) -> Self {
+        unsafe { std::mem::transmute::<_, RecvEvent>(value) }
+    }
 }
 
 impl Display for RecvEvent {
@@ -28,6 +35,12 @@ impl Display for RecvEvent {
             RecvEvent::PlayerGotIt => "gotit",
             RecvEvent::Teleport => "3"
         })
+    }
+}
+
+impl Into<String> for RecvEvent {
+    fn into(self) -> String {
+        self.to_string()
     }
 }
 

@@ -8,8 +8,6 @@ regex = "1"
 rand = "0.8"
 uuid = { version = "1.0", features = ["v4", "serde"] }
 tokio-timerfd = "0.2.0"
-solana-sdk = "1.17"
-solana-client = "1.17"
 anyhow = "1.0"
 tokio = { version = "1", features = ["full"] }
 socketioxide = "0.13.1"
@@ -34,6 +32,7 @@ clap = { version = "4.5.7", features = ["derive"] }
 rust_socketio = { version = "*", features = ["async"] }
 native-tls = "0.2.12"
 tokio-tungstenite = { version = "0.17", features = ["native-tls"] }
+wtransport = "0.4.0"
 
 # Enable a small amount of optimization in debug mode
 [profile.dev]
