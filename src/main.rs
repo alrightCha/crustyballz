@@ -5,14 +5,16 @@ mod map;
 mod recv_messages;
 mod send_messages;
 mod utils;
+mod player_connection;
 
 use axum_server::tls_rustls::RustlsConfig;
 use clap::Parser;
+use player_connection::PlayerConnection;
 use config::get_current_config;
 use game::Game;
 use map::player::Player;
 use recv_messages::{
-    AmountMessage, ChatMessage, LetMeInMessage, RecvEvent, TargetMessage, UserIdMessage,
+    AmountMessage, AnyEventPacket, ChatMessage, LetMeInMessage, RecvEvent, TargetMessage, UserIdMessage
 };
 use rust_socketio::asynchronous::{Client, ClientBuilder};
 use rust_socketio::Payload;
@@ -208,7 +210,7 @@ async fn handle_connection(
     game_ref: Arc<Game>,
     incoming_session: IncomingSession,
 ) -> anyhow::Result<()> {
-    let mut buffer = vec![0; 10000].into_boxed_slice();
+    let mut buffer: Vec<u8> = Vec::new();
 
     info!("Waiting for session request...");
 
@@ -221,13 +223,16 @@ async fn handle_connection(
 
     let (mut s_send, mut s_recv) = connection.accept_bi().await?;
 
+    let player_connection = PlayerConnection::new(connection.clone(), Mutex::new(s_send));
+    let player_connection = Arc::new(player_connection);
+
     info!("Accepted BI stream");
 
-    let fake_id = socketioxide::socket::Sid::ZERO;
-    let player = Player::new(PlayerID::MAX, fake_id);
+    let player = Player::new(PlayerID::MAX);
     let player_ref: Arc<RwLock<Player>> = Arc::new(RwLock::new(player));
 
     loop {
+        buffer.clear();
         let is_disconnected: bool = false;
 
         if is_disconnected {
@@ -239,8 +244,7 @@ async fn handle_connection(
                 .await
                 .push_back(QueueMessage::KickPlayer {
                     name: player.name.clone(),
-                    id: player.id,
-                    socket_id: player.socket_id,
+                    id: player.id
                 });
 
             break;
@@ -250,23 +254,38 @@ async fn handle_connection(
             Some(bytes_read) => bytes_read,
             None => continue,
         };
-        let str_data = std::str::from_utf8(&buffer[..bytes_read])?;
-        info!("Received (bi) '{str_data}' from client");
-        s_send.write_all(b"ACK").await?;
 
-        let recv_event_number: u8 = str_data.parse().unwrap();
+        let packet: AnyEventPacket = match serde_json::from_slice(&buffer[..bytes_read]) {
+            Ok(packet) => packet,
+            Err(err) => {
+                error!("Error recving event packet: {:?}", err);
+                continue;
+            },
+        };
+
+        let recv_event_number: u8 = packet.event.parse().unwrap();
         let recv_event = RecvEvent::from(recv_event_number);
 
         match recv_event {
             RecvEvent::LetMeIn => {
-                let data: LetMeInMessage = todo!();
+                if packet.value.is_none(){
+                    continue;
+                }
+
+                let data: LetMeInMessage = match serde_json::from_value(packet.value.unwrap()) {
+                    Ok(d) => d,
+                    Err(err) => {
+                        error!("Error parsing packet [LetMeInMessage]: {:?}", err);
+                        continue;
+                    },
+                };
+
                 let config = get_current_config();
 
                 if let Some(ref name) = data.name {
                     if !valid_nick(name) {
                         // kick_player
-                        let _ = s_send
-                            .wt_bi_emit(SendEvent::KickPlayer, "invalid username.")
+                        let _ = player_connection.emit_bi(SendEvent::KickPlayer, "invalid username.")
                             .await;
                         error!("Invalid username");
                     }
@@ -277,7 +296,7 @@ async fn handle_connection(
                 player.setup(data.name, data.img_url);
                 drop(player);
 
-                let _ = s_send.wt_bi_emit(
+                let _ = player_connection.emit_bi(
                     SendEvent::Welcome,
                     WelcomeMessage {
                         height: config.game_height,
@@ -289,16 +308,26 @@ async fn handle_connection(
                 );
             }
             RecvEvent::PlayerGotIt => {
-                let data: UserIdMessage = todo!();
+                if packet.value.is_none(){
+                    continue;
+                }
+
+                let data: UserIdMessage = match serde_json::from_value(packet.value.unwrap()) {
+                    Ok(d) => d,
+                    Err(err) => {
+                        error!("Error parsing packet [UserIdMessage]: {:?}", err);
+                        continue;
+                    },
+                };
 
                 game_ref.add_player(player_ref.clone()).await;
 
                 let player = player_ref.read().await;
                 let player_init_data = player.generate_init_player_data();
 
-                let _ = s_send.wt_bi_emit(SendEvent::PlayerInitData, player_init_data.clone());
+                let _ = player_connection.emit_bi(SendEvent::PlayerInitData, player_init_data.clone());
 
-                let _ = game_ref.emit_broadcast(
+                let _ = game_ref.emit_bi_broadcast(
                     SendEvent::NotifyPlayerJoined,
                     PlayerJoinMessage(player_init_data),
                 );
@@ -317,10 +346,21 @@ async fn handle_connection(
                 game_ref.respawn_player(player_ref.clone()).await;
             }
             RecvEvent::PingCheck => {
-                let _ = s_send.wt_bi_emit(SendEvent::PongCheck, get_current_timestamp_micros());
+                let _ = player_connection.emit_bi(SendEvent::PongCheck, get_current_timestamp_micros());
             }
             RecvEvent::PlayerMousePosition => {
-                let data: TargetMessage = todo!();
+                if packet.value.is_none(){
+                    continue;
+                }
+
+                let data: TargetMessage = match serde_json::from_value(packet.value.unwrap()) {
+                    Ok(d) => d,
+                    Err(err) => {
+                        error!("Error parsing packet [TargetMessage]: {:?}", err);
+                        continue;
+                    },
+                };
+
                 let mut player = player_ref.write().await;
                 player.target_x = data.target.x;
                 player.target_y = data.target.y;
@@ -349,7 +389,7 @@ async fn handle_connection(
                             config.fire_food,
                         );
 
-                        let _ = game_ref.emit_broadcast(
+                        let _ = game_ref.emit_bi_broadcast(
                             SendEvent::MassFoodAdded,
                             MassFoodAddedMessage(mass_food_init_data),
                         );
@@ -378,13 +418,23 @@ async fn handle_connection(
                     player.user_split(config.limit_split as usize, config.split_min_mass);
                 }
 
-                let _ = s_send.wt_bi_emit(SendEvent::NotifyPlayerSplit, ());
+                let _ = player_connection.emit_bi(SendEvent::NotifyPlayerSplit, ());
             }
             RecvEvent::PlayerChat => {
-                let data: ChatMessage = todo!();
+                if packet.value.is_none(){
+                    continue;
+                }
+
+                let data: ChatMessage = match serde_json::from_value(packet.value.unwrap()) {
+                    Ok(d) => d,
+                    Err(err) => {
+                        error!("Error parsing packet [ChatMessage]: {:?}", err);
+                        continue;
+                    },
+                };
 
                 let _ = game_ref
-                    .emit_broadcast(SendEvent::PlayerMessage, data);
+                    .emit_bi_broadcast(SendEvent::PlayerMessage, data);
             }
             _ => {}
         }

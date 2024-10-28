@@ -3,6 +3,8 @@ use std::{borrow::Cow, fmt::Display};
 use rust_socketio::Event;
 use serde::{Deserialize, Serialize};
 
+use crate::send_messages::SendEvent;
+
 #[derive(PartialEq, PartialOrd, Debug)]
 pub enum RecvEvent {
     Respawn,
@@ -56,6 +58,25 @@ impl Into<Event> for RecvEvent {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AnyEventPacket {
+    pub event: String,
+    pub value: Option<serde_json::Value>
+}
+
+impl AnyEventPacket {
+    pub fn new<T: serde::Serialize>(send_event: SendEvent, data: T) -> AnyEventPacket {
+        AnyEventPacket {
+            event: send_event.to_string(),
+            value: Some(serde_json::to_value(data).unwrap())
+        }
+    }
+
+    pub fn to_buffer(&self) -> Vec<u8> {
+        serde_json::to_vec(&self).unwrap()
+    }
+}
+
 #[derive(Deserialize)]
 pub struct TargetMessage {
     pub target: Target,
@@ -84,7 +105,7 @@ pub struct UsernameMessage {
     pub name: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ChatMessage {
     message: String,
     sender: String,

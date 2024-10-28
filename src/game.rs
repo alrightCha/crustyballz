@@ -4,6 +4,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use futures_util::future::join_all;
 use log::info;
 use rust_socketio::asynchronous::Client;
 use socketioxide::{socket::Sid, SocketIo};
@@ -12,26 +13,21 @@ use tokio_timerfd::sleep;
 use wtransport::SendStream;
 
 use crate::{
-    config::{get_current_config, Config},
-    get_websockets_port,
-    managers::{
+    player_connection::PlayerConnection, config::{get_current_config, Config}, get_websockets_port, managers::{
         amount_manager::AmountManager, food_manager::FoodManager,
         mass_food_manager::MassFoodManager, player_manager::PlayerManager,
         virus_manager::VirusManager,
-    },
-    map::{
+    }, map::{
         food::Food,
         mass_food::MassFood,
         player::{Player, PlayerUpdateData},
         point::{AsPoint, Point},
         virus::{Virus, VirusData},
-    },
-    send_messages::{
+    }, recv_messages::AnyEventPacket, send_messages::{
         AllInitData, FoodAddedMessage, GameUpdateData, KickMessage, KickedMessage, KillMessage,
         LeaderboardMessage, PlayerRespawnedMessage, RespawnedMessage, SendEvent, TransferInfo,
         VirusAddedMessage,
-    },
-    utils::{
+    }, utils::{
         amount_queue::AmountQueue,
         consts::{Mass, TotalMass},
         id::{FoodID, MassFoodID, PlayerID, VirusID},
@@ -42,7 +38,7 @@ use crate::{
             get_current_timestamp, is_visible_entity, mass_to_radius, random_in_range,
             uniform_position,
         },
-    }, WebTransportEmit,
+    }, WebTransportEmit
 };
 
 //Used to return to the player what is visible on his screen
@@ -64,10 +60,10 @@ pub struct Game {
     pub mass_food_manager: RwLock<MassFoodManager>,
     pub player_manager: RwLock<PlayerManager>,
     pub main_room: String,
-    // pub io_socket: SocketIo,
     pub matchmaking_socket: Option<Client>,
     pub update_queue: Mutex<VecDeque<QueueMessage>>,
     pub amount_queue: Arc<Mutex<VecDeque<AmountQueue>>>,
+    pub connections: RwLock<HashMap<PlayerID, Arc<PlayerConnection>>>,
 }
 
 impl Game {
@@ -100,16 +96,37 @@ impl Game {
             // io_socket,
             matchmaking_socket,
             amount_queue: amount_queue,
+            connections: RwLock::new(HashMap::new()),
         }
     }
 
-    fn get_player_stream(&self, player_stream_id: Sid) -> Option<SendStream> {
-        // TODO
-        None
+    async fn get_player_stream(&self, player_id: PlayerID) -> Option<Arc<PlayerConnection>> {
+        match self.connections.read().await.get(&player_id) {
+            Some(player_connection) => Some(player_connection.clone()),
+            None => None,
+        }
     }
 
-    pub async fn emit_broadcast<T: serde::Serialize>(&self, send_event: SendEvent, data: T) {
+    pub async fn emit_bi_broadcast<T: serde::Serialize + Clone>(
+        &self,
+        send_event: SendEvent,
+        data: T,
+    ) {
+        let buffer = Arc::new(AnyEventPacket::new(send_event, data).to_buffer());
 
+        let tasks: Vec<_> = self
+            .connections
+            .read()
+            .await
+            .values()
+            .cloned()
+            .map(|p| {
+                let buffer = buffer.clone();
+                async move { p.emit_bi_buffer(&buffer).await }
+            })
+            .collect();
+
+        join_all(tasks).await;
     }
 
     pub async fn add_player(&self, player: Arc<RwLock<Player>>) {
@@ -161,45 +178,50 @@ impl Game {
         player.reset(&spawn_point, get_current_config().default_player_mass);
 
         // send init data
-        if let Some(mut player_send_stream) = self.get_player_stream(player.socket_id) {
-            let _ = player_send_stream.wt_bi_emit(
-                SendEvent::AllInitData,
-                AllInitData {
-                    players: players_init_data,
-                    virus: virus_init_data,
-                    mass_foods: mass_food_init_data,
-                    foods: foods_init_data,
-                },
-            );
+        if let Some(player_connection) = self.get_player_stream(player.id).await {
+            let _ = player_connection
+                .emit_bi(
+                    SendEvent::AllInitData,
+                    AllInitData {
+                        players: players_init_data,
+                        virus: virus_init_data,
+                        mass_foods: mass_food_init_data,
+                        foods: foods_init_data,
+                    },
+                )
+                .await;
 
-            let _ = player_send_stream.wt_bi_emit(SendEvent::Respawned, RespawnedMessage(spawn_point));
+            let _ = player_connection
+                .emit_bi(SendEvent::Respawned, RespawnedMessage(spawn_point))
+                .await;
         }
 
-        self.emit_broadcast(SendEvent::NotifyPlayerRespawn, PlayerRespawnedMessage(player.id)).await;
+        self.emit_bi_broadcast(
+            SendEvent::NotifyPlayerRespawn,
+            PlayerRespawnedMessage(player.id),
+        )
+        .await;
         // let _ = self.io_socket.within("main").emit(
         //     SendEvent::NotifyPlayerRespawn,
         //     PlayerRespawnedMessage(player.id),
         // );
     }
 
-    async fn kick_player(
-        &self,
-        player_name: Option<String>,
-        player_id: PlayerID,
-        player_socket_id: Sid,
-    ) {
+    async fn kick_player(&self, player_name: Option<String>, player_id: PlayerID) {
         info!("Kicking player {} - {:?}", player_id, player_name);
-        let _ = self.emit_broadcast(
-            SendEvent::KickPlayer,
-            KickMessage {
-                id: player_id,
-                name: player_name.clone(),
-            },
-        );
+        let _ = self
+            .emit_bi_broadcast(
+                SendEvent::KickPlayer,
+                KickMessage {
+                    id: player_id,
+                    name: player_name.clone(),
+                },
+            )
+            .await;
 
         if let Some(ref match_making_socket) = self.matchmaking_socket {
             let kicked_message = KickedMessage {
-                socket_id: player_socket_id,
+                player_id: player_id,
                 port: self.port,
             };
             let _ = match_making_socket
@@ -223,7 +245,6 @@ impl Game {
                 .push_back(QueueMessage::KickPlayer {
                     name: player.name.clone(),
                     id: player.id,
-                    socket_id: player.socket_id,
                 });
             return None;
         }
@@ -301,9 +322,11 @@ impl Game {
             .await;
 
         if cells_to_split.len() > 0 {
-            match self.get_player_stream(player.socket_id) {
-                Some(mut player_socket) => {
-                    let _ = player_socket.wt_bi_emit(SendEvent::NotifyPlayerSplit, ()).await;
+            match self.get_player_stream(player.id).await {
+                Some(player_connection) => {
+                    let _ = player_connection
+                        .emit_bi(SendEvent::NotifyPlayerSplit, ())
+                        .await;
                 }
                 None => {}
             };
@@ -407,8 +430,8 @@ impl Game {
 
         if players_manager.players.len() > 0 {
             let leaderboard = players_manager.get_top_players().await;
-            let _ = self
-                .emit_broadcast(SendEvent::Leaderboard, LeaderboardMessage { leaderboard });
+            let _ =
+                self.emit_bi_broadcast(SendEvent::Leaderboard, LeaderboardMessage { leaderboard });
             players_manager
                 .shrink_cells(
                     config.mass_loss_rate,
@@ -463,10 +486,12 @@ impl Game {
 
         let mut manager = self.amount_manager.lock().await;
         for message in messages {
-            if let AmountQueue::AddAmount { id, amount, uid } = message {
-                let players_manager = self.player_manager.write().await;
-                players_manager.set_bet(uid, amount).await;
-                manager.set_user_id(uid, id);
+            match message {
+                AmountQueue::AddAmount { id, amount, uid } => {
+                    let players_manager = self.player_manager.write().await;
+                    players_manager.set_bet(uid, amount).await;
+                    manager.set_user_id(uid, id);
+                }
             }
         }
     }
@@ -476,12 +501,8 @@ impl Game {
         loop {
             match queue.pop_front() {
                 Some(message) => match message {
-                    QueueMessage::KickPlayer {
-                        name,
-                        id,
-                        socket_id,
-                    } => {
-                        self.kick_player(name, id, socket_id).await;
+                    QueueMessage::KickPlayer { name, id } => {
+                        self.kick_player(name, id).await;
                     }
                 },
                 None => {
@@ -556,12 +577,14 @@ impl Game {
                 }
 
                 if !new_viruses.is_empty() {
-                    let _ = self.emit_broadcast(
-                        SendEvent::VirusAdded,
-                        VirusAddedMessage {
-                            viruses: new_viruses,
-                        },
-                    );
+                    let _ = self
+                        .emit_bi_broadcast(
+                            SendEvent::VirusAdded,
+                            VirusAddedMessage {
+                                viruses: new_viruses,
+                            },
+                        )
+                        .await;
                 }
             }
 
@@ -605,9 +628,11 @@ impl Game {
                 // check if player died
                 if player_eated.player_is_dead() {
                     // player eated socket emit 'RIP'
-                    match self.get_player_stream(player_eated.socket_id) {
-                        Some(mut s) => {
-                            let _ = s.wt_bi_emit(SendEvent::RIP, ());
+                    match self.get_player_stream(player_eated.id).await {
+                        Some(player_eated_connection) => {
+                            let _ = player_eated_connection
+                                .emit_bi(SendEvent::RIP, ())
+                                .await;
                         }
                         None => {
                             continue;
@@ -615,13 +640,15 @@ impl Game {
                     };
 
                     // io emit 'playerDied' with name of who died, and who killed
-                    let _ = self.emit_broadcast(
-                        SendEvent::PlayerDied,
-                        KillMessage {
-                            killed: player_eated.id,
-                            eater: player_who_eat.id,
-                        },
-                    );
+                    let _ = self
+                        .emit_bi_broadcast(
+                            SendEvent::PlayerDied,
+                            KillMessage {
+                                killed: player_eated.id,
+                                eater: player_who_eat.id,
+                            },
+                        )
+                        .await;
 
                     let manager = self.amount_manager.lock().await;
 
@@ -704,7 +731,9 @@ impl Game {
                 removed_virus,
             };
 
-            let _ = self.emit_broadcast(SendEvent::GameUpdate, game_data);
+            let _ = self
+                .emit_bi_broadcast(SendEvent::GameUpdate, game_data)
+                .await;
 
             // let elapsed_sent_game_update = instant.elapsed() - start;
 
@@ -762,7 +791,7 @@ impl Game {
         if food_to_add > 0 {
             let new_foods_data = self.food_manager.create_many_foods(food_to_add).await;
 
-            let _ = self.emit_broadcast(
+            let _ = self.emit_bi_broadcast(
                 SendEvent::FoodsAdded,
                 FoodAddedMessage {
                     foods: new_foods_data,
@@ -778,12 +807,14 @@ impl Game {
         if viruses_to_add > 0 {
             let new_virus_data = virus_manager.create_many_virus(viruses_to_add);
 
-            let _ = self.emit_broadcast(
-                SendEvent::VirusAdded,
-                VirusAddedMessage {
-                    viruses: new_virus_data,
-                },
-            );
+            let _ = self
+                .emit_bi_broadcast(
+                    SendEvent::VirusAdded,
+                    VirusAddedMessage {
+                        viruses: new_virus_data,
+                    },
+                )
+                .await;
         }
     }
 

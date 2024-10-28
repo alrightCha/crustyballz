@@ -19,6 +19,7 @@ use crate::{
     },
 };
 
+#[derive(Clone)]
 pub enum SendEvent {
     Welcome,
     PlayerInitData,
@@ -87,7 +88,7 @@ pub struct AllInitData {
     pub foods: Vec<FoodData>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct GameUpdateData {
     pub players: Vec<PlayerUpdateData>,
     pub virus: Vec<VirusData>,
@@ -97,14 +98,14 @@ pub struct GameUpdateData {
     pub removed_virus: Vec<VirusID>
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct KickMessage {
     pub name: Option<String>,
     pub id: PlayerID,
 }
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct KickedMessage {
-    pub socket_id: Sid,
+    pub player_id: PlayerID,
     pub port: u16,
 }
 
@@ -125,25 +126,25 @@ impl Into<Message> for KickedMessage {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct LeaderboardMessage {
     pub leaderboard: Vec<LeaderboardPlayer>
 }
 
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct LeaderboardPlayer {
     pub id: PlayerID,
     pub mass: TotalMass,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct KillMessage {
     pub killed: PlayerID,
     pub eater: PlayerID,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct WelcomeMessage {
     pub width: u32,
     pub height: u32,
@@ -152,7 +153,7 @@ pub struct WelcomeMessage {
     pub default_mass_mass_food: Mass
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct TransferInfo{
     pub id: i64,
     pub amount: u64,
@@ -177,24 +178,24 @@ impl Into<Message> for TransferInfo {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct PlayerJoinMessage(pub PlayerInitData);
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct PlayerRespawnedMessage(pub PlayerID);
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct RespawnedMessage(pub Point);
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct MassFoodAddedMessage(pub MassFoodInitData);
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct VirusAddedMessage {
     pub viruses: Vec<VirusData>
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct FoodAddedMessage {
     pub foods: Vec<FoodData>,
 }

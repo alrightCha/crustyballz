@@ -5,14 +5,14 @@ use crate::utils::id::MassFoodID;
 use crate::utils::util::{are_colliding, mass_to_radius};
 use serde::Serialize;
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct MassFoodUpdateData {
     pub id: MassFoodID,
     pub x: f32,
     pub y: f32,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct MassFoodInitData {
     pub id: MassFoodID,
     pub hue: u16,

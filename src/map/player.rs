@@ -35,10 +35,9 @@ pub struct PlayerInitData {
     pub name: Option<String>,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone)]
 pub struct Player {
     pub id: PlayerID,
-    pub socket_id: Sid,
     pub hue: u16,
     pub name: Option<String>,
     admin: bool,
@@ -61,10 +60,9 @@ pub struct Player {
 }
 
 impl Player {
-    pub fn new(player_id: PlayerID, socket_id: Sid) -> Self {
+    pub fn new(player_id: PlayerID) -> Self {
         Self {
             id: player_id,
-            socket_id: socket_id,
             hue: rand::random::<u16>() % 360,
             name: None,
             admin: false,
