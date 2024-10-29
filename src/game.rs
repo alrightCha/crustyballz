@@ -137,6 +137,8 @@ impl Game {
             p_connection.emit_bi_buffer(&buffer).await;
         }
 
+        // TODO : Change this function, to use join_all
+        
         // let tasks: Vec<_> = connections
         //     .values()
         //     .cloned()
