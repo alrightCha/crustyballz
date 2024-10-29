@@ -63,11 +63,13 @@ impl PlayerManager {
         true
     }
 
-    pub async fn insert_with_new_id(&mut self, player: Arc<RwLock<Player>>) {
+    pub async fn insert_with_new_id(&mut self, player: Arc<RwLock<Player>>) -> PlayerID {
         let player_id = self.get_new_id();
         player.write().await.id = player_id;
         // TODO: check limit
         self.players.insert(player_id, player);
+        
+        player_id
     }
 
     // fn async find_index_by_id(&self, id: PlayerID) -> Option<usize> {

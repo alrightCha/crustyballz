@@ -1,5 +1,6 @@
 use std::{borrow::Cow, fmt::Display};
 
+use log::error;
 use rust_socketio::Event;
 use serde::{Deserialize, Serialize};
 
@@ -15,12 +16,31 @@ pub enum RecvEvent {
     PlayerChat,
     PlayerGotIt,
     LetMeIn,
-    Teleport
+    Teleport,
 }
 
 impl From<u8> for RecvEvent {
     fn from(value: u8) -> Self {
         unsafe { std::mem::transmute::<_, RecvEvent>(value) }
+    }
+}
+impl From<String> for RecvEvent {
+    fn from(value: String) -> Self {
+        match value.as_str() {
+            "respawn" => RecvEvent::Respawn,
+            "pingcheck" => RecvEvent::PingCheck,
+            "let_me_in" => RecvEvent::LetMeIn,
+            "0" => RecvEvent::PlayerMousePosition,
+            "1" => RecvEvent::PlayerSendingMass,
+            "2" => RecvEvent::PlayerSplit,
+            "playerChat" => RecvEvent::PlayerChat,
+            "gotit" => RecvEvent::PlayerGotIt,
+            "3" => RecvEvent::Teleport,
+            event => {
+                error!("RecvEvent not implement from string for: {}", event);
+                todo!()
+            }
+        }
     }
 }
 
@@ -35,7 +55,7 @@ impl Display for RecvEvent {
             RecvEvent::PlayerSplit => "2",
             RecvEvent::PlayerChat => "playerChat",
             RecvEvent::PlayerGotIt => "gotit",
-            RecvEvent::Teleport => "3"
+            RecvEvent::Teleport => "3",
         })
     }
 }
@@ -61,19 +81,21 @@ impl Into<Event> for RecvEvent {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AnyEventPacket {
     pub event: String,
-    pub value: Option<serde_json::Value>
+    pub value: Option<serde_json::Value>,
 }
 
 impl AnyEventPacket {
     pub fn new<T: serde::Serialize>(send_event: SendEvent, data: T) -> AnyEventPacket {
         AnyEventPacket {
             event: send_event.to_string(),
-            value: Some(serde_json::to_value(data).unwrap())
+            value: Some(serde_json::to_value(data).unwrap()),
         }
     }
 
     pub fn to_buffer(&self) -> Vec<u8> {
-        serde_json::to_vec(&self).unwrap()
+        let mut packet_buffer = serde_json::to_vec(&self).unwrap();
+        packet_buffer.extend_from_slice("\n\n\n".as_bytes());
+        packet_buffer
     }
 }
 
@@ -90,14 +112,14 @@ pub struct Target {
 
 #[derive(Deserialize)]
 pub struct UserIdMessage {
-    pub user_id: Option<String>
+    pub user_id: Option<String>,
 }
 
 #[derive(Deserialize)]
 pub struct LetMeInMessage {
     pub name: Option<String>,
     pub img_url: Option<String>,
-    pub user_id: Option<String>
+    pub user_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -111,11 +133,10 @@ pub struct ChatMessage {
     sender: String,
 }
 
-
 #[derive(Debug, Deserialize, Serialize)]
 pub struct AmountMessage {
     pub address: String,
     pub amount: u64,
     pub id: i64,
-    pub uid: u8
+    pub uid: u8,
 }

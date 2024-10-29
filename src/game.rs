@@ -13,21 +13,28 @@ use tokio_timerfd::sleep;
 use wtransport::SendStream;
 
 use crate::{
-    player_connection::PlayerConnection, config::{get_current_config, Config}, get_websockets_port, managers::{
+    config::{get_current_config, Config},
+    get_websockets_port,
+    managers::{
         amount_manager::AmountManager, food_manager::FoodManager,
         mass_food_manager::MassFoodManager, player_manager::PlayerManager,
         virus_manager::VirusManager,
-    }, map::{
+    },
+    map::{
         food::Food,
         mass_food::MassFood,
         player::{Player, PlayerUpdateData},
         point::{AsPoint, Point},
         virus::{Virus, VirusData},
-    }, recv_messages::AnyEventPacket, send_messages::{
+    },
+    player_connection::PlayerConnection,
+    recv_messages::AnyEventPacket,
+    send_messages::{
         AllInitData, FoodAddedMessage, GameUpdateData, KickMessage, KickedMessage, KillMessage,
         LeaderboardMessage, PlayerRespawnedMessage, RespawnedMessage, SendEvent, TransferInfo,
         VirusAddedMessage,
-    }, utils::{
+    },
+    utils::{
         amount_queue::AmountQueue,
         consts::{Mass, TotalMass},
         id::{FoodID, MassFoodID, PlayerID, VirusID},
@@ -38,7 +45,8 @@ use crate::{
             get_current_timestamp, is_visible_entity, mass_to_radius, random_in_range,
             uniform_position,
         },
-    }, WebTransportEmit
+    },
+    WebTransportEmit,
 };
 
 //Used to return to the player what is visible on his screen
@@ -112,29 +120,57 @@ impl Game {
         send_event: SendEvent,
         data: T,
     ) {
-        let buffer = Arc::new(AnyEventPacket::new(send_event, data).to_buffer());
+        let connections = self.connections.read().await;
 
-        let tasks: Vec<_> = self
-            .connections
-            .read()
-            .await
-            .values()
-            .cloned()
-            .map(|p| {
-                let buffer = buffer.clone();
-                async move { p.emit_bi_buffer(&buffer).await }
-            })
-            .collect();
+        if connections.is_empty() {
+            return;
+        }
 
-        join_all(tasks).await;
+        info!(
+            "Broadcasting event: {} for {} players",
+            send_event,
+            connections.len()
+        );
+        let buffer = AnyEventPacket::new(send_event, data).to_buffer();
+
+        for p_connection in connections.values() {
+            p_connection.emit_bi_buffer(&buffer).await;
+        }
+
+        // let tasks: Vec<_> = connections
+        //     .values()
+        //     .cloned()
+        //     .map(|p| {
+        //         let buffer = buffer.clone();
+        //         async move {
+        //             info!("Sending Broadcast to some player...");
+        //             p.emit_bi_buffer(&buffer).await
+        //         }
+        //     })
+        //     .collect();
+
+        // // drop(connections);
+        // join_all(tasks).await;
     }
 
-    pub async fn add_player(&self, player: Arc<RwLock<Player>>) {
-        self.player_manager
+    pub async fn add_player(
+        &self,
+        player: Arc<RwLock<Player>>,
+        player_connection: Arc<PlayerConnection>,
+    ) {
+        let player_id = self
+            .player_manager
             .write()
             .await
             .insert_with_new_id(player)
             .await;
+
+        self.connections
+            .write()
+            .await
+            .insert(player_id, player_connection);
+
+        info!("Player[{}] added", player_id);
     }
 
     pub async fn remove_players(&self, players: impl Iterator<Item = &PlayerID>) {
@@ -430,8 +466,9 @@ impl Game {
 
         if players_manager.players.len() > 0 {
             let leaderboard = players_manager.get_top_players().await;
-            let _ =
-                self.emit_bi_broadcast(SendEvent::Leaderboard, LeaderboardMessage { leaderboard });
+            let _ = self
+                .emit_bi_broadcast(SendEvent::Leaderboard, LeaderboardMessage { leaderboard })
+                .await;
             players_manager
                 .shrink_cells(
                     config.mass_loss_rate,
@@ -630,9 +667,7 @@ impl Game {
                     // player eated socket emit 'RIP'
                     match self.get_player_stream(player_eated.id).await {
                         Some(player_eated_connection) => {
-                            let _ = player_eated_connection
-                                .emit_bi(SendEvent::RIP, ())
-                                .await;
+                            let _ = player_eated_connection.emit_bi(SendEvent::RIP, ()).await;
                         }
                         None => {
                             continue;
@@ -791,12 +826,14 @@ impl Game {
         if food_to_add > 0 {
             let new_foods_data = self.food_manager.create_many_foods(food_to_add).await;
 
-            let _ = self.emit_bi_broadcast(
-                SendEvent::FoodsAdded,
-                FoodAddedMessage {
-                    foods: new_foods_data,
-                },
-            );
+            let _ = self
+                .emit_bi_broadcast(
+                    SendEvent::FoodsAdded,
+                    FoodAddedMessage {
+                        foods: new_foods_data,
+                    },
+                )
+                .await;
         }
 
         let mut virus_manager = self.virus_manager.write().await;
