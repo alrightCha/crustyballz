@@ -126,11 +126,6 @@ impl Game {
             return;
         }
 
-        info!(
-            "Broadcasting event: {} for {} players",
-            send_event,
-            connections.len()
-        );
         let buffer = AnyEventPacket::new(send_event, data).to_buffer();
 
         for p_connection in connections.values() {
@@ -215,6 +210,12 @@ impl Game {
         let mut player = player.write().await;
         player.reset(&spawn_point, get_current_config().default_player_mass);
 
+        info!(
+            "Initial Food SENT:  {}, Players: {}, viruses: {}",
+            foods_init_data,
+            players_init_data,
+            virus_init_data
+        );
         // send init data
         if let Some(player_connection) = self.get_player_stream(player.id).await {
             let _ = player_connection
