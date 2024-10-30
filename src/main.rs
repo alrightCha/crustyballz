@@ -181,7 +181,7 @@ async fn start_webtransport_server(game_ref: Arc<Game>) -> anyhow::Result<()> {
         .with_bind_default(4433)
         .with_identity(Identity::load_pemfiles(PathBuf::from(env::var("CERTIFICATE_DIR").expect("Certificate directory not defined"))
         .join("fullchain.pem"), PathBuf::from(env::var("CERTIFICATE_DIR").expect("Certificate directory not defined"))
-        .join("privkey.pem"),))
+        .join("privkey.pem")).await?)
         .keep_alive_interval(Some(Duration::from_secs(3)))
         .build();
 
