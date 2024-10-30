@@ -210,7 +210,7 @@ impl Game {
         let mut player = player.write().await;
         player.reset(&spawn_point, get_current_config().default_player_mass);
 
-        info!(
+        print!(
             "Initial Food SENT:  {:?}, Players: {:?}, viruses: {:?}",
             foods_init_data,
             players_init_data,
