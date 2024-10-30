@@ -211,7 +211,7 @@ impl Game {
         player.reset(&spawn_point, get_current_config().default_player_mass);
 
         info!(
-            "Initial Food SENT:  {}, Players: {}, viruses: {}",
+            "Initial Food SENT:  {:?}, Players: {:?}, viruses: {:?}",
             foods_init_data,
             players_init_data,
             virus_init_data
