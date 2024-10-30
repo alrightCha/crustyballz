@@ -2,19 +2,20 @@ mod config;
 mod game;
 mod managers;
 mod map;
+mod player_connection;
 mod recv_messages;
 mod send_messages;
 mod utils;
-mod player_connection;
 
 use axum_server::tls_rustls::RustlsConfig;
 use clap::Parser;
-use player_connection::PlayerConnection;
 use config::get_current_config;
 use game::Game;
 use map::player::Player;
+use player_connection::PlayerConnection;
 use recv_messages::{
-    AmountMessage, AnyEventPacket, ChatMessage, LetMeInMessage, RecvEvent, TargetMessage, UserIdMessage
+    AmountMessage, AnyEventPacket, ChatMessage, LetMeInMessage, RecvEvent, TargetMessage,
+    UserIdMessage,
 };
 use rust_socketio::asynchronous::{Client, ClientBuilder};
 use rust_socketio::Payload;
@@ -177,17 +178,37 @@ async fn setup_matchmaking_service(
 
 async fn start_webtransport_server(game_ref: Arc<Game>) -> anyhow::Result<()> {
     info!("webtransport test");
-    let config = ServerConfig::builder()
-        .with_bind_default(4433)
-        .with_identity(Identity::load_pemfiles(PathBuf::from(env::var("CERTIFICATE_DIR").expect("Certificate directory not defined"))
-        .join("fullchain.pem"), PathBuf::from(env::var("CERTIFICATE_DIR").expect("Certificate directory not defined"))
-        .join("privkey.pem")).await?)
-        .keep_alive_interval(Some(Duration::from_secs(3)))
-        .build();
+
+    let config = {
+        let identify = match env::var("MODE").unwrap_or("DEBUG".to_string()).as_str() {
+            "DEBUG" => Identity::load_pemfiles("test_cert.pem", "test_key.pem").await?,
+
+            _ => {
+                let pemfiles_folder = PathBuf::from(
+                    env::var("CERTIFICATE_DIR").expect("Certificate directory not defined"),
+                );
+
+                Identity::load_pemfiles(
+                    pemfiles_folder.join("fullchain.pem"),
+                    pemfiles_folder.join("privkey.pem"),
+                )
+                .await?
+            }
+        };
+
+        ServerConfig::builder()
+            .with_bind_default(4433)
+            .with_identity(identify)
+            .keep_alive_interval(Some(Duration::from_secs(5)))
+            .build()
+    };
 
     let server = Endpoint::server(config)?;
 
-    info!("WebTransport Server is ready at : [{}]", server.local_addr().unwrap());
+    info!(
+        "WebTransport Server is ready at : [{}]",
+        server.local_addr().unwrap()
+    );
 
     for _ in 0.. {
         let incoming_session = server.accept().await;
@@ -246,7 +267,7 @@ async fn handle_connection(
                 .await
                 .push_back(QueueMessage::KickPlayer {
                     name: player.name.clone(),
-                    id: player.id
+                    id: player.id,
                 });
 
             break;
@@ -261,14 +282,18 @@ async fn handle_connection(
             continue;
         }
 
-        info!("buffer[{}]: {}", buffer_len,  String::from_utf8(buffer[..buffer_len].to_vec()).unwrap());
+        info!(
+            "buffer[{}]: {}",
+            buffer_len,
+            String::from_utf8(buffer[..buffer_len].to_vec()).unwrap()
+        );
 
         let packet: AnyEventPacket = match serde_json::from_slice(&buffer[..buffer_len]) {
             Ok(packet) => packet,
             Err(err) => {
                 error!("Error recving event packet: {:?}", err);
                 continue;
-            },
+            }
         };
 
         let recv_event = RecvEvent::from(packet.event);
@@ -276,7 +301,7 @@ async fn handle_connection(
         match recv_event {
             RecvEvent::LetMeIn => {
                 info!("debug let_me_in  - 1");
-                if packet.value.is_none(){
+                if packet.value.is_none() {
                     continue;
                 }
                 info!("debug let_me_in  - 2");
@@ -285,42 +310,42 @@ async fn handle_connection(
                     Err(err) => {
                         error!("Error parsing packet [LetMeInMessage]: {:?}", err);
                         continue;
-                    },
+                    }
                 };
                 info!("debug let_me_in  - 3");
-
 
                 let config = get_current_config();
 
                 if let Some(ref name) = data.name {
                     if !valid_nick(name) {
                         // kick_player
-                        let _ = player_connection.emit_bi(SendEvent::KickPlayer, "invalid username.")
+                        let _ = player_connection
+                            .emit_bi(SendEvent::KickPlayer, "invalid username.")
                             .await;
                         error!("Invalid username");
                     }
                 }
-
 
                 {
                     let mut player = player_ref.write().await;
                     player.setup(data.name, data.img_url);
                 }
 
-
-                let _ = player_connection.emit_bi(
-                    SendEvent::Welcome,
-                    WelcomeMessage {
-                        height: config.game_height,
-                        width: config.game_width,
-                        default_player_mass: config.default_player_mass,
-                        default_mass_food: config.food_mass,
-                        default_mass_mass_food: config.fire_food,
-                    },
-                ).await;
+                let _ = player_connection
+                    .emit_bi(
+                        SendEvent::Welcome,
+                        WelcomeMessage {
+                            height: config.game_height,
+                            width: config.game_width,
+                            default_player_mass: config.default_player_mass,
+                            default_mass_food: config.food_mass,
+                            default_mass_mass_food: config.fire_food,
+                        },
+                    )
+                    .await;
             }
             RecvEvent::PlayerGotIt => {
-                if packet.value.is_none(){
+                if packet.value.is_none() {
                     continue;
                 }
 
@@ -329,20 +354,26 @@ async fn handle_connection(
                     Err(err) => {
                         error!("Error parsing packet [UserIdMessage]: {:?}", err);
                         continue;
-                    },
+                    }
                 };
 
-                game_ref.add_player(player_ref.clone(), player_connection.clone()).await;
+                game_ref
+                    .add_player(player_ref.clone(), player_connection.clone())
+                    .await;
 
                 let player = player_ref.read().await;
                 let player_init_data = player.generate_init_player_data();
 
-                let _ = player_connection.emit_bi(SendEvent::PlayerInitData, player_init_data.clone()).await;
+                let _ = player_connection
+                    .emit_bi(SendEvent::PlayerInitData, player_init_data.clone())
+                    .await;
 
-                let _ = game_ref.emit_bi_broadcast(
-                    SendEvent::NotifyPlayerJoined,
-                    PlayerJoinMessage(player_init_data),
-                ).await;
+                let _ = game_ref
+                    .emit_bi_broadcast(
+                        SendEvent::NotifyPlayerJoined,
+                        PlayerJoinMessage(player_init_data),
+                    )
+                    .await;
 
                 info!("Player[{:?} / {}] joined", player.name, player.id);
                 //MARK: Added newly
@@ -358,10 +389,12 @@ async fn handle_connection(
                 game_ref.respawn_player(player_ref.clone()).await;
             }
             RecvEvent::PingCheck => {
-                let _ = player_connection.emit_bi(SendEvent::PongCheck, get_current_timestamp_micros()).await;
+                let _ = player_connection
+                    .emit_bi(SendEvent::PongCheck, get_current_timestamp_micros())
+                    .await;
             }
             RecvEvent::PlayerMousePosition => {
-                if packet.value.is_none(){
+                if packet.value.is_none() {
                     continue;
                 }
 
@@ -370,7 +403,7 @@ async fn handle_connection(
                     Err(err) => {
                         error!("Error parsing packet [TargetMessage]: {:?}", err);
                         continue;
-                    },
+                    }
                 };
 
                 let mut player = player_ref.write().await;
@@ -401,10 +434,12 @@ async fn handle_connection(
                             config.fire_food,
                         );
 
-                        let _ = game_ref.emit_bi_broadcast(
-                            SendEvent::MassFoodAdded,
-                            MassFoodAddedMessage(mass_food_init_data),
-                        ).await;
+                        let _ = game_ref
+                            .emit_bi_broadcast(
+                                SendEvent::MassFoodAdded,
+                                MassFoodAddedMessage(mass_food_init_data),
+                            )
+                            .await;
                     }
                 }
             }
@@ -430,10 +465,12 @@ async fn handle_connection(
                     player.user_split(config.limit_split as usize, config.split_min_mass);
                 }
 
-                let _ = player_connection.emit_bi(SendEvent::NotifyPlayerSplit, ()).await;
+                let _ = player_connection
+                    .emit_bi(SendEvent::NotifyPlayerSplit, ())
+                    .await;
             }
             RecvEvent::PlayerChat => {
-                if packet.value.is_none(){
+                if packet.value.is_none() {
                     continue;
                 }
 
@@ -442,11 +479,12 @@ async fn handle_connection(
                     Err(err) => {
                         error!("Error parsing packet [ChatMessage]: {:?}", err);
                         continue;
-                    },
+                    }
                 };
 
                 let _ = game_ref
-                    .emit_bi_broadcast(SendEvent::PlayerMessage, data).await;
+                    .emit_bi_broadcast(SendEvent::PlayerMessage, data)
+                    .await;
             }
             _ => {}
         }
