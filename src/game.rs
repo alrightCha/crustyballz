@@ -126,28 +126,24 @@ impl Game {
             return;
         }
 
-        let buffer = AnyEventPacket::new(send_event, data).to_buffer();
+        info!("Sending event[{}] to players - broadcast", send_event);
 
-        for p_connection in connections.values() {
-            p_connection.emit_bi_buffer(&buffer).await;
-        }
+        let buffer = Arc::new(AnyEventPacket::new(send_event, data).to_buffer());
 
-        // TODO : Change this function, to use join_all
-        
-        // let tasks: Vec<_> = connections
-        //     .values()
-        //     .cloned()
-        //     .map(|p| {
-        //         let buffer = buffer.clone();
-        //         async move {
-        //             info!("Sending Broadcast to some player...");
-        //             p.emit_bi_buffer(&buffer).await
-        //         }
-        //     })
-        //     .collect();
+        let tasks: Vec<_> = connections
+            .values()
+            .cloned()
+            .map(|p| {
+                let buffer = buffer.clone();
+                async move {
+                    info!("Sending Broadcast to some player...");
+                    p.emit_bi_buffer(&buffer).await
+                }
+            })
+            .collect();
 
-        // // drop(connections);
-        // join_all(tasks).await;
+        drop(connections);
+        join_all(tasks).await;
     }
 
     pub async fn add_player(

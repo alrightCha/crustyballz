@@ -93,9 +93,19 @@ impl AnyEventPacket {
     }
 
     pub fn to_buffer(&self) -> Vec<u8> {
-        let mut packet_buffer = serde_json::to_vec(&self).unwrap();
-        packet_buffer.extend_from_slice("\n\n\n".as_bytes());
-        packet_buffer
+        let packet_buffer = serde_json::to_vec(&self).unwrap();
+
+        let len_bytes = (packet_buffer.len() as u64).to_be_bytes().to_vec();
+
+        // TODO: benchmark the best way of adding "len_bytes" at the start of packet_buffer
+
+        // Method 1
+        // packet_buffer.splice(0..0, len_bytes.iter().cloned()); 
+
+        // Method 2
+        // [len_bytes, packet_buffer].concat()
+
+        [len_bytes, packet_buffer].concat()
     }
 }
 
