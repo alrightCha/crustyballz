@@ -126,7 +126,7 @@ impl Game {
             return;
         }
 
-        info!("Sending event[{}] to players - broadcast", send_event);
+        // info!("Sending event[{}] to players - broadcast", send_event);
 
         let buffer = Arc::new(AnyEventPacket::new(send_event, data).to_buffer());
 
@@ -136,7 +136,7 @@ impl Game {
             .map(|p| {
                 let buffer = buffer.clone();
                 async move {
-                    info!("Sending Broadcast to some player...");
+                    // info!("Sending Broadcast to some player...");
                     p.emit_bi_buffer(&buffer).await
                 }
             })

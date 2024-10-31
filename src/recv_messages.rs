@@ -109,12 +109,12 @@ impl AnyEventPacket {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct TargetMessage {
     pub target: Target,
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Target {
     pub x: f32,
     pub y: f32,

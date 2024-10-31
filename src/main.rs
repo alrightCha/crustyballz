@@ -282,11 +282,11 @@ async fn handle_connection(
             continue;
         }
 
-        info!(
-            "buffer[{}]: {}",
-            buffer_len,
-            String::from_utf8(buffer[..buffer_len].to_vec()).unwrap()
-        );
+        // info!(
+        //     "buffer[{}]: {}",
+        //     buffer_len,
+        //     String::from_utf8(buffer[..buffer_len].to_vec()).unwrap()
+        // );
 
         let packet: AnyEventPacket = match serde_json::from_slice(&buffer[..buffer_len]) {
             Ok(packet) => packet,
@@ -406,7 +406,9 @@ async fn handle_connection(
                     }
                 };
 
+                
                 let mut player = player_ref.write().await;
+                // info!("Player[{:?}] - {:?}", player.name, data);
                 player.target_x = data.target.x;
                 player.target_y = data.target.y;
             }
