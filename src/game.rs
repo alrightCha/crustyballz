@@ -14,7 +14,7 @@ use wtransport::SendStream;
 
 use crate::{
     config::{get_current_config, Config},
-    get_websockets_port,
+    get_server_port,
     managers::{
         amount_manager::AmountManager, food_manager::FoodManager,
         mass_food_manager::MassFoodManager, player_manager::PlayerManager,
@@ -83,7 +83,7 @@ impl Game {
         let config = get_current_config();
         Game {
             amount_manager: Arc::new(Mutex::new(AmountManager::new())),
-            port: *get_websockets_port(),
+            port: *get_server_port(),
             food_manager: FoodManager::new(
                 config.food_mass,
                 QuadTree::new(

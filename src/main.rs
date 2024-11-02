@@ -102,15 +102,15 @@ fn setup_logger() -> Result<(), fern::InitError> {
     Ok(())
 }
 
-pub fn get_websockets_port() -> &'static u16 {
+pub fn get_server_port() -> &'static u16 {
     static PORT: OnceLock<u16> = OnceLock::new();
 
     PORT.get_or_init(|| match Cli::try_parse() {
         Ok(cli) => cli.port,
         Err(err) => {
             error!("Error parsing CLI args: {:?}", err);
-            warn!("Websockets port not passed, using default port: 8000");
-            8000
+            warn!("Websockets port not passed, using default port: 4433");
+            4433
         }
     })
 }
@@ -176,7 +176,7 @@ async fn setup_matchmaking_service(
     Some(client)
 }
 
-async fn start_webtransport_server(game_ref: Arc<Game>) -> anyhow::Result<()> {
+async fn start_webtransport_server(game_ref: Arc<Game>, server_port: u16) -> anyhow::Result<()> {
     info!("webtransport test");
 
     let config = {
@@ -197,7 +197,7 @@ async fn start_webtransport_server(game_ref: Arc<Game>) -> anyhow::Result<()> {
         };
 
         ServerConfig::builder()
-            .with_bind_default(4433)
+            .with_bind_default(server_port)
             .with_identity(identify)
             .keep_alive_interval(Some(Duration::from_secs(5)))
             .build()
@@ -523,8 +523,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     let game_cloned = game.clone();
+    let server_port: u16 = *get_server_port();
 
-    tokio::spawn(start_webtransport_server(game_cloned.clone()));
+    tokio::spawn(start_webtransport_server(game_cloned.clone(), server_port));
 
     info!("Game started! Waiting for players");
 
@@ -539,15 +540,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .layer(layer),
         );
 
-    let ws_port: u16 = *get_websockets_port();
-
     let ip_address = Ipv4Addr::from_str(
         env::var("HOST_IPV4")
             .unwrap_or("127.0.0.1".to_string())
             .as_str(),
     )
     .unwrap();
-    let addr = SocketAddr::from((ip_address, ws_port));
+    let addr = SocketAddr::from((ip_address, server_port));
 
     info!("Starting Server [{}] at: {}", mode, addr);
 
