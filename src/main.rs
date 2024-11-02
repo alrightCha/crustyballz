@@ -21,6 +21,7 @@ use rust_socketio::asynchronous::{Client, ClientBuilder};
 use rust_socketio::Payload;
 use send_messages::{MassFoodAddedMessage, PlayerJoinMessage, SendEvent, WelcomeMessage};
 use time::OffsetDateTime;
+use tokio::select;
 use tokio::sync::{Mutex, RwLock};
 //Debugging
 use dotenv::dotenv;
@@ -255,8 +256,28 @@ async fn handle_connection(
     let player = Player::new(PlayerID::MAX);
     let player_ref: Arc<RwLock<Player>> = Arc::new(RwLock::new(player));
 
+    let mut is_disconnected: bool = false;
+    let mut buffer_len: usize = 0;
     loop {
-        let is_disconnected: bool = false;
+        buffer_len = 0;
+
+        select! {
+            read_result = s_recv.read(&mut buffer) => {
+                match read_result {
+                    Ok(bytes_read) => {
+                        buffer_len = bytes_read.unwrap_or_default();
+                    },
+                    Err(err) => {
+                        is_disconnected = true;
+                        error!("Error Reading Packet, err={:?}", err);
+                    }
+                }
+            },
+            closed_result = player_connection.w_connection.closed() => {
+                is_disconnected = true;
+                error!("Player Connection was closed, err={:?}", closed_result);
+            }
+        }
 
         if is_disconnected {
             let player = player_ref.read().await;
@@ -273,20 +294,9 @@ async fn handle_connection(
             break;
         }
 
-        let buffer_len = match s_recv.read(&mut buffer).await? {
-            Some(bytes_read) => bytes_read,
-            None => continue,
-        };
-
         if buffer_len == 0 {
             continue;
         }
-
-        // info!(
-        //     "buffer[{}]: {}",
-        //     buffer_len,
-        //     String::from_utf8(buffer[..buffer_len].to_vec()).unwrap()
-        // );
 
         let packet: AnyEventPacket = match serde_json::from_slice(&buffer[..buffer_len]) {
             Ok(packet) => packet,
@@ -300,11 +310,9 @@ async fn handle_connection(
 
         match recv_event {
             RecvEvent::LetMeIn => {
-                info!("debug let_me_in  - 1");
                 if packet.value.is_none() {
                     continue;
                 }
-                info!("debug let_me_in  - 2");
                 let data: LetMeInMessage = match serde_json::from_value(packet.value.unwrap()) {
                     Ok(d) => d,
                     Err(err) => {
@@ -312,7 +320,6 @@ async fn handle_connection(
                         continue;
                     }
                 };
-                info!("debug let_me_in  - 3");
 
                 let config = get_current_config();
 
@@ -406,7 +413,6 @@ async fn handle_connection(
                     }
                 };
 
-                
                 let mut player = player_ref.write().await;
                 // info!("Player[{:?}] - {:?}", player.name, data);
                 player.target_x = data.target.x;

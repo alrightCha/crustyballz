@@ -20,6 +20,10 @@ impl PlayerConnection {
         }
     }
 
+    pub async fn is_connected(&self) { // -> Result<usize, StreamWriteError>
+        self.w_connection.closed();
+    }
+
     pub async fn emit_bi_buffer(&self, buffer: &Vec<u8>) { // -> Result<usize, StreamWriteError>
         let mut send_stream = self.send_bi_stream.lock().await;
         let _ = send_stream.write(&buffer).await;

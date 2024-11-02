@@ -115,6 +115,11 @@ impl Game {
         }
     }
 
+    async fn remove_player_stream(&self, player_id: PlayerID) {
+        let mut connections = self.connections.write().await;
+        connections.remove(&player_id);
+    }
+
     pub async fn emit_bi_broadcast<T: serde::Serialize + Clone>(
         &self,
         send_event: SendEvent,
@@ -170,6 +175,7 @@ impl Game {
         let mut player_manager = self.player_manager.write().await;
         for player_id in players {
             player_manager.remove_player_by_id(player_id);
+            self.remove_player_stream(*player_id).await;
         }
     }
 
@@ -260,6 +266,7 @@ impl Game {
 
         let mut player_manager = self.player_manager.write().await;
         player_manager.remove_player_by_id(&player_id);
+        self.remove_player_stream(player_id).await;
     }
 
     pub async fn tick_player(
