@@ -24,9 +24,9 @@ impl From<u8> for RecvEvent {
         unsafe { std::mem::transmute::<_, RecvEvent>(value) }
     }
 }
-impl From<String> for RecvEvent {
-    fn from(value: String) -> Self {
-        match value.as_str() {
+impl From<&str> for RecvEvent {
+    fn from(value: &str) -> Self {
+        match value {
             "respawn" => RecvEvent::Respawn,
             "pingcheck" => RecvEvent::PingCheck,
             "let_me_in" => RecvEvent::LetMeIn,
