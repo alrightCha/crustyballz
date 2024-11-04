@@ -327,7 +327,10 @@ async fn handle_connection(
                     if i % 2 == 0 {
                         split_part.push_str("}");
                     } else {
-                        split_part.push_str("{");
+                        split_part = {let mut new_string = "{".to_string();
+                        new_string.push_str(&split_part);
+                        new_string
+                    };
                     }
 
                     match serde_json::from_str(&split_part) {
@@ -335,6 +338,7 @@ async fn handle_connection(
                             packets.push(packet);
                         },
                         Err(err) => {
+                            error!("Error parsing splited text: {:?}\nerr: {:?}", split_part, err);
                             continue;
                         }
                     }
