@@ -307,7 +307,7 @@ async fn handle_connection(
         }
 
         // JOIN BUFFER WITH TMP_BUFFER
-        tmp_buffer.extend_from_slice(&buffer);
+        tmp_buffer.extend_from_slice(&buffer[..new_buffer_len]);
 
         let mut packets: Vec<AnyEventPacket> = vec![];
 
@@ -317,7 +317,7 @@ async fn handle_connection(
                     tmp_buffer[current_offset],
                     tmp_buffer[current_offset + 1],
                 ]) as usize;
-                
+
                 current_offset += 2;
             }
 
@@ -327,13 +327,15 @@ async fn handle_connection(
             }
 
             match serde_json::from_slice(
-                &tmp_buffer[current_offset..current_offset + (packet_length as usize)],
+                &tmp_buffer[current_offset..(current_offset + (packet_length as usize))],
             ) {
                 Ok(packet) => {
                     packets.push(packet);
                 }
                 Err(err) => {
                     error!("Error parsing event packet: {:?}", err);
+                    // let string = core::str::from_utf8(&tmp_buffer[current_offset..(current_offset + (packet_length as usize))]).unwrap();
+                    // error!("Content: {:?}", string);
                 }
             }
 
