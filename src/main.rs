@@ -234,9 +234,6 @@ async fn handle_connection(
     game_ref: Arc<Game>,
     incoming_session: IncomingSession,
 ) -> anyhow::Result<()> {
-    // let mut buffer: Vec<u8> = Vec::new();
-    let mut buffer = vec![0; 64000].into_boxed_slice();
-
     info!("Waiting for session request...");
 
     // Awaits session request
@@ -259,18 +256,24 @@ async fn handle_connection(
     let mut player_welcome: bool = false;
 
     let mut is_disconnected: bool = false;
-    let mut buffer_len: usize = 0;
 
-    // let mut packets: Vec<AnyEventPacket> = vec![];
+    // Buffer of U16 MAX ( 65535 bytes )
+    let mut buffer = vec![0; u16::MAX.into()].into_boxed_slice();
+    let mut tmp_buffer: Vec<u8> = vec![];
 
+    let mut packet_length: usize = 0;
+
+    let mut new_buffer_len: usize = 0;
+    let mut current_offset: usize = 0;
     loop {
-        buffer_len = 0;
+        new_buffer_len = 0;
+        current_offset = 0;
 
         select! {
             read_result = s_recv.read(&mut buffer) => {
                 match read_result {
                     Ok(bytes_read) => {
-                        buffer_len = bytes_read.unwrap_or_default();
+                        new_buffer_len = bytes_read.unwrap_or_default();
                     },
                     Err(err) => {
                         is_disconnected = true;
@@ -299,53 +302,46 @@ async fn handle_connection(
             break;
         }
 
-        if buffer_len == 0 {
+        if new_buffer_len == 0 {
             continue;
         }
 
+        // JOIN BUFFER WITH TMP_BUFFER
+        tmp_buffer.extend_from_slice(&buffer);
+
         let mut packets: Vec<AnyEventPacket> = vec![];
 
-        match serde_json::from_slice(&buffer[..buffer_len]) {
-            Ok(packet) => {
-                packets.push(packet);
-            },
-            Err(err) => {
-                error!("Error parsing event packet: {:?}", err);
-
-                let packet_text = std::str::from_utf8(&buffer[..buffer_len]).unwrap_or_default();
-
-                error!(
-                    "Packet content: {:?}",
-                    packet_text
-                );
-
-                let parts = packet_text.split("}{");
-
-                for (i, split_part) in parts.enumerate() {
-                    let mut split_part = split_part.to_string();
-
-                    if i % 2 == 0 {
-                        split_part.push_str("}");
-                    } else {
-                        split_part = {let mut new_string = "{".to_string();
-                        new_string.push_str(&split_part);
-                        new_string
-                    };
-                    }
-
-                    match serde_json::from_str(&split_part) {
-                        Ok(packet) => {
-                            packets.push(packet);
-                        },
-                        Err(err) => {
-                            error!("Error parsing splited text: {:?}\nerr: {:?}", split_part, err);
-                            continue;
-                        }
-                    }
-                }
-                // continue;
+        while tmp_buffer.len() - current_offset >= 2 {
+            if packet_length == 0 {
+                packet_length = u16::from_be_bytes([
+                    tmp_buffer[current_offset],
+                    tmp_buffer[current_offset + 1],
+                ]) as usize;
+                
+                current_offset += 2;
             }
-        };
+
+            // Check if tmp_buffer enough bytes
+            if (tmp_buffer.len() - current_offset) < packet_length {
+                break;
+            }
+
+            match serde_json::from_slice(
+                &tmp_buffer[current_offset..current_offset + (packet_length as usize)],
+            ) {
+                Ok(packet) => {
+                    packets.push(packet);
+                }
+                Err(err) => {
+                    error!("Error parsing event packet: {:?}", err);
+                }
+            }
+
+            current_offset += packet_length;
+            packet_length = 0;
+        }
+
+        tmp_buffer.drain(..current_offset);
 
         for packet in packets {
             let recv_event = RecvEvent::from(packet.event.as_str());
