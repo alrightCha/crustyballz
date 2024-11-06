@@ -14,7 +14,7 @@ use wtransport::SendStream;
 
 use crate::{
     config::{get_current_config, Config},
-    get_websockets_port,
+    get_server_port,
     managers::{
         amount_manager::AmountManager, food_manager::FoodManager,
         mass_food_manager::MassFoodManager, player_manager::PlayerManager,
@@ -83,7 +83,7 @@ impl Game {
         let config = get_current_config();
         Game {
             amount_manager: Arc::new(Mutex::new(AmountManager::new())),
-            port: *get_websockets_port(),
+            port: *get_server_port(),
             food_manager: FoodManager::new(
                 config.food_mass,
                 QuadTree::new(
@@ -115,6 +115,11 @@ impl Game {
         }
     }
 
+    async fn remove_player_stream(&self, player_id: PlayerID) {
+        let mut connections = self.connections.write().await;
+        connections.remove(&player_id);
+    }
+
     pub async fn emit_bi_broadcast<T: serde::Serialize + Clone>(
         &self,
         send_event: SendEvent,
@@ -126,7 +131,7 @@ impl Game {
             return;
         }
 
-        info!("Sending event[{}] to players - broadcast", send_event);
+        // info!("Sending event[{}] to players - broadcast", send_event);
 
         let buffer = Arc::new(AnyEventPacket::new(send_event, data).to_buffer());
 
@@ -136,7 +141,7 @@ impl Game {
             .map(|p| {
                 let buffer = buffer.clone();
                 async move {
-                    info!("Sending Broadcast to some player...");
+                    // info!("Sending Broadcast to some player...");
                     p.emit_bi_buffer(&buffer).await
                 }
             })
@@ -170,6 +175,7 @@ impl Game {
         let mut player_manager = self.player_manager.write().await;
         for player_id in players {
             player_manager.remove_player_by_id(player_id);
+            self.remove_player_stream(*player_id).await;
         }
     }
 
@@ -260,6 +266,7 @@ impl Game {
 
         let mut player_manager = self.player_manager.write().await;
         player_manager.remove_player_by_id(&player_id);
+        self.remove_player_stream(player_id).await;
     }
 
     pub async fn tick_player(
