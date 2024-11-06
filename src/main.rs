@@ -230,6 +230,122 @@ impl WebTransportEmit for wtransport::SendStream {
     }
 }
 
+async fn handle_packet(recv_event:RecvEvent, packet: AnyEventPacket, game_ref: &Game, player_ref: &Arc<RwLock<Player>>, player_connection: &PlayerConnection) {
+    match recv_event {
+        RecvEvent::Respawn => {
+            game_ref.respawn_player(player_ref.clone()).await;
+        }
+        RecvEvent::PingCheck => {
+            let _ = player_connection
+                .emit_bi(SendEvent::PongCheck, get_current_timestamp_micros())
+                .await;
+        }
+        RecvEvent::PlayerMousePosition => {
+            if packet.value.is_none() {
+                return;
+            }
+
+            let data: TargetMessage =
+                match serde_json::from_value(packet.value.unwrap()) {
+                    Ok(d) => d,
+                    Err(err) => {
+                        error!("Error parsing packet [TargetMessage]: {:?}", err);
+                        return;
+                    }
+                };
+
+            let mut player = player_ref.write().await;
+            // info!("Player[{:?}] - {:?}", player.name, data);
+            player.target_x = data.target.x;
+            player.target_y = data.target.y;
+        }
+        RecvEvent::PlayerSendingMass => {
+            let config = get_current_config();
+            let mut player = player_ref.write().await;
+
+            if player.total_mass < config.min_cell_mass() as usize {
+                return;
+            }
+
+            let player_position = player.get_position_point();
+            let player_target = player.get_target_point();
+            let player_hue = player.hue;
+
+            let mut mass_food_manager = game_ref.mass_food_manager.write().await;
+            for cell in player.cells.iter_mut() {
+                if cell.mass >= config.min_cell_mass() {
+                    cell.remove_mass(config.fire_food);
+                    let mass_food_init_data = mass_food_manager.add_new(
+                        &player_position,
+                        &player_target,
+                        &cell.position,
+                        player_hue,
+                        config.fire_food,
+                    );
+
+                    let _ = game_ref
+                        .emit_bi_broadcast(
+                            SendEvent::MassFoodAdded,
+                            MassFoodAddedMessage(mass_food_init_data),
+                        )
+                        .await;
+                }
+            }
+        }
+        RecvEvent::Teleport => {
+            let points = game_ref
+                .player_manager
+                .read()
+                .await
+                .collect_and_clone_all_pos()
+                .await;
+            let spawn_point = game_ref.create_player_spawn_point(points);
+
+            {
+                let mut player = player_ref.write().await;
+                player.teleport(&spawn_point);
+            }
+        }
+        RecvEvent::PlayerSplit => {
+            let config = get_current_config();
+
+            {
+                let mut player = player_ref.write().await;
+                player.user_split(config.limit_split as usize, config.split_min_mass);
+            }
+
+            let _ = player_connection
+                .emit_bi(SendEvent::NotifyPlayerSplit, ())
+                .await;
+        }
+        RecvEvent::PlayerChat => {
+            if packet.value.is_none() {
+                return;
+            }
+
+            let data: ChatMessage = match serde_json::from_value(packet.value.unwrap())
+            {
+                Ok(d) => d,
+                Err(err) => {
+                    error!("Error parsing packet [ChatMessage]: {:?}", err);
+                    return;
+                }
+            };
+
+            let _ = game_ref
+                .emit_bi_broadcast(SendEvent::PlayerMessage, data)
+                .await;
+        }
+        _ => {}
+    }
+}
+
+async fn handle_connection_datagram(player_connection: Arc<PlayerConnection>) {
+    let datagram = player_connection.w_connection.receive_datagram().await.unwrap();
+
+    let bytes = datagram.payload();
+}
+
 async fn handle_connection(
     game_ref: Arc<Game>,
     incoming_session: IncomingSession,
@@ -246,7 +362,7 @@ async fn handle_connection(
     let (s_send, mut s_recv) = connection.accept_bi().await?;
 
     let player_connection = PlayerConnection::new(connection.clone(), Mutex::new(s_send));
-    let player_connection = Arc::new(player_connection);
+    let player_connection: Arc<PlayerConnection> = Arc::new(player_connection);
 
     info!("Accepted BI stream");
 
@@ -349,113 +465,7 @@ async fn handle_connection(
             let recv_event = RecvEvent::from(packet.event.as_str());
 
             if player_welcome {
-                match recv_event {
-                    RecvEvent::Respawn => {
-                        game_ref.respawn_player(player_ref.clone()).await;
-                    }
-                    RecvEvent::PingCheck => {
-                        let _ = player_connection
-                            .emit_bi(SendEvent::PongCheck, get_current_timestamp_micros())
-                            .await;
-                    }
-                    RecvEvent::PlayerMousePosition => {
-                        if packet.value.is_none() {
-                            continue;
-                        }
-
-                        let data: TargetMessage =
-                            match serde_json::from_value(packet.value.unwrap()) {
-                                Ok(d) => d,
-                                Err(err) => {
-                                    error!("Error parsing packet [TargetMessage]: {:?}", err);
-                                    continue;
-                                }
-                            };
-
-                        let mut player = player_ref.write().await;
-                        // info!("Player[{:?}] - {:?}", player.name, data);
-                        player.target_x = data.target.x;
-                        player.target_y = data.target.y;
-                    }
-                    RecvEvent::PlayerSendingMass => {
-                        let config = get_current_config();
-                        let mut player = player_ref.write().await;
-
-                        if player.total_mass < config.min_cell_mass() as usize {
-                            continue;
-                        }
-
-                        let player_position = player.get_position_point();
-                        let player_target = player.get_target_point();
-                        let player_hue = player.hue;
-
-                        let mut mass_food_manager = game_ref.mass_food_manager.write().await;
-                        for cell in player.cells.iter_mut() {
-                            if cell.mass >= config.min_cell_mass() {
-                                cell.remove_mass(config.fire_food);
-                                let mass_food_init_data = mass_food_manager.add_new(
-                                    &player_position,
-                                    &player_target,
-                                    &cell.position,
-                                    player_hue,
-                                    config.fire_food,
-                                );
-
-                                let _ = game_ref
-                                    .emit_bi_broadcast(
-                                        SendEvent::MassFoodAdded,
-                                        MassFoodAddedMessage(mass_food_init_data),
-                                    )
-                                    .await;
-                            }
-                        }
-                    }
-                    RecvEvent::Teleport => {
-                        let points = game_ref
-                            .player_manager
-                            .read()
-                            .await
-                            .collect_and_clone_all_pos()
-                            .await;
-                        let spawn_point = game_ref.create_player_spawn_point(points);
-
-                        {
-                            let mut player = player_ref.write().await;
-                            player.teleport(&spawn_point);
-                        }
-                    }
-                    RecvEvent::PlayerSplit => {
-                        let config = get_current_config();
-
-                        {
-                            let mut player = player_ref.write().await;
-                            player.user_split(config.limit_split as usize, config.split_min_mass);
-                        }
-
-                        let _ = player_connection
-                            .emit_bi(SendEvent::NotifyPlayerSplit, ())
-                            .await;
-                    }
-                    RecvEvent::PlayerChat => {
-                        if packet.value.is_none() {
-                            continue;
-                        }
-
-                        let data: ChatMessage = match serde_json::from_value(packet.value.unwrap())
-                        {
-                            Ok(d) => d,
-                            Err(err) => {
-                                error!("Error parsing packet [ChatMessage]: {:?}", err);
-                                continue;
-                            }
-                        };
-
-                        let _ = game_ref
-                            .emit_bi_broadcast(SendEvent::PlayerMessage, data)
-                            .await;
-                    }
-                    _ => {}
-                }
+                handle_packet(recv_event, packet, &game_ref, &player_ref, &player_connection).await;
             } else {
                 match recv_event {
                     RecvEvent::LetMeIn => {
