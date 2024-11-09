@@ -26,6 +26,7 @@ use tokio::sync::{Mutex, RwLock};
 //Debugging
 use dotenv::dotenv;
 use log::{error, info, warn};
+use wtransport::proto::bytes;
 use std::net::Ipv4Addr;
 use std::str::FromStr;
 use std::time::Duration;
@@ -213,7 +214,7 @@ async fn start_webtransport_server(game_ref: Arc<Game>, server_port: u16) -> any
 
     for _ in 0.. {
         let incoming_session = server.accept().await;
-        tokio::spawn(handle_connection(game_ref.clone(), incoming_session));
+        tokio::spawn(handle_connection_bistream(game_ref.clone(), incoming_session));
     }
 
     Ok(())
@@ -340,13 +341,104 @@ async fn handle_packet(recv_event:RecvEvent, packet: AnyEventPacket, game_ref: &
     }
 }
 
-async fn handle_connection_datagram(player_connection: Arc<PlayerConnection>) {
-    let datagram = player_connection.w_connection.receive_datagram().await.unwrap();
+async fn handle_connection_datagram(player_connection: Arc<PlayerConnection>, game_ref: Arc<Game>, player_ref: Arc<RwLock<Player>>) {
+    info!("Handle Connection Datagram starting!");
+    // Buffer of U16 MAX ( 65535 bytes )
+    // let mut buffer = vec![0; u16::MAX.into()].into_boxed_slice();
+    let mut tmp_buffer: Vec<u8> = vec![];
+    let mut current_offset: usize = 0;
+    let mut packet_length: usize = 0;
 
-    let bytes = datagram.payload();
+    let mut is_disconnected = false;
+
+    loop {
+        current_offset = 0;
+
+        select! {
+            read_result = player_connection.w_connection.receive_datagram() => {
+                match read_result {
+                    Ok(datagram) => {
+                        // maybe use "bytes" crate -> chain method ??
+                        tmp_buffer.extend_from_slice(&datagram.payload());
+                    },
+                    Err(err) => {
+                        is_disconnected = true;
+                        error!("Error Reading Packet, err={:?}", err);
+                    }
+                }
+            },
+            closed_result = player_connection.w_connection.closed() => {
+                is_disconnected = true;
+                error!("Player Connection was closed, err={:?}", closed_result);
+            }
+        }
+
+        if is_disconnected {
+            let player = player_ref.read().await;
+
+            game_ref
+                .update_queue
+                .lock()
+                .await
+                .push_back(QueueMessage::KickPlayer {
+                    name: player.name.clone(),
+                    id: player.id,
+                });
+
+            break;
+        }
+
+        if tmp_buffer.is_empty(){
+            continue;
+        }        
+
+        let mut packets: Vec<AnyEventPacket> = vec![];
+
+        while tmp_buffer.len() - current_offset >= 2 {
+            if packet_length == 0 {
+                packet_length = u16::from_be_bytes([
+                    tmp_buffer[current_offset],
+                    tmp_buffer[current_offset + 1],
+                ]) as usize;
+
+                current_offset += 2;
+            }
+
+            // Check if tmp_buffer enough bytes
+            if (tmp_buffer.len() - current_offset) < packet_length {
+                break;
+            }
+
+            match serde_json::from_slice(
+                &tmp_buffer[current_offset..(current_offset + (packet_length as usize))],
+            ) {
+                Ok(packet) => {
+                    packets.push(packet);
+                }
+                Err(err) => {
+                    error!("Error parsing event packet: {:?}", err);
+                    // let string = core::str::from_utf8(&tmp_buffer[current_offset..(current_offset + (packet_length as usize))]).unwrap();
+                    // error!("Content: {:?}", string);
+                }
+            }
+
+            current_offset += packet_length;
+            packet_length = 0;
+        }
+
+        tmp_buffer.drain(..current_offset);
+
+        for packet in packets {
+            let recv_event = RecvEvent::from(packet.event.as_str());
+        
+            handle_packet(recv_event, packet, &game_ref, &player_ref, &player_connection).await;
+        }
+    }
+
+    info!("Handle Connection Datagram was closed!");
 }
 
-async fn handle_connection(
+async fn handle_connection_bistream(
     game_ref: Arc<Game>,
     incoming_session: IncomingSession,
 ) -> anyhow::Result<()> {
@@ -423,6 +515,7 @@ async fn handle_connection(
         }
 
         // JOIN BUFFER WITH TMP_BUFFER
+        // maybe use "bytes" crate -> chain method ??
         tmp_buffer.extend_from_slice(&buffer[..new_buffer_len]);
 
         let mut packets: Vec<AnyEventPacket> = vec![];
@@ -516,6 +609,11 @@ async fn handle_connection(
                             continue;
                         }
 
+                        if player_welcome {
+                            info!("Player is already welcomed");
+                            continue;
+                        }
+
                         let data: UserIdMessage =
                             match serde_json::from_value(packet.value.unwrap()) {
                                 Ok(d) => d,
@@ -537,6 +635,9 @@ async fn handle_connection(
                             .await;
 
                         player_welcome = true;
+
+                        // Start Handle Connection Datagram
+                        tokio::spawn(handle_connection_datagram(player_connection.clone(), game_ref.clone(), player_ref.clone()));
 
                         let _ = game_ref
                             .emit_bi_broadcast(
@@ -560,6 +661,8 @@ async fn handle_connection(
             }
         }
     }
+
+    info!("Handle Connection BiStream was closed!");
 
     Ok(())
 }
