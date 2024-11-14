@@ -750,7 +750,7 @@ async fn handle_connection(
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _ = dotenv().unwrap();
-    setup_logger().unwrap();
+    //setup_logger().unwrap();
 
     let (layer, io_socket) = SocketIo::new_layer();
 
