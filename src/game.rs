@@ -4,14 +4,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-use futures_util::future::join_all;
-use log::info;
-use rust_socketio::asynchronous::Client;
-use socketioxide::{socket::Sid, SocketIo};
-use tokio::sync::{Mutex, RwLock};
-use tokio_timerfd::sleep;
-use wtransport::SendStream;
-
 use crate::{
     config::{get_current_config, Config},
     get_server_port,
@@ -48,6 +40,15 @@ use crate::{
     },
     WebTransportEmit,
 };
+use chrono::{Duration, Utc};
+use futures_util::future::join_all;
+use log::info;
+use rust_socketio::asynchronous::Client;
+use socketioxide::{socket::Sid, SocketIo};
+use time::Date;
+use tokio::sync::{Mutex, RwLock};
+use tokio_timerfd::sleep;
+use wtransport::SendStream;
 
 //Used to return to the player what is visible on his screen
 pub struct VisibleEntities {
@@ -72,6 +73,7 @@ pub struct Game {
     pub update_queue: Mutex<VecDeque<QueueMessage>>,
     pub amount_queue: Arc<Mutex<VecDeque<AmountQueue>>>,
     pub connections: RwLock<HashMap<PlayerID, Arc<PlayerConnection>>>,
+    pub game_start: Arc<Mutex<i64>>,
 }
 
 impl Game {
@@ -81,6 +83,8 @@ impl Game {
         amount_queue: Arc<Mutex<VecDeque<AmountQueue>>>,
     ) -> Self {
         let config = get_current_config();
+        let now: DateTime<Utc> = Utc::now();
+
         Game {
             amount_manager: Arc::new(Mutex::new(AmountManager::new())),
             port: *get_server_port(),
@@ -105,6 +109,63 @@ impl Game {
             matchmaking_socket,
             amount_queue: amount_queue,
             connections: RwLock::new(HashMap::new()),
+            game_start: now.timestamp(),
+        }
+    }
+
+    fn can_cashout(&self, cashout_request_timestamp: i64) -> bool {
+        // Calculate the elapsed time since the game started
+        let elapsed_time = cashout_request_timestamp - self.game_start;
+
+        if elapsed_time < 0 {
+            // User can't cashout before the game starts
+            return false;
+        }
+
+        // Determine the position within the cycle (40s wait + 3s window)
+        let cycle_position = elapsed_time % 43; // 40s wait + 3s cashout window = 43s cycle
+
+        // Check if the cycle position is within the 3-second cashout window
+        cycle_position >= 40 && cycle_position < 43
+    }
+
+    pub async fn cash_out_player(&self, player: Arc<RwLock<Player>>) {
+        let now = Utc::now().timestamp();
+        let can_cashout = self.can_cashout(now);
+
+        if !can_cashout {
+            // User can't cashout now
+            return;
+        }
+
+        let mut mut_player = player.write().await;
+        //Transfer params containing amount equal to bet
+        let transfer_info = TransferInfo {
+            id: mut_player.id,
+            amount: mut_player.bet,
+            port: self.port,
+        };
+        //Emitting to matchmaking for money transfer
+        // Emitting to matchmaking for money transfer
+        if let Some(ref match_making_socket) = self.matchmaking_socket {
+            match match_making_socket
+                .emit(SendEvent::TransferSol, transfer_info)
+                .await
+            {
+                Ok(_) => {
+                    // If emit is successful, clear player data
+                    mut_player.bet = 0;
+                    mut_player.total_won = 0;
+
+                    // Kick player and notify them
+                    self.kick_player(mut_player.name.clone(), mut_player.id);
+                }
+                Err(e) => {
+                    eprintln!("Failed to send TransferSol event: {:?}", e);
+                }
+            }
+        } else {
+            eprintln!("No matchmaking socket available");
         }
     }
 

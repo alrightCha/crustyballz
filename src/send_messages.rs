@@ -39,7 +39,7 @@ pub enum SendEvent {
     VirusAdded,
     MassFoodAdded,
     Respawned,
-    TransferSol
+    TransferSol,
 }
 
 // Notify means that we are going to emit this message globaly
@@ -150,7 +150,8 @@ pub struct WelcomeMessage {
     pub height: u32,
     pub default_player_mass: Mass,
     pub default_mass_food: Mass,
-    pub default_mass_mass_food: Mass
+    pub default_mass_mass_food: Mass,
+    pub start: u64
 }
 
 #[derive(Serialize, Clone)]

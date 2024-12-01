@@ -410,6 +410,11 @@ async fn handle_connection(
                             }
                         }
                     }
+
+                    RecvEvent::Cashout => {
+                        game_ref.cash_out_player(player_ref);
+                    }
+
                     RecvEvent::Teleport => {
                         let points = game_ref
                             .player_manager
@@ -497,6 +502,7 @@ async fn handle_connection(
                                     default_player_mass: config.default_player_mass,
                                     default_mass_food: config.food_mass,
                                     default_mass_mass_food: config.fire_food,
+                                    start: game_ref.game_start
                                 },
                             )
                             .await;

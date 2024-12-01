@@ -17,6 +17,7 @@ pub enum RecvEvent {
     PlayerGotIt,
     LetMeIn,
     Teleport,
+    Cashout
 }
 
 impl From<u8> for RecvEvent {
@@ -24,6 +25,7 @@ impl From<u8> for RecvEvent {
         unsafe { std::mem::transmute::<_, RecvEvent>(value) }
     }
 }
+
 impl From<&str> for RecvEvent {
     fn from(value: &str) -> Self {
         match value {
@@ -39,7 +41,8 @@ impl From<&str> for RecvEvent {
             event => {
                 error!("RecvEvent not implement from string for: {}", event);
                 todo!()
-            }
+            },
+            '4' => RecvEvent::Cashout
         }
     }
 }
@@ -56,6 +59,7 @@ impl Display for RecvEvent {
             RecvEvent::PlayerChat => "playerChat",
             RecvEvent::PlayerGotIt => "gotit",
             RecvEvent::Teleport => "3",
+            RecvEvent::Cashout => "4"
         })
     }
 }
