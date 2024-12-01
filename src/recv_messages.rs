@@ -42,7 +42,7 @@ impl From<&str> for RecvEvent {
                 error!("RecvEvent not implement from string for: {}", event);
                 todo!()
             },
-            '4' => RecvEvent::Cashout
+            "4" => RecvEvent::Cashout
         }
     }
 }

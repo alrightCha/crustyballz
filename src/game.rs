@@ -113,9 +113,12 @@ impl Game {
         }
     }
 
-    fn can_cashout(&self, cashout_request_timestamp: i64) -> bool {
-        // Calculate the elapsed time since the game started
-        let elapsed_time = cashout_request_timestamp - self.game_start;
+    async fn can_cashout(&self, cashout_request_timestamp: i64) -> bool {
+        // Unlock and access the game start timestamp
+        let game_start = *self.game_start.lock().await;
+
+        // Calculate the elapsed time
+        let elapsed_time = cashout_request_timestamp - game_start;
 
         if elapsed_time < 0 {
             // User can't cashout before the game starts
@@ -123,7 +126,7 @@ impl Game {
         }
 
         // Determine the position within the cycle (40s wait + 3s window)
-        let cycle_position = elapsed_time % 43; // 40s wait + 3s cashout window = 43s cycle
+        let cycle_position = elapsed_time % 43;
 
         // Check if the cycle position is within the 3-second cashout window
         cycle_position >= 40 && cycle_position < 43
@@ -131,7 +134,7 @@ impl Game {
 
     pub async fn cash_out_player(&self, player: Arc<RwLock<Player>>) {
         let now = Utc::now().timestamp();
-        let can_cashout = self.can_cashout(now);
+        let can_cashout = self.can_cashout(now).await;
 
         if !can_cashout {
             // User can't cashout now
