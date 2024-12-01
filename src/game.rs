@@ -154,6 +154,20 @@ impl Game {
             amount: mut_player.bet,
             port: self.port,
         };
+
+        // Kick player and notify them
+        self.kick_player(mut_player.name.clone(), mut_player.id)
+            .await;
+
+        //Send Kick player from game
+        match self.get_player_stream(mut_player.id).await {
+            Some(player_eated_connection) => {
+                let _ = player_eated_connection.emit_bi(SendEvent::RIP, ()).await;
+            }
+            None => {
+                return;
+            }
+        };
         //Emitting to matchmaking for money transfer
         // Emitting to matchmaking for money transfer
         if let Some(ref match_making_socket) = self.matchmaking_socket {
@@ -165,20 +179,6 @@ impl Game {
                     // If emit is successful, clear player data
                     mut_player.bet = 0;
                     mut_player.total_won = 0;
-
-                    // Kick player and notify them
-                    self.kick_player(mut_player.name.clone(), mut_player.id)
-                        .await;
-
-                    //Send Kick player from game
-                    match self.get_player_stream(mut_player.id).await {
-                        Some(player_eated_connection) => {
-                            let _ = player_eated_connection.emit_bi(SendEvent::RIP, ()).await;
-                        }
-                        None => {
-                            return;
-                        }
-                    };
                 }
                 Err(e) => {
                     eprintln!("Failed to send TransferSol event: {:?}", e);
