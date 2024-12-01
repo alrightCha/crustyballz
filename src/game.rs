@@ -166,7 +166,7 @@ impl Game {
                     mut_player.total_won = 0;
 
                     // Kick player and notify them
-                    self.kick_player(mut_player.name.clone(), mut_player.id);
+                    self.kick_player(mut_player.name.clone(), mut_player.id).await;
                 }
                 Err(e) => {
                     eprintln!("Failed to send TransferSol event: {:?}", e);
