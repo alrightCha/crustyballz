@@ -38,11 +38,11 @@ impl From<&str> for RecvEvent {
             "playerChat" => RecvEvent::PlayerChat,
             "gotit" => RecvEvent::PlayerGotIt,
             "3" => RecvEvent::Teleport,
+            "4" => RecvEvent::Cashout,
             event => {
                 error!("RecvEvent not implement from string for: {}", event);
                 todo!()
             },
-            "4" => RecvEvent::Cashout
         }
     }
 }

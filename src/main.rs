@@ -412,7 +412,7 @@ async fn handle_connection(
                     }
 
                     RecvEvent::Cashout => {
-                        game_ref.cash_out_player(player_ref);
+                        game_ref.cash_out_player(player_ref.clone());
                     }
 
                     RecvEvent::Teleport => {
@@ -492,7 +492,7 @@ async fn handle_connection(
                             let mut player = player_ref.write().await;
                             player.setup(data.name, data.img_url);
                         }
-                        let start = *game_ref.game_start.lock().await; 
+                        let start = game_ref.game_start; 
                         let _ = player_connection
                             .emit_bi(
                                 SendEvent::Welcome,

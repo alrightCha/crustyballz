@@ -151,7 +151,7 @@ pub struct WelcomeMessage {
     pub default_player_mass: Mass,
     pub default_mass_food: Mass,
     pub default_mass_mass_food: Mass,
-    pub start: i64
+    pub start: u64
 }
 
 #[derive(Serialize, Clone)]
