@@ -142,9 +142,10 @@ impl Game {
         }
 
         let mut mut_player = player.write().await;
+        let cashout_id = manager.get_user_id(mut_player.id).unwrap_or_default();
         //Transfer params containing amount equal to bet
         let transfer_info = TransferInfo {
-            id: mut_player.id,
+            id: cashout_id,
             amount: mut_player.bet,
             port: self.port,
         };
