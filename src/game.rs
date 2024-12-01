@@ -155,6 +155,8 @@ impl Game {
             port: self.port,
         };
 
+        info!("emitting kick for cashout");
+
         // Kick player and notify them
         self.kick_player(mut_player.name.clone(), mut_player.id)
             .await;

@@ -412,6 +412,7 @@ async fn handle_connection(
                     }
 
                     RecvEvent::Cashout => {
+                        info!("Cashing out user...");
                         game_ref.cash_out_player(player_ref.clone());
                     }
 
