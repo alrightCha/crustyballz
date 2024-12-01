@@ -148,6 +148,7 @@ impl Game {
         let cashout_id = manager.get_user_id(mut_player.id).unwrap_or_default();
         drop(manager);
         //Transfer params containing amount equal to bet
+
         let transfer_info = TransferInfo {
             id: cashout_id,
             amount: mut_player.bet,
@@ -166,7 +167,18 @@ impl Game {
                     mut_player.total_won = 0;
 
                     // Kick player and notify them
-                    self.kick_player(mut_player.name.clone(), mut_player.id).await;
+                    self.kick_player(mut_player.name.clone(), mut_player.id)
+                        .await;
+
+                    //Send Kick player from game
+                    match self.get_player_stream(mut_player.id).await {
+                        Some(player_eated_connection) => {
+                            let _ = player_eated_connection.emit_bi(SendEvent::RIP, ()).await;
+                        }
+                        None => {
+                            return;
+                        }
+                    };
                 }
                 Err(e) => {
                     eprintln!("Failed to send TransferSol event: {:?}", e);
