@@ -146,12 +146,13 @@ impl Game {
         let manager = self.amount_manager.lock().await;
         let mut mut_player = player.write().await;
         let cashout_id = manager.get_user_id(mut_player.id).unwrap_or_default();
+        let amount_to_send = mut_player.bet;
         drop(manager);
         //Transfer params containing amount equal to bet
 
         let transfer_info = TransferInfo {
             id: cashout_id,
-            amount: mut_player.bet,
+            amount: amount_to_send,
             port: self.port,
         };
 
