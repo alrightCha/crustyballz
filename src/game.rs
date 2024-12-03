@@ -149,13 +149,6 @@ impl Game {
         let amount_to_send = mut_player.bet;
         drop(manager);
         //Transfer params containing amount equal to bet
-
-        let transfer_info = TransferInfo {
-            id: cashout_id,
-            amount: amount_to_send,
-            port: self.port,
-        };
-
         info!("emitting kick for cashout");
 
         // Kick player and notify them
@@ -164,8 +157,8 @@ impl Game {
 
         //Send Kick player from game
         match self.get_player_stream(mut_player.id).await {
-            Some(player_eated_connection) => {
-                let _ = player_eated_connection.emit_bi(SendEvent::RIP, ()).await;
+            Some(cash_out_player_connection) => {
+                let _ = cash_out_player_connection.emit_bi(SendEvent::RIP, ()).await;
             }
             None => {
                 return;
@@ -174,19 +167,16 @@ impl Game {
         //Emitting to matchmaking for money transfer
         // Emitting to matchmaking for money transfer
         if let Some(ref match_making_socket) = self.matchmaking_socket {
-            match match_making_socket
+            let transfer_info = TransferInfo {
+                id: cashout_id,
+                amount: amount_to_send,
+                port: self.port,
+            };
+            match_making_socket
                 .emit(SendEvent::TransferSol, transfer_info)
-                .await
-            {
-                Ok(_) => {
-                    // If emit is successful, clear player data
-                    mut_player.bet = 0;
-                    mut_player.total_won = 0;
-                }
-                Err(e) => {
-                    eprintln!("Failed to send TransferSol event: {:?}", e);
-                }
-            }
+                .await;
+            mut_player.bet = 0;
+            mut_player.total_won = 0;
         } else {
             eprintln!("No matchmaking socket available");
         }
