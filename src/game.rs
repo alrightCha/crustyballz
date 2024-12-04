@@ -146,7 +146,7 @@ impl Game {
         let manager = self.amount_manager.lock().await;
         let mut mut_player = player.write().await;
         let cashout_id = manager.get_user_id(mut_player.id).unwrap_or_default();
-        let amount_to_send = mut_player.bet;
+        let amount_to_send = mut_player.bet + mut_player.total_won;
         drop(manager);
         //Transfer params containing amount equal to bet
         info!("emitting kick for cashout");
