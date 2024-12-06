@@ -87,10 +87,10 @@ fn setup_logger() -> Result<(), fern::InitError> {
         .level(log::LevelFilter::Debug)
         //.chain(std::io::stdout())
         //.chain(
-            //OpenOptions::new()
-             //   .write(true)
-           //     .create(true)
-         //       .open(format!("{}/default_output.log", logs_folder))?,
+        //OpenOptions::new()
+        //   .write(true)
+        //     .create(true)
+        //       .open(format!("{}/default_output.log", logs_folder))?,
         //)
         .chain(fern::log_file(format!(
             "{}/{}.log",
@@ -493,7 +493,7 @@ async fn handle_connection(
                             let mut player = player_ref.write().await;
                             player.setup(data.name, data.img_url);
                         }
-                        let start = game_ref.game_start; 
+                        let start = game_ref.game_start;
                         let _ = player_connection
                             .emit_bi(
                                 SendEvent::Welcome,
@@ -759,16 +759,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _ = dotenv().unwrap();
     setup_logger().unwrap();
 
+    let mode = env::var("MODE").unwrap_or("DEBUG".to_string());
+    if mode == "DEBUG" {
+        println!("Debugging Mode: Verbose logging enabled.");
+        setup_logger()?;
+    }
+
     let (layer, io_socket) = SocketIo::new_layer();
 
-    let mode = env::var("MODE").unwrap_or("DEBUG".to_string());
     //MARK: ADDED NEWLY
     let amount_queue: Arc<Mutex<VecDeque<AmountQueue>>> = Arc::new(Mutex::new(VecDeque::new()));
     let shared_queue = Arc::clone(&amount_queue);
-    let match_making_socket: Option<Client> = match mode.as_str() {
-        "DEBUG" => None,
-        _ => setup_matchmaking_service(amount_queue).await,
-    };
+    let match_making_socket: Option<Client> = setup_matchmaking_service(amount_queue).await;
     let game = Arc::new(Game::new(
         io_socket.clone(), // No need to clone, assuming io_socket is already of type SocketIo
         match_making_socket,
