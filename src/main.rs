@@ -85,13 +85,13 @@ fn setup_logger() -> Result<(), fern::InitError> {
             ))
         })
         .level(log::LevelFilter::Debug)
-        .chain(std::io::stdout())
-        .chain(
-            OpenOptions::new()
-                .write(true)
-                .create(true)
-                .open(format!("{}/default_output.log", logs_folder))?,
-        )
+        //.chain(std::io::stdout())
+        //.chain(
+            //OpenOptions::new()
+             //   .write(true)
+           //     .create(true)
+         //       .open(format!("{}/default_output.log", logs_folder))?,
+        //)
         .chain(fern::log_file(format!(
             "{}/{}.log",
             logs_folder, &log_name
@@ -99,7 +99,7 @@ fn setup_logger() -> Result<(), fern::InitError> {
         .apply()?;
 
     info!("Log File: {}", log_name);
-
+    println!("Log File: {}", log_name);
     Ok(())
 }
 
@@ -757,7 +757,7 @@ async fn handle_connection(
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _ = dotenv().unwrap();
-    //setup_logger().unwrap();
+    setup_logger().unwrap();
 
     let (layer, io_socket) = SocketIo::new_layer();
 
