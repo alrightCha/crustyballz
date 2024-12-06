@@ -253,7 +253,7 @@ mod tests {
 
     #[test]
     fn test_quad_tree_insert() {
-        let boundary = Rectangle::new(0.0, 0.0, 10_000.0, 10_000.0);
+        let boundary = Rectangle::new(0.0, 0.0, 6_000.0, 6_000.0);
         let mut quad_tree = QuadTree::new(boundary, 25);
 
         for i in 0..25 {
@@ -315,7 +315,7 @@ mod tests {
 
     #[test]
     fn test_quad_tree_retrieve() {
-        let boundary = Rectangle::new(0.0, 0.0, 10_000.0, 10_000.0);
+        let boundary = Rectangle::new(0.0, 0.0, 6_000.0, 6_000.0);
         let mut quad_tree = QuadTree::new(boundary, 25);
 
         for i in 0..26 {
