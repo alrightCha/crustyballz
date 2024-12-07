@@ -1,3 +1,6 @@
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
+
 use super::cell::Cell;
 use super::point::Point;
 use crate::config::get_current_config;
@@ -14,6 +17,7 @@ use crate::utils::util::{
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use socketioxide::socket::Sid;
+use tokio::sync::{Mutex, Semaphore};
 
 #[derive(Serialize, Clone, Deserialize)]
 pub struct PlayerUpdateData {
@@ -57,6 +61,7 @@ pub struct Player {
     pub bet_set: bool,
     pub total_won: u64,
     pub can_teleport: bool,
+    pub cashout_control: Arc<Mutex<bool>> // only one cash out at time
 }
 
 impl Player {
@@ -82,6 +87,7 @@ impl Player {
             bet_set: false,
             total_won: 0,
             can_teleport: true,
+            cashout_control: Arc::new(Mutex::new(false)) // if locked, is cashing out
         }
     }
 

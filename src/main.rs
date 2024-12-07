@@ -149,7 +149,7 @@ async fn setup_matchmaking_service(
                                     }
                                     Err(e) => {
                                         // Handle deserialization error
-                                        eprintln!(
+                                        error!(
                                             "ERROR$$)$)$$)$)$()$) parsing JSON data: {:?}",
                                             e
                                         );
@@ -417,7 +417,6 @@ async fn handle_connection(
                     }
 
                     RecvEvent::Cashout => {
-                        info!("Cashing out user...");
                         game_ref.cash_out_player(player_ref.clone()).await;
                     }
 

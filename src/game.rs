@@ -40,7 +40,7 @@ use crate::{
 };
 
 use futures_util::future::join_all;
-use log::{debug, info};
+use log::{debug, error, info};
 use rust_socketio::asynchronous::Client;
 use socketioxide::SocketIo;
 use tokio::sync::{Mutex, RwLock};
@@ -130,26 +130,49 @@ impl Game {
     }
 
     pub async fn cash_out_player(&self, player: Arc<RwLock<Player>>) {
-        let system_time = SystemTime::now();
-        let duration_since_epoch = system_time
-            .duration_since(UNIX_EPOCH)
-            .expect("Time went backwards");
+        let lock_player = player.read().await;
+        
+        let player_id = lock_player.id;
 
-        // Get the Unix timestamp in seconds
-        let now = duration_since_epoch.as_secs();
-        let can_cashout = self.can_cashout(now).await;
+        let cashout_control = lock_player.cashout_control.clone();
+        let cashout_control = match cashout_control.try_lock() {
+            Ok(r) => r,
+            Err(_) => {
+                // Only 1 cashout at time
+                return;
+            }
+        };
+        let amount_to_send = lock_player.bet + lock_player.total_won;
+        
+        drop(lock_player);
+
+        if amount_to_send == 0 {
+            return;
+        }
+
+        info!(
+            "Cashing out player[{}] / amount = {}",
+            player_id, amount_to_send
+        );
+
+        let can_cashout = self.can_cashout(get_current_timestamp() as u64).await;
 
         if !can_cashout {
             // User can't cashout now
+            info!("Player[{}] can't cashout now", player_id);
             return;
         }
-        let manager = self.amount_manager.lock().await;
-        let mut mut_player = player.write().await;
-        let cashout_id = manager.get_user_id(mut_player.id).unwrap_or_default();
-        let amount_to_send = mut_player.bet + mut_player.total_won;
-        drop(manager);
-        info!("emitting kick for cashout");
-        //Emitting to matchmaking for money transfer
+
+        let cashout_id: i64 = {
+            self.amount_manager
+                .lock()
+                .await
+                .get_user_id(player_id)
+                .unwrap_or_default()
+        };
+
+        info!("Emitting kick for cashout[{}]", cashout_id);
+
         // Emitting to matchmaking for money transfer
         if let Some(ref match_making_socket) = self.matchmaking_socket {
             let transfer_info = TransferInfo {
@@ -157,56 +180,40 @@ impl Game {
                 amount: amount_to_send,
                 port: self.port,
             };
-            if amount_to_send > 0 {
-                match match_making_socket
-                    .emit(SendEvent::TransferSol, transfer_info)
-                    .await
-                {
-                    Ok(_) => {
-                        // If emit is successful, clear player data
+
+            match match_making_socket
+                .emit(SendEvent::TransferSol, transfer_info)
+                .await
+            {
+                Ok(_) => {
+                    let player_name = {
+                        // Clear player data
+                        let mut mut_player = player.write().await;
                         mut_player.bet = 0;
                         mut_player.total_won = 0;
-                        // Kick player and notify them
-                        self.kick_player(mut_player.name.clone(), mut_player.id)
-                            .await;
 
-                        //Remove player from game
-                        //self.remove_player(&mut_player.id);
+                        mut_player.name.clone()
+                    };
 
-                        //Send Kick player from game
-                        match self.get_player_stream(mut_player.id).await {
-                            Some(cash_out_player_connection) => {
-                                let _ =
-                                    cash_out_player_connection.emit_bi(SendEvent::RIP, ()).await;
-                            }
-                            None => {
-                                return;
-                            }
-                        };
-                    }
-                    Err(e) => {
-                        info!("Failed to send TransferSol event: {:?}", e);
-                    }
+                    // Kick player and notify them
+                    self.kick_player(player_name, player_id).await;
+
+                    //Remove player from game
+                    //self.remove_player(&player_id);
+
+                    //Send Kick player from game
+                    match self.get_player_stream(player_id).await {
+                        Some(cash_out_player_connection) => {
+                            let _ = cash_out_player_connection.emit_bi(SendEvent::RIP, ()).await;
+                        }
+                        None => {
+                            return;
+                        }
+                    };
                 }
-            } else {
-                // If emit is successful, clear player data
-                mut_player.bet = 0;
-                mut_player.total_won = 0;
-                // Kick player and notify them
-                self.kick_player(mut_player.name.clone(), mut_player.id)
-                    .await;
-
-                 //Remove player from game
-                // self.remove_player(&mut_player.id).await;
-                //Send Kick player from game
-                match self.get_player_stream(mut_player.id).await {
-                    Some(cash_out_player_connection) => {
-                        let _ = cash_out_player_connection.emit_bi(SendEvent::RIP, ()).await;
-                    }
-                    None => {
-                        return;
-                    }
-                };
+                Err(e) => {
+                    info!("Failed to send TransferSol event: {:?}", e);
+                }
             }
         } else {
             info!("No matchmaking socket available");
@@ -285,13 +292,6 @@ impl Game {
         drop(player_manager);
     }
 
-    pub async fn remove_player(&self, player: &PlayerID) {
-        let mut player_manager = self.player_manager.write().await;
-        player_manager.remove_player_by_id(player);
-        self.remove_player_stream(*player).await;
-        drop(player_manager);
-    }
-
     pub async fn respawn_player(&self, player: Arc<RwLock<Player>>) {
         // check if player is at the game...
         self.player_manager
@@ -357,6 +357,7 @@ impl Game {
 
     async fn kick_player(&self, player_name: Option<String>, player_id: PlayerID) {
         info!("Kicking player {} - {:?}", player_id, player_name);
+
         let _ = self
             .emit_bi_broadcast(
                 SendEvent::KickPlayer,
@@ -377,8 +378,11 @@ impl Game {
                 .await;
         }
 
-        let mut player_manager = self.player_manager.write().await;
-        player_manager.remove_player_by_id(&player_id);
+        {
+            let mut player_manager = self.player_manager.write().await;
+            player_manager.remove_player_by_id(&player_id);
+        }
+
         self.remove_player_stream(player_id).await;
     }
 
@@ -822,7 +826,10 @@ impl Game {
                         player_eated.total_won += player_eated.bet - transfer_amount;
                         // Reduce eaten sol amount
                     }
-                    //Transferring balance to eaten
+
+                    // TODO: waiting emit at the tick_game is BAD
+
+                    // Transferring balance to eaten
                     if player_eated.total_won > 0 {
                         let transfer_info = TransferInfo {
                             id: eaten_id,
@@ -842,12 +849,12 @@ impl Game {
                                 }
                                 Err(e) => {
                                     // Log the error or handle it appropriately
-                                    eprintln!("Failed to send TransferSol event: {:?}", e);
+                                    error!("Failed to send TransferSol event: {:?}", e);
                                 }
                             }
                         } else {
                             // Optionally handle the case where there is no matchmaking socket
-                            eprintln!("No matchmaking socket available");
+                            error!("No matchmaking socket available");
                         }
                     }
 
