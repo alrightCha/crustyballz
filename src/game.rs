@@ -40,7 +40,7 @@ use crate::{
 };
 
 use futures_util::future::join_all;
-use log::info;
+use log::{debug, info};
 use rust_socketio::asynchronous::Client;
 use socketioxide::SocketIo;
 use tokio::sync::{Mutex, RwLock};
@@ -181,11 +181,11 @@ impl Game {
                     };
                 }
                 Err(e) => {
-                    eprintln!("Failed to send TransferSol event: {:?}", e);
+                    info!("Failed to send TransferSol event: {:?}", e);
                 }
             }
         } else {
-            eprintln!("No matchmaking socket available");
+            info!("No matchmaking socket available");
         }
     }
 
@@ -640,16 +640,21 @@ impl Game {
 
         info!("Game tick started!");
         loop {
+            debug!("Tick Game A");
             start = instant.elapsed();
             // let elapsed_handle_queue = instant.elapsed() - start;
+
             self.handle_queue().await;
             self.handle_amount_queue().await;
+
+            debug!("Tick Game AA");
             let players_manager = self.player_manager.read().await;
             if (get_current_timestamp() - last_game_loop) >= GAME_LOOP_INTERVAL {
                 last_game_loop = get_current_timestamp();
                 self.game_loop(&config, &players_manager).await;
             }
             // let elapsed_game_loop = instant.elapsed() - start;
+            debug!("Tick Game B");
 
             let mut players_update_data: Vec<PlayerUpdateData> = vec![];
             let mut virus_update_data: Vec<VirusData> = vec![];
@@ -666,6 +671,7 @@ impl Game {
 
             // let elapsed_mass_move = instant.elapsed() - start;
             // execute tick_virus for each virus
+            debug!("Tick Game C");
             let mut shoot_virus: Vec<(Point, Point)> = vec![];
 
             {
@@ -706,6 +712,7 @@ impl Game {
                 }
             }
 
+            debug!("Tick Game D");
             // let elapsed_virus_tick = instant.elapsed() - start;
 
             // handling collision btw players
@@ -819,6 +826,8 @@ impl Game {
                 }
             }
             // let elapsed_killing_players_tick = instant.elapsed() - start;
+            
+            debug!("Tick Game E");
             for (player_id, player) in players_manager.players.iter() {
                 if players_who_died.contains(player_id) {
                     continue;
@@ -835,6 +844,8 @@ impl Game {
                 }
             }
             drop(players_manager);
+
+            debug!("Tick Game F");
             self.remove_players(players_who_died.iter()).await;
 
             // send chunk data to all players
@@ -850,6 +861,7 @@ impl Game {
             let _ = self
                 .emit_bi_broadcast(SendEvent::GameUpdate, game_data)
                 .await;
+            debug!("Tick Game G");
 
             // let elapsed_sent_game_update = instant.elapsed() - start;
 
@@ -870,6 +882,7 @@ impl Game {
             );
 
             let _ = sleep(sleep_for).await;
+            debug!("Tick Game H");
         }
     }
 

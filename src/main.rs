@@ -84,14 +84,14 @@ fn setup_logger() -> Result<(), fern::InitError> {
                 message
             ))
         })
-        .level(log::LevelFilter::Error)
-        .chain(std::io::stdout())
-        .chain(
-            OpenOptions::new()
-                .write(true)
-                .create(true)
-                .open(format!("{}/default_output.log", logs_folder))?,
-        )
+        .level(log::LevelFilter::Debug)
+        // .chain(std::io::stdout())
+        // .chain(
+        //     OpenOptions::new()
+        //         .write(true)
+        //         .create(true)
+        //         .open(format!("{}/default_output.log", logs_folder))?,
+        // )
         .chain(fern::log_file(format!(
             "{}/{}.log",
             logs_folder, &log_name
@@ -489,7 +489,7 @@ async fn handle_connection(
                                             .await;
                                         error!("Player kicked for too-high user ID: {}", uid);
                                     }
-                                },
+                                }
                                 Err(_) => {
                                     // Handle the case where the user ID is not a valid number
                                     let _ = player_connection
@@ -499,7 +499,7 @@ async fn handle_connection(
                                 }
                             }
                         }
-                        //kicking if url too long for image 
+                        //kicking if url too long for image
                         if let Some(ref img_url) = data.img_url {
                             // Define a more generous maximum acceptable length for the URL
                             let max_url_length = 1000; // Adjusted to 1000 characters
@@ -795,10 +795,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     setup_logger().unwrap();
 
     let mode = env::var("MODE").unwrap_or("DEBUG".to_string());
-    if mode == "DEBUG" {
-        println!("Debugging Mode: Verbose logging enabled.");
-        setup_logger()?;
-    }
+    // if mode == "DEBUG" {
+    //     println!("Debugging Mode: Verbose logging enabled.");
+    //     setup_logger()?;
+    // }
 
     let (layer, io_socket) = SocketIo::new_layer();
 
