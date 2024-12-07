@@ -148,7 +148,6 @@ impl Game {
         let cashout_id = manager.get_user_id(mut_player.id).unwrap_or_default();
         let amount_to_send = mut_player.bet + mut_player.total_won;
         drop(manager);
-        //Transfer params containing amount equal to bet
         info!("emitting kick for cashout");
         //Emitting to matchmaking for money transfer
         // Emitting to matchmaking for money transfer
@@ -170,6 +169,9 @@ impl Game {
                         // Kick player and notify them
                         self.kick_player(mut_player.name.clone(), mut_player.id)
                             .await;
+                        
+                        //Remove player from game
+                        self.remove_player(&mut_player.id);
 
                         //Send Kick player from game
                         match self.get_player_stream(mut_player.id).await {
@@ -278,6 +280,14 @@ impl Game {
             player_manager.remove_player_by_id(player_id);
             self.remove_player_stream(*player_id).await;
         }
+        drop(player_manager);
+    }
+
+    pub async fn remove_player(&self, player: &PlayerID) {
+        let mut player_manager = self.player_manager.write().await;
+        player_manager.remove_player_by_id(player);
+        self.remove_player_stream(*player_id).await;
+        drop(player_manager);
     }
 
     pub async fn respawn_player(&self, player: Arc<RwLock<Player>>) {
