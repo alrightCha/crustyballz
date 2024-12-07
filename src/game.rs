@@ -169,7 +169,7 @@ impl Game {
                         // Kick player and notify them
                         self.kick_player(mut_player.name.clone(), mut_player.id)
                             .await;
-                        
+
                         //Remove player from game
                         self.remove_player(&mut_player.id);
 
@@ -196,6 +196,8 @@ impl Game {
                 self.kick_player(mut_player.name.clone(), mut_player.id)
                     .await;
 
+                 //Remove player from game
+                 self.remove_player(&mut_player.id);
                 //Send Kick player from game
                 match self.get_player_stream(mut_player.id).await {
                     Some(cash_out_player_connection) => {
