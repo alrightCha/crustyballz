@@ -85,13 +85,13 @@ fn setup_logger() -> Result<(), fern::InitError> {
             ))
         })
         .level(log::LevelFilter::Debug)
-        //.chain(std::io::stdout())
-        //.chain(
-        //OpenOptions::new()
-        //   .write(true)
-        //     .create(true)
-        //       .open(format!("{}/default_output.log", logs_folder))?,
-        //)
+        .chain(std::io::stdout())
+        .chain(
+        OpenOptions::new()
+           .write(true)
+             .create(true)
+               .open(format!("{}/default_output.log", logs_folder))?,
+        )
         .chain(fern::log_file(format!(
             "{}/{}.log",
             logs_folder, &log_name
