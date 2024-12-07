@@ -158,31 +158,51 @@ impl Game {
                 amount: amount_to_send,
                 port: self.port,
             };
-            match match_making_socket
-                .emit(SendEvent::TransferSol, transfer_info)
-                .await
-            {
-                Ok(_) => {
-                    // If emit is successful, clear player data
-                    mut_player.bet = 0;
-                    mut_player.total_won = 0;
-                    // Kick player and notify them
-                    self.kick_player(mut_player.name.clone(), mut_player.id)
-                        .await;
+            if (amount > 0.0) {
+                match match_making_socket
+                    .emit(SendEvent::TransferSol, transfer_info)
+                    .await
+                {
+                    Ok(_) => {
+                        // If emit is successful, clear player data
+                        mut_player.bet = 0;
+                        mut_player.total_won = 0;
+                        // Kick player and notify them
+                        self.kick_player(mut_player.name.clone(), mut_player.id)
+                            .await;
 
-                    //Send Kick player from game
-                    match self.get_player_stream(mut_player.id).await {
-                        Some(cash_out_player_connection) => {
-                            let _ = cash_out_player_connection.emit_bi(SendEvent::RIP, ()).await;
-                        }
-                        None => {
-                            return;
-                        }
-                    };
+                        //Send Kick player from game
+                        match self.get_player_stream(mut_player.id).await {
+                            Some(cash_out_player_connection) => {
+                                let _ =
+                                    cash_out_player_connection.emit_bi(SendEvent::RIP, ()).await;
+                            }
+                            None => {
+                                return;
+                            }
+                        };
+                    }
+                    Err(e) => {
+                        info!("Failed to send TransferSol event: {:?}", e);
+                    }
                 }
-                Err(e) => {
-                    info!("Failed to send TransferSol event: {:?}", e);
-                }
+            } else {
+                // If emit is successful, clear player data
+                mut_player.bet = 0;
+                mut_player.total_won = 0;
+                // Kick player and notify them
+                self.kick_player(mut_player.name.clone(), mut_player.id)
+                    .await;
+
+                //Send Kick player from game
+                match self.get_player_stream(mut_player.id).await {
+                    Some(cash_out_player_connection) => {
+                        let _ = cash_out_player_connection.emit_bi(SendEvent::RIP, ()).await;
+                    }
+                    None => {
+                        return;
+                    }
+                };
             }
         } else {
             info!("No matchmaking socket available");
@@ -826,7 +846,7 @@ impl Game {
                 }
             }
             // let elapsed_killing_players_tick = instant.elapsed() - start;
-            
+
             debug!("Tick Game E");
             for (player_id, player) in players_manager.players.iter() {
                 if players_who_died.contains(player_id) {
