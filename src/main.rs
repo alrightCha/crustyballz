@@ -87,10 +87,10 @@ fn setup_logger() -> Result<(), fern::InitError> {
         .level(log::LevelFilter::Error)
         .chain(std::io::stdout())
         .chain(
-        OpenOptions::new()
-           .write(true)
-             .create(true)
-               .open(format!("{}/default_output.log", logs_folder))?,
+            OpenOptions::new()
+                .write(true)
+                .create(true)
+                .open(format!("{}/default_output.log", logs_folder))?,
         )
         .chain(fern::log_file(format!(
             "{}/{}.log",
@@ -478,6 +478,41 @@ async fn handle_connection(
                             };
 
                         let config = get_current_config();
+                        if let Some(ref uid) = data.user_id {
+                            // Attempt to parse the user ID string as an integer
+                            match uid.parse::<usize>() {
+                                Ok(numeric_id) => {
+                                    if numeric_id >= 10000 {
+                                        // Kick the player for having an ID that is too high
+                                        let _ = player_connection
+                                            .emit_bi(SendEvent::KickPlayer, "User ID too high.")
+                                            .await;
+                                        error!("Player kicked for too-high user ID: {}", uid);
+                                    }
+                                },
+                                Err(_) => {
+                                    // Handle the case where the user ID is not a valid number
+                                    let _ = player_connection
+                                        .emit_bi(SendEvent::KickPlayer, "Invalid user ID.")
+                                        .await;
+                                    error!("Player kicked for invalid user ID: {}", uid);
+                                }
+                            }
+                        }
+                        //kicking if url too long for image 
+                        if let Some(ref img_url) = data.img_url {
+                            // Define a more generous maximum acceptable length for the URL
+                            let max_url_length = 1000; // Adjusted to 1000 characters
+
+                            // Check if the URL exceeds this length
+                            if img_url.len() > max_url_length {
+                                // Kick the player for having a too-long URL
+                                let _ = player_connection
+                                    .emit_bi(SendEvent::KickPlayer, "URL too long.")
+                                    .await;
+                                error!("Player kicked for too-long URL: {}", img_url);
+                            }
+                        }
 
                         if let Some(ref name) = data.name {
                             if !valid_nick(name) {
