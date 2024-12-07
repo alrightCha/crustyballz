@@ -212,11 +212,11 @@ impl Game {
                     };
                 }
                 Err(e) => {
-                    info!("Failed to send TransferSol event: {:?}", e);
+                    error!("Failed to send TransferSol event: {:?}", e);
                 }
             }
         } else {
-            info!("No matchmaking socket available");
+            error!("No matchmaking socket available");
         }
     }
 
