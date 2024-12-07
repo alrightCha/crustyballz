@@ -288,7 +288,7 @@ impl Game {
     pub async fn remove_player(&self, player: &PlayerID) {
         let mut player_manager = self.player_manager.write().await;
         player_manager.remove_player_by_id(player);
-        self.remove_player_stream(*player_id).await;
+        self.remove_player_stream(*player).await;
         drop(player_manager);
     }
 
