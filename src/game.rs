@@ -158,7 +158,7 @@ impl Game {
                 amount: amount_to_send,
                 port: self.port,
             };
-            if (amount > 0.0) {
+            if (amount_to_send > 0.0) {
                 match match_making_socket
                     .emit(SendEvent::TransferSol, transfer_info)
                     .await
