@@ -96,6 +96,11 @@ fn setup_logger() -> Result<(), fern::InitError> {
             "{}/{}.log",
             logs_folder, &log_name
         ))?)
+        .chain(
+            fern::Dispatch::new()
+            .level(log::LevelFilter::Error)
+            .chain(std::io::stdout())
+        )
         .apply()?;
 
     info!("Log File: {}", log_name);
