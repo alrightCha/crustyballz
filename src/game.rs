@@ -197,7 +197,7 @@ impl Game {
                     .await;
 
                  //Remove player from game
-                 self.remove_player(&mut_player.id);
+                 self.remove_player(&mut_player.id).await;
                 //Send Kick player from game
                 match self.get_player_stream(mut_player.id).await {
                     Some(cash_out_player_connection) => {
