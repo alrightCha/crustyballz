@@ -84,7 +84,7 @@ fn setup_logger() -> Result<(), fern::InitError> {
                 message
             ))
         })
-        .level(log::LevelFilter::Debug)
+        .level(log::LevelFilter::Error)
         .chain(std::io::stdout())
         .chain(
         OpenOptions::new()
