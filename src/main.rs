@@ -195,7 +195,7 @@ async fn start_webtransport_server(game_ref: Arc<Game>, server_port: u16) -> any
                 );
 
                 Identity::load_pemfiles(
-                    pemfiles_folder.join("cert.pem"),
+                    pemfiles_folder.join("fullchain.pem"),
                     pemfiles_folder.join("privkey.pem"),
                 )
                 .await?
@@ -854,7 +854,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // configure certificate and private key used by https
         let config = RustlsConfig::from_pem_file(
             PathBuf::from(env::var("CERTIFICATE_DIR").expect("Certificate directory not defined"))
-                .join("cert.pem"),
+                .join("fullchain.pem"),
             PathBuf::from(env::var("CERTIFICATE_DIR").expect("Certificate directory not defined"))
                 .join("privkey.pem"),
         )
