@@ -195,7 +195,7 @@ async fn start_webtransport_server(game_ref: Arc<Game>, server_port: u16) -> any
                 );
 
                 Identity::load_pemfiles(
-                    pemfiles_folder.join("fullchain.pem"),
+                    pemfiles_folder.join("cert.pem"),
                     pemfiles_folder.join("privkey.pem"),
                 )
                 .await?
