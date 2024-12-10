@@ -113,6 +113,7 @@ impl PlayerManager {
             players.push(LeaderboardPlayer {
                 id: player.id,
                 mass: player.total_mass,
+                total_won: player.total_won
             });
         }
 
