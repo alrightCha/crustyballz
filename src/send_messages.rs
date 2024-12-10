@@ -136,6 +136,7 @@ pub struct LeaderboardMessage {
 pub struct LeaderboardPlayer {
     pub id: PlayerID,
     pub mass: TotalMass,
+    pub total_won: u64
 }
 
 #[derive(Serialize, Clone)]
